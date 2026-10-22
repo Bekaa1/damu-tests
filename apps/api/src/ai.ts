@@ -201,7 +201,7 @@ export async function generateAi(
       require_parameters: true,
       allow_fallbacks: false,
       ...(provider.only?.length ? { only: provider.only } : {}),
-      max_price: { prompt: 20, completion: 20, request: 0 },
+      max_price: { prompt: 20, completion: 20 },
     },
     response_format: {
       type: "json_schema",
