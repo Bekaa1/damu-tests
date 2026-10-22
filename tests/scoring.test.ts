@@ -196,8 +196,16 @@ describe("Поставляемые наборы данных", () => {
     ]);
     for (const s of Object.values(r.scales!)) expect(s.mean).toBe(6);
   });
-  it("BNT содержит только четыре уникальные задачи", () =>
-    expect(
-      catalog.find((m: any) => m.id === "numerical").questions,
-    ).toHaveLength(4));
+  it("BNT содержит четыре уникальные задачи отдельно от рядов AssessFlow", () => {
+    const questions = catalog.find((m: any) => m.id === "numerical").questions;
+    const bnt = questions.filter((question: any) =>
+      /^bnt-[1-4]$/.test(question.id),
+    );
+    const numberSeries = questions.filter((question: any) =>
+      /^af-series-\d{2}$/.test(question.id),
+    );
+    expect(bnt).toHaveLength(4);
+    expect(new Set(bnt.map((question: any) => question.id)).size).toBe(4);
+    expect(numberSeries).toHaveLength(48);
+  });
 });

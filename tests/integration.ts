@@ -7,10 +7,6 @@ const base = process.env.TEST_BASE_URL || "http://localhost:3000";
 const password = "AssessFlow!2026";
 const suffix = Date.now().toString(36);
 const catalog = JSON.parse(await readFile("data/catalog.json", "utf8"));
-const questionCount = catalog.reduce(
-  (total: number, method: any) => total + method.questions.length,
-  0,
-);
 const results: string[] = [];
 function pass(s: string) {
   results.push(s);
@@ -171,6 +167,7 @@ try {
   await employee.post("/me/consent", { accepted: true });
   pass("Consent is required before starting");
   const attempts: any[] = [];
+  let answeredQuestionCount = 0;
   for (const task of tasks) {
     const started = await employee.post(`/assignments/${task.id}/start`, {
       language: "kk",
@@ -185,8 +182,16 @@ try {
     assert.equal(a.config, undefined);
     await employee.post(`/attempts/${a.id}/submit`, {}, 400);
     const m = catalog.find((m: any) => m.id === task.testVersion.testId);
+    const version = await db.testVersion.findUnique({
+      where: { id: task.testVersion.id },
+      include: { keys: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+    const items = (version?.keys[0]?.config as any)?.items ?? {};
+    answeredQuestionCount += a.questions.length;
     for (const [i, q] of a.questions.entries()) {
-      const key = m.config.items[q.id];
+      const key = items[q.id];
+      if (q.type !== "scale")
+        assert(key, `Scoring key missing for ${task.testVersion.id}/${q.id}`);
       const value =
         q.type === "sjt"
           ? { most: key.most, least: key.least }
@@ -222,7 +227,7 @@ try {
     attempts.push({ id: a.id, method: m.id, resultId: result.id });
   }
   pass(
-    `${questionCount} bilingual answers, resume, revision conflicts, server scoring and duplicate submission`,
+    `${answeredQuestionCount} bilingual answers, resume, revision conflicts, server scoring and duplicate submission`,
   );
   const details = await expert.get(
     `/people/${emp.id}?campaignId=${campaign.id}`,
