@@ -1,0 +1,70 @@
+name: assessflow
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: assessflow
+      POSTGRES_USER: assessflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assessflow"]
+      interval: 5s
+      retries: 15
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes: ["redis:/data"]
+    restart: unless-stopped
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+    volumes: ["files:/data"]
+    restart: unless-stopped
+  api:
+    build: .
+    image: assessflow:local
+    command: npm run start:api
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      DEMO_MODE: "false"
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      API_PORT: "4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio: { condition: service_started }
+    restart: unless-stopped
+  web:
+    image: assessflow:local
+    command: npm run start:web
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:4000
+    depends_on: [api]
+    restart: unless-stopped
+  proxy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+    volumes:
+      [
+        "./deploy/Caddyfile:/etc/caddy/Caddyfile:ro",
+        "caddy:/data",
+        "caddy_config:/config",
+      ]
+    depends_on: [web, api]
+    restart: unless-stopped
+volumes:
+  postgres:
+  redis:
+  files:
+  caddy:
+  caddy_config:

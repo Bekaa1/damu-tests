@@ -1,0 +1,5537 @@
+[
+  {
+    "id": "personality",
+    "name": {
+      "ru": "Личностные характеристики",
+      "kk": "Тұлғалық сипаттамалар"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "personality",
+    "source": "https://github.com/Alheimsins/b5-johnson-120-ipip-neo-pi-r",
+    "durationMinutes": 20,
+    "instructions": {
+      "ru": "Отвечайте так, как вы обычно поступаете. Правильных и неправильных ответов здесь нет.",
+      "kk": "Әдетте қалай әрекет ететініңізге сай жауап беріңіз. Мұнда дұрыс не қате жауап жоқ."
+    },
+    "limitations": {
+      "ru": "Перевод подготовлен для проверки методологом. Локальные нормы отсутствуют; результаты являются первичными баллами.",
+      "kk": "Аударма әдіскердің тексеруіне дайындалған. Жергілікті нормалар жоқ; нәтижелер бастапқы балдар болып табылады."
+    },
+    "licenseStatus": "public_domain_items_mit_repository",
+    "scientificBasis": "https://github.com/Alheimsins/b5-johnson-120-ipip-neo-pi-r",
+    "algorithm": "scales",
+    "config": {
+      "min": 1,
+      "max": 5,
+      "scales": {
+        "N": {
+          "name": {
+            "ru": "Нейротизм",
+            "kk": "Нейротизм"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N1": {
+          "name": {
+            "ru": "Тревожность",
+            "kk": "Мазасыздық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N2": {
+          "name": {
+            "ru": "Гнев",
+            "kk": "Ашу"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N3": {
+          "name": {
+            "ru": "Сниженное настроение",
+            "kk": "Көңілдің түсуі"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N4": {
+          "name": {
+            "ru": "Застенчивость",
+            "kk": "Ұяңдық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N5": {
+          "name": {
+            "ru": "Несдержанность",
+            "kk": "Ұстамсыздық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "N6": {
+          "name": {
+            "ru": "Уязвимость",
+            "kk": "Осалдық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E": {
+          "name": {
+            "ru": "Экстраверсия",
+            "kk": "Экстраверсия"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E1": {
+          "name": {
+            "ru": "Дружелюбие",
+            "kk": "Достық пейіл"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E2": {
+          "name": {
+            "ru": "Общительность",
+            "kk": "Көпшілдік"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E3": {
+          "name": {
+            "ru": "Напористость",
+            "kk": "Табандылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E4": {
+          "name": {
+            "ru": "Активность",
+            "kk": "Белсенділік"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E5": {
+          "name": {
+            "ru": "Поиск впечатлений",
+            "kk": "Әсер іздеу"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "E6": {
+          "name": {
+            "ru": "Жизнерадостность",
+            "kk": "Өмірге құштарлық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O": {
+          "name": {
+            "ru": "Открытость опыту",
+            "kk": "Тәжірибеге ашықтық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O1": {
+          "name": {
+            "ru": "Воображение",
+            "kk": "Қиял"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O2": {
+          "name": {
+            "ru": "Эстетические интересы",
+            "kk": "Эстетикалық қызығушылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O3": {
+          "name": {
+            "ru": "Эмоциональность",
+            "kk": "Эмоциялық сезімталдық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O4": {
+          "name": {
+            "ru": "Разнообразие",
+            "kk": "Әртүрлілік"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O5": {
+          "name": {
+            "ru": "Интеллектуальные интересы",
+            "kk": "Зияткерлік қызығушылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "O6": {
+          "name": {
+            "ru": "Либерализм",
+            "kk": "Либерализм"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A": {
+          "name": {
+            "ru": "Доброжелательность",
+            "kk": "Тілектестік"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A1": {
+          "name": {
+            "ru": "Доверие",
+            "kk": "Сенім"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A2": {
+          "name": {
+            "ru": "Искренность",
+            "kk": "Шынайылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A3": {
+          "name": {
+            "ru": "Альтруизм",
+            "kk": "Альтруизм"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A4": {
+          "name": {
+            "ru": "Сотрудничество",
+            "kk": "Ынтымақтастық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A5": {
+          "name": {
+            "ru": "Скромность",
+            "kk": "Қарапайымдылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "A6": {
+          "name": {
+            "ru": "Сочувствие",
+            "kk": "Жанашырлық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C": {
+          "name": {
+            "ru": "Добросовестность",
+            "kk": "Ұқыптылық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C1": {
+          "name": {
+            "ru": "Самоэффективность",
+            "kk": "Өз күшіне сену"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C2": {
+          "name": {
+            "ru": "Организованность",
+            "kk": "Ұйымшылдық"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C3": {
+          "name": {
+            "ru": "Ответственность",
+            "kk": "Жауапкершілік"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C4": {
+          "name": {
+            "ru": "Стремление к достижениям",
+            "kk": "Жетістікке ұмтылу"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C5": {
+          "name": {
+            "ru": "Самодисциплина",
+            "kk": "Өзіндік тәртіп"
+          },
+          "min": 1,
+          "max": 5
+        },
+        "C6": {
+          "name": {
+            "ru": "Обдуманность",
+            "kk": "Ойластырушылық"
+          },
+          "min": 1,
+          "max": 5
+        }
+      },
+      "items": {
+        "ipip-43c98ce8-a07a-4dc2-80f6-c1b2a2485f06": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N1"
+          ]
+        },
+        "ipip-d50a597f-632b-4f7b-89e6-6d85b50fd1c9": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E1"
+          ]
+        },
+        "ipip-888dd864-7449-4e96-8d5c-7a439603ea91": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O1"
+          ]
+        },
+        "ipip-ce2fbbf8-7a97-4199-bda5-117e4ecdf3b6": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A1"
+          ]
+        },
+        "ipip-c7f53c3c-2e77-432f-bb71-7470b67d3aa9": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C1"
+          ]
+        },
+        "ipip-48ad12ce-470e-4339-90ac-ea8c43a0103e": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N2"
+          ]
+        },
+        "ipip-458f3957-2359-4077-ade1-34525d633063": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E2"
+          ]
+        },
+        "ipip-58d571e5-d725-4cf8-a438-32c16ee28eb6": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O2"
+          ]
+        },
+        "ipip-0cf79e27-e702-45c2-9471-04ac96b58e0e": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A2"
+          ]
+        },
+        "ipip-cda1ca17-b599-4561-a6cd-ff9d36062d27": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C2"
+          ]
+        },
+        "ipip-5e8550d7-b8ef-4905-950a-f81d735d39e2": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N3"
+          ]
+        },
+        "ipip-8af754f2-68e9-48f3-8c5d-2e6633d4472c": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E3"
+          ]
+        },
+        "ipip-0727def6-3d18-4221-bf38-86b58f9f3eed": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O3"
+          ]
+        },
+        "ipip-ccf3a5c8-fb50-4bd4-8e7a-22af3d657279": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A3"
+          ]
+        },
+        "ipip-73d84e5d-cbf5-47f0-b8cb-4d2159a52e32": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C3"
+          ]
+        },
+        "ipip-b2d9ef74-73f5-4ea8-b00c-7aaca15937df": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N4"
+          ]
+        },
+        "ipip-48a761ef-438e-409b-ae59-ea2ce8f84414": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E4"
+          ]
+        },
+        "ipip-cae55842-8957-4e3b-83b3-ceff98fb9dcf": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O4"
+          ]
+        },
+        "ipip-e2028ad3-b128-4f76-be57-398bfe2aff22": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A4"
+          ]
+        },
+        "ipip-b7fc949b-02b6-4cb9-a3e2-dbb3d824b55f": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C4"
+          ]
+        },
+        "ipip-481efd08-c810-43b1-a952-f8ac9052f96b": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N5"
+          ]
+        },
+        "ipip-987efee2-899f-4a65-b9b5-1589ef0460d7": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E5"
+          ]
+        },
+        "ipip-e1e804c7-4a1d-498f-8610-f95147af9d1d": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O5"
+          ]
+        },
+        "ipip-71029381-3908-4c68-91e1-e41fb45542a2": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A5"
+          ]
+        },
+        "ipip-f6076eea-56ae-4b46-97f1-5f94a7676c96": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C5"
+          ]
+        },
+        "ipip-2f519935-92e8-48ad-9746-4a0f8b38466a": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N6"
+          ]
+        },
+        "ipip-899c3f66-51d0-46ea-963a-6fc36d3b3cb9": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E6"
+          ]
+        },
+        "ipip-79186f48-e7fa-4df4-b74b-b0627ee244e1": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O6"
+          ]
+        },
+        "ipip-fd50e1ca-d9e0-4037-a7a1-a191d4db2d96": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A6"
+          ]
+        },
+        "ipip-bd9eec0a-b68b-472c-8803-7db29c308cdb": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C6"
+          ]
+        },
+        "ipip-7f92ab2c-265c-4b84-8c74-09f9bb9d41a7": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N1"
+          ]
+        },
+        "ipip-af55f014-788c-4b6e-92c4-b2b59dc8a28d": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E1"
+          ]
+        },
+        "ipip-08ff6dca-02a5-4aeb-aaa4-2ecf2526f143": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O1"
+          ]
+        },
+        "ipip-6f66cdc0-9044-457b-b40d-501ecae15ee7": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A1"
+          ]
+        },
+        "ipip-f110fc66-2e9e-413c-920b-19f05e63d7ac": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C1"
+          ]
+        },
+        "ipip-7dab2a37-8635-4fc7-86b7-0abf13c183c9": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N2"
+          ]
+        },
+        "ipip-28ab59a0-e7cd-4fce-94e3-bba2ecc023b6": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E2"
+          ]
+        },
+        "ipip-b5919f2f-cded-4745-a9ce-c02703cee807": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O2"
+          ]
+        },
+        "ipip-5a5fa975-d024-4ac8-8845-2823f957c21b": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A2"
+          ]
+        },
+        "ipip-adf33f9f-45bd-43e3-af25-4c491176d97f": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C2"
+          ]
+        },
+        "ipip-f0a14e16-d726-47e9-a2c1-647fd3d7d52e": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N3"
+          ]
+        },
+        "ipip-0b38e3d3-c15c-454c-b034-f4eb7ae1580a": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E3"
+          ]
+        },
+        "ipip-5631b856-ff34-4f76-a0cd-edc7104c3bfa": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O3"
+          ]
+        },
+        "ipip-ada867af-4db1-4e3d-a604-2b695c1806e5": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A3"
+          ]
+        },
+        "ipip-c55e3958-00c4-4fc3-9118-47d8f31bfde1": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C3"
+          ]
+        },
+        "ipip-acd8fadc-5399-4a67-b5ff-9d1ada049c01": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N4"
+          ]
+        },
+        "ipip-d07b6c67-0d02-4948-a997-bb84ac234cd8": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E4"
+          ]
+        },
+        "ipip-33b81fd0-7e32-4cd8-a13a-d5f5f754f998": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O4"
+          ]
+        },
+        "ipip-d9a9a180-29c9-4ec5-8621-2256d411def7": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A4"
+          ]
+        },
+        "ipip-f12c3d9d-1d12-4aa6-ad2e-009cd0651cbb": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C4"
+          ]
+        },
+        "ipip-9891b7ba-a494-4307-aafe-301d8db506c6": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N5"
+          ]
+        },
+        "ipip-f1675af6-88bf-4376-a946-0281e762b39c": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E5"
+          ]
+        },
+        "ipip-95a3f20c-f933-4d19-a2c1-a7dbdf63c562": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O5"
+          ]
+        },
+        "ipip-7df44711-4cd4-4b05-8830-73fcc3ebdab5": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A5"
+          ]
+        },
+        "ipip-9d3cb5c7-955c-43a4-b6c7-b07ed01dcbd9": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C5"
+          ]
+        },
+        "ipip-13c58810-3864-42ba-aa87-d4166f858756": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N6"
+          ]
+        },
+        "ipip-961376e0-16a1-4c14-b059-789e63d11b63": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E6"
+          ]
+        },
+        "ipip-f08e1b27-3673-4898-9cae-896482d0d9f9": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O6"
+          ]
+        },
+        "ipip-c2038c12-7a37-47a8-9983-831bd6692aab": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A6"
+          ]
+        },
+        "ipip-956f3e17-ff17-4af5-a52f-9222b8968106": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C6"
+          ]
+        },
+        "ipip-4d81238b-5407-47d4-88e5-dc0e38aa14f5": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N1"
+          ]
+        },
+        "ipip-9f9166f0-fa94-4c14-a91d-3eecd8395794": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E1"
+          ]
+        },
+        "ipip-23a1034f-fab7-4887-a66e-5ef4eaafb25e": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O1"
+          ]
+        },
+        "ipip-c63e6121-c3ed-40cc-abc2-c1e6ea1e0858": {
+          "reverse": false,
+          "scales": [
+            "A",
+            "A1"
+          ]
+        },
+        "ipip-02ee1930-36a7-4caa-b10c-c93efb682a44": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C1"
+          ]
+        },
+        "ipip-da8e6ed1-2296-4c58-8fdb-66f2f591989b": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N2"
+          ]
+        },
+        "ipip-03c10b30-b88f-4c63-8acc-71251ca24615": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E2"
+          ]
+        },
+        "ipip-751a04bc-5adf-485a-8ea4-4308406ae85b": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O2"
+          ]
+        },
+        "ipip-982e83c2-d34e-48da-9c71-78494ab05c85": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A2"
+          ]
+        },
+        "ipip-f4891687-0ff0-47af-a4f6-d1202c8f6676": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C2"
+          ]
+        },
+        "ipip-743d8973-1de1-4485-91b4-8a5cf63e7d44": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N3"
+          ]
+        },
+        "ipip-2452f034-8273-4f71-9122-a40f5ead31ba": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E3"
+          ]
+        },
+        "ipip-2a300001-6e05-4c79-b8b5-2ccae4c3d463": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O3"
+          ]
+        },
+        "ipip-cd54bd76-ca9c-4030-b325-bb8d896bcb3f": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A3"
+          ]
+        },
+        "ipip-4e6e3a34-176f-4e6e-8730-1341611f972b": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C3"
+          ]
+        },
+        "ipip-20062533-a33d-4c1e-9cd9-bff868015b3f": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N4"
+          ]
+        },
+        "ipip-b2a077d5-1fe0-4b06-ab63-35455e001e54": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E4"
+          ]
+        },
+        "ipip-0d2e65ab-95d9-482f-beb4-3239a3a4944a": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O4"
+          ]
+        },
+        "ipip-0de0f900-cede-4538-9c00-5da4f830b028": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A4"
+          ]
+        },
+        "ipip-a9c97d6b-6721-4150-8d84-64ef3082f164": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C4"
+          ]
+        },
+        "ipip-9f2e7f90-0ca5-4ed0-9fe5-e060238a9b5e": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N5"
+          ]
+        },
+        "ipip-7dd6cf2d-5c14-48c2-8ae5-633a7a596c71": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E5"
+          ]
+        },
+        "ipip-fecc35f7-681e-4889-a404-4a973a3dfef0": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O5"
+          ]
+        },
+        "ipip-1d686958-6fe7-432f-85e6-186b99e4e232": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A5"
+          ]
+        },
+        "ipip-c7db0ed8-df7d-49bf-942f-59e46ef743c4": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C5"
+          ]
+        },
+        "ipip-b7e0e393-9b21-4e0d-adf3-8f28fb5b9d87": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N6"
+          ]
+        },
+        "ipip-79d956e8-1118-402a-a0e2-9380af18243e": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E6"
+          ]
+        },
+        "ipip-96ba77b2-1a44-4dfd-95f9-ae4d1f714460": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O6"
+          ]
+        },
+        "ipip-77f54ab4-0fba-4efb-8700-066c7490eb87": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A6"
+          ]
+        },
+        "ipip-a354cf7c-8d11-46ac-acc5-da90d2048637": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C6"
+          ]
+        },
+        "ipip-43b03992-3f32-4ed1-a6f8-5d6d3e7ed246": {
+          "reverse": false,
+          "scales": [
+            "N",
+            "N1"
+          ]
+        },
+        "ipip-41702602-08e4-4e2b-9a19-291d9efc581a": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E1"
+          ]
+        },
+        "ipip-935a7413-abac-4f54-9169-d1fbd39da752": {
+          "reverse": false,
+          "scales": [
+            "O",
+            "O1"
+          ]
+        },
+        "ipip-432dbde8-8756-4ff0-80d5-f47018235139": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A1"
+          ]
+        },
+        "ipip-5727c93f-317b-4af1-a686-77fc9fbc5033": {
+          "reverse": false,
+          "scales": [
+            "C",
+            "C1"
+          ]
+        },
+        "ipip-d32bd062-4eb2-401b-99b2-e7afea39ca9b": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N2"
+          ]
+        },
+        "ipip-9a47184f-6046-4e68-a61b-3d9b357b86ea": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E2"
+          ]
+        },
+        "ipip-87c5b27e-59a8-4c48-8ba8-f5413d735693": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O2"
+          ]
+        },
+        "ipip-11b20adb-abed-4363-894c-3dd823ae0540": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A2"
+          ]
+        },
+        "ipip-50418d86-712c-45d9-adc4-ea0231c93cf5": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C2"
+          ]
+        },
+        "ipip-f40e421f-6c24-4be2-bd9f-28d33358d8c6": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N3"
+          ]
+        },
+        "ipip-8791f37b-686f-47c3-9db7-74c009951321": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E3"
+          ]
+        },
+        "ipip-4fd25155-9cc2-4cd6-8852-3e0ca2d5e95d": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O3"
+          ]
+        },
+        "ipip-b68af20d-24f9-4c27-85cc-fe0858994888": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A3"
+          ]
+        },
+        "ipip-54423933-0ebb-44a7-bdd9-2a9b100c70f2": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C3"
+          ]
+        },
+        "ipip-7317848c-3e1b-422f-bb16-02efc504f677": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N4"
+          ]
+        },
+        "ipip-7d93e1ca-46e8-4a30-9623-42a80c9b420c": {
+          "reverse": true,
+          "scales": [
+            "E",
+            "E4"
+          ]
+        },
+        "ipip-a7f43928-8982-4ed5-8656-7a80346fe979": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O4"
+          ]
+        },
+        "ipip-17910a55-a64a-4ed0-8b46-293e2fa2fe03": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A4"
+          ]
+        },
+        "ipip-3890bb43-2695-4b8d-b289-ee10d11cc884": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C4"
+          ]
+        },
+        "ipip-49a85680-53aa-4208-86b5-dccc7a6f8e37": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N5"
+          ]
+        },
+        "ipip-10f90fa9-649c-4631-ac4c-3dd3f751597d": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E5"
+          ]
+        },
+        "ipip-b86de003-c3c4-4cc8-9385-5ac8a0142c34": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O5"
+          ]
+        },
+        "ipip-80c1d149-7050-481a-9953-aefb441642e7": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A5"
+          ]
+        },
+        "ipip-51403620-968c-42fa-a772-65ba5ad8396f": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C5"
+          ]
+        },
+        "ipip-88a3c2fe-3aa4-4f46-9322-da656332268a": {
+          "reverse": true,
+          "scales": [
+            "N",
+            "N6"
+          ]
+        },
+        "ipip-e7b31bdc-5f6b-40ec-ba91-f5919b0f170e": {
+          "reverse": false,
+          "scales": [
+            "E",
+            "E6"
+          ]
+        },
+        "ipip-580b08d1-3c94-46e9-9d07-d6d80c698127": {
+          "reverse": true,
+          "scales": [
+            "O",
+            "O6"
+          ]
+        },
+        "ipip-48bee420-60c0-45cd-be43-3893dbc1969a": {
+          "reverse": true,
+          "scales": [
+            "A",
+            "A6"
+          ]
+        },
+        "ipip-ea3327ea-3529-4be4-8e2d-2174731ae4d7": {
+          "reverse": true,
+          "scales": [
+            "C",
+            "C6"
+          ]
+        }
+      }
+    },
+    "questions": [
+      {
+        "id": "ipip-43c98ce8-a07a-4dc2-80f6-c1b2a2485f06",
+        "type": "scale",
+        "text": {
+          "ru": "Переживаю о разном",
+          "kk": "Әртүрлі нәрселерге алаңдаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-d50a597f-632b-4f7b-89e6-6d85b50fd1c9",
+        "type": "scale",
+        "text": {
+          "ru": "С легкостью завожу друзей",
+          "kk": "Оңай достасамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-888dd864-7449-4e96-8d5c-7a439603ea91",
+        "type": "scale",
+        "text": {
+          "ru": "Имею яркое воображение",
+          "kk": "Қиялым бай"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-ce2fbbf8-7a97-4199-bda5-117e4ecdf3b6",
+        "type": "scale",
+        "text": {
+          "ru": "Доверяю другим",
+          "kk": "Басқаларға сенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-c7f53c3c-2e77-432f-bb71-7470b67d3aa9",
+        "type": "scale",
+        "text": {
+          "ru": "Завершаю задачи успешно",
+          "kk": "Тапсырмаларды сәтті орындаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-48ad12ce-470e-4339-90ac-ea8c43a0103e",
+        "type": "scale",
+        "text": {
+          "ru": "Легко начинаю злиться",
+          "kk": "Тез ашуланамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-458f3957-2359-4077-ade1-34525d633063",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю большие вечеринки",
+          "kk": "Адам көп жиналған кештерді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-58d571e5-d725-4cf8-a438-32c16ee28eb6",
+        "type": "scale",
+        "text": {
+          "ru": "Верю в важность искусства",
+          "kk": "Өнердің маңызды екеніне сенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-0cf79e27-e702-45c2-9471-04ac96b58e0e",
+        "type": "scale",
+        "text": {
+          "ru": "Использую других ради личных целей",
+          "kk": "Басқаларды өз мақсатым үшін пайдаланамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-cda1ca17-b599-4561-a6cd-ff9d36062d27",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю прибраться",
+          "kk": "Жинастыруды ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-5e8550d7-b8ef-4905-950a-f81d735d39e2",
+        "type": "scale",
+        "text": {
+          "ru": "Часто грущу",
+          "kk": "Жиі көңілсіз боламын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-8af754f2-68e9-48f3-8c5d-2e6633d4472c",
+        "type": "scale",
+        "text": {
+          "ru": "Беру на себя ответственность",
+          "kk": "Басшылықты өз қолыма аламын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-0727def6-3d18-4221-bf38-86b58f9f3eed",
+        "type": "scale",
+        "text": {
+          "ru": "Сильно эмоционален",
+          "kk": "Сезімдерімді терең сезінемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-ccf3a5c8-fb50-4bd4-8e7a-22af3d657279",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю помогать другим",
+          "kk": "Басқаларға көмектескенді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-73d84e5d-cbf5-47f0-b8cb-4d2159a52e32",
+        "type": "scale",
+        "text": {
+          "ru": "Сдерживаю обещания",
+          "kk": "Уәделерімді орындаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b2d9ef74-73f5-4ea8-b00c-7aaca15937df",
+        "type": "scale",
+        "text": {
+          "ru": "Нахожу трудным обращаться к людям",
+          "kk": "Басқалармен жақындасу маған қиын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-48a761ef-438e-409b-ae59-ea2ce8f84414",
+        "type": "scale",
+        "text": {
+          "ru": "Всегда занят",
+          "kk": "Әрдайым қолым бос емес"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-cae55842-8957-4e3b-83b3-ceff98fb9dcf",
+        "type": "scale",
+        "text": {
+          "ru": "Предпочитаю разнообразие рутине",
+          "kk": "Күнделікті бірсарынды істен гөрі әртүрлілікті ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-e2028ad3-b128-4f76-be57-398bfe2aff22",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю хорошую потасовку",
+          "kk": "Қызу тартысты ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b7fc949b-02b6-4cb9-a3e2-dbb3d824b55f",
+        "type": "scale",
+        "text": {
+          "ru": "Много работаю",
+          "kk": "Көп еңбектенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-481efd08-c810-43b1-a952-f8ac9052f96b",
+        "type": "scale",
+        "text": {
+          "ru": "Могу чрезмерно увлечься",
+          "kk": "Кейде өзімді шектей алмай, шамадан тыс беріліп кетемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-987efee2-899f-4a65-b9b5-1589ef0460d7",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю эмоциональное волнение",
+          "kk": "Толқытатын әсерлерді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-e1e804c7-4a1d-498f-8610-f95147af9d1d",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю читать что-то посложнее",
+          "kk": "Ойлануды талап ететін күрделі мәтіндерді оқығанды ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-71029381-3908-4c68-91e1-e41fb45542a2",
+        "type": "scale",
+        "text": {
+          "ru": "Считаю, что я лучше других",
+          "kk": "Өзімді басқалардан артық санаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f6076eea-56ae-4b46-97f1-5f94a7676c96",
+        "type": "scale",
+        "text": {
+          "ru": "Всегда готов",
+          "kk": "Әрдайым дайын жүремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-2f519935-92e8-48ad-9746-4a0f8b38466a",
+        "type": "scale",
+        "text": {
+          "ru": "Легко паникую",
+          "kk": "Тез үрейленемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-899c3f66-51d0-46ea-963a-6fc36d3b3cb9",
+        "type": "scale",
+        "text": {
+          "ru": "Излучаю позитив",
+          "kk": "Айналама қуаныш сыйлаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-79186f48-e7fa-4df4-b74b-b0627ee244e1",
+        "type": "scale",
+        "text": {
+          "ru": "Склоняюсь голосовать за либеральных политических кандидатов",
+          "kk": "Либералдық көзқарастағы саяси үміткерлерге дауыс беруге бейіммін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-fd50e1ca-d9e0-4037-a7a1-a191d4db2d96",
+        "type": "scale",
+        "text": {
+          "ru": "Сопереживаю бездомным",
+          "kk": "Баспанасыз адамдарға жаным ашиды"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-bd9eec0a-b68b-472c-8803-7db29c308cdb",
+        "type": "scale",
+        "text": {
+          "ru": "Начинаю разные вещи не подумав",
+          "kk": "Ойланбастан іске кірісемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7f92ab2c-265c-4b84-8c74-09f9bb9d41a7",
+        "type": "scale",
+        "text": {
+          "ru": "Опасаюсь худшего",
+          "kk": "Ең жаман жағдай болады деп қорқамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-af55f014-788c-4b6e-92c4-b2b59dc8a28d",
+        "type": "scale",
+        "text": {
+          "ru": "Чувствую себя комфортно в окружении людей",
+          "kk": "Адамдардың арасында өзімді еркін сезінемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-08ff6dca-02a5-4aeb-aaa4-2ecf2526f143",
+        "type": "scale",
+        "text": {
+          "ru": "Наслаждаюсь необузданными полетами фантазии",
+          "kk": "Қиялға ерік бергенді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-6f66cdc0-9044-457b-b40d-501ecae15ee7",
+        "type": "scale",
+        "text": {
+          "ru": "Верю в хорошие намерения людей",
+          "kk": "Басқалардың ниеті жақсы деп сенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f110fc66-2e9e-413c-920b-19f05e63d7ac",
+        "type": "scale",
+        "text": {
+          "ru": "Превосходен в своем деле",
+          "kk": "Істеген ісімді өте жақсы орындаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7dab2a37-8635-4fc7-86b7-0abf13c183c9",
+        "type": "scale",
+        "text": {
+          "ru": "Легко раздражаюсь",
+          "kk": "Тез тітіркенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-28ab59a0-e7cd-4fce-94e3-bba2ecc023b6",
+        "type": "scale",
+        "text": {
+          "ru": "Разговариваю с разными людьми на вечеринках",
+          "kk": "Кештерде әртүрлі адамдармен көп сөйлесемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b5919f2f-cded-4745-a9ce-c02703cee807",
+        "type": "scale",
+        "text": {
+          "ru": "Вижу красоту там, где другие не видят",
+          "kk": "Басқалар байқамайтын нәрселерден әдемілік көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-5a5fa975-d024-4ac8-8845-2823f957c21b",
+        "type": "scale",
+        "text": {
+          "ru": "Готов обмануть, чтобы продвинуться вперед",
+          "kk": "Алға шығу үшін алдаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-adf33f9f-45bd-43e3-af25-4c491176d97f",
+        "type": "scale",
+        "text": {
+          "ru": "Часто забываю класть вещи на место",
+          "kk": "Заттарды өз орнына қоюды жиі ұмытып кетемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f0a14e16-d726-47e9-a2c1-647fd3d7d52e",
+        "type": "scale",
+        "text": {
+          "ru": "Не люблю себя",
+          "kk": "Өзімді ұнатпаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-0b38e3d3-c15c-454c-b034-f4eb7ae1580a",
+        "type": "scale",
+        "text": {
+          "ru": "Стараюсь быть лидером",
+          "kk": "Басқаларды басқаруға тырысамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-5631b856-ff34-4f76-a0cd-edc7104c3bfa",
+        "type": "scale",
+        "text": {
+          "ru": "Сопереживаю другим людям",
+          "kk": "Басқалардың сезімдерін сеземін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-ada867af-4db1-4e3d-a604-2b695c1806e5",
+        "type": "scale",
+        "text": {
+          "ru": "Беспокоюсь за других людей",
+          "kk": "Басқалардың жағдайына алаңдаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-c55e3958-00c4-4fc3-9118-47d8f31bfde1",
+        "type": "scale",
+        "text": {
+          "ru": "Говорю правду",
+          "kk": "Шындықты айтамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-acd8fadc-5399-4a67-b5ff-9d1ada049c01",
+        "type": "scale",
+        "text": {
+          "ru": "Боюсь привлекать внимание к себе",
+          "kk": "Өзіме назар аудартудан қорқамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-d07b6c67-0d02-4948-a997-bb84ac234cd8",
+        "type": "scale",
+        "text": {
+          "ru": "Всегда куда-то бегу",
+          "kk": "Әрдайым қозғалыстамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-33b81fd0-7e32-4cd8-a13a-d5f5f754f998",
+        "type": "scale",
+        "text": {
+          "ru": "Предпочитаю заниматься тем, что уже знаю",
+          "kk": "Өзім білетін нәрселерді ұстанғанды жөн көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-d9a9a180-29c9-4ec5-8621-2256d411def7",
+        "type": "scale",
+        "text": {
+          "ru": "Кричу на людей",
+          "kk": "Адамдарға айқайлаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f12c3d9d-1d12-4aa6-ad2e-009cd0651cbb",
+        "type": "scale",
+        "text": {
+          "ru": "Делаю больше, чем от меня ожидают",
+          "kk": "Менен күткеннен де көп жұмыс істеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-9891b7ba-a494-4307-aafe-301d8db506c6",
+        "type": "scale",
+        "text": {
+          "ru": "Редко злоупотребляю чем-либо",
+          "kk": "Шамадан тыс берілуім сирек болады"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f1675af6-88bf-4376-a946-0281e762b39c",
+        "type": "scale",
+        "text": {
+          "ru": "Ищу приключений",
+          "kk": "Шытырман оқиғаларды іздеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-95a3f20c-f933-4d19-a2c1-a7dbdf63c562",
+        "type": "scale",
+        "text": {
+          "ru": "Избегаю философских рассуждений",
+          "kk": "Философиялық пікірталастардан қашамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7df44711-4cd4-4b05-8830-73fcc3ebdab5",
+        "type": "scale",
+        "text": {
+          "ru": "Очень высоко ставлю себя",
+          "kk": "Өзімді жоғары бағалаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-9d3cb5c7-955c-43a4-b6c7-b07ed01dcbd9",
+        "type": "scale",
+        "text": {
+          "ru": "Придерживаюсь своих планов",
+          "kk": "Жоспарларымды жүзеге асырамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-13c58810-3864-42ba-aa87-d4166f858756",
+        "type": "scale",
+        "text": {
+          "ru": "Легко подавляем событиями",
+          "kk": "Оқиғалар мені есеңгіретіп жібереді"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-961376e0-16a1-4c14-b059-789e63d11b63",
+        "type": "scale",
+        "text": {
+          "ru": "Много веселюсь",
+          "kk": "Көп көңіл көтеремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f08e1b27-3673-4898-9cae-896482d0d9f9",
+        "type": "scale",
+        "text": {
+          "ru": "Верю, что нет абсолютного правильного и неправильного",
+          "kk": "Абсолютті дұрыс пен бұрыс жоқ деп есептеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-c2038c12-7a37-47a8-9983-831bd6692aab",
+        "type": "scale",
+        "text": {
+          "ru": "Сопереживаю тем, кому хуже, чем мне",
+          "kk": "Жағдайы менен нашар адамдарға жаным ашиды"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-956f3e17-ff17-4af5-a52f-9222b8968106",
+        "type": "scale",
+        "text": {
+          "ru": "Принимаю поспешные решения",
+          "kk": "Асығыс шешімдер қабылдаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-4d81238b-5407-47d4-88e5-dc0e38aa14f5",
+        "type": "scale",
+        "text": {
+          "ru": "Многого боюсь",
+          "kk": "Көп нәрседен қорқамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-9f9166f0-fa94-4c14-a91d-3eecd8395794",
+        "type": "scale",
+        "text": {
+          "ru": "Избегаю контактов с другими",
+          "kk": "Басқалармен араласудан қашамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-23a1034f-fab7-4887-a66e-5ef4eaafb25e",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю помечтать",
+          "kk": "Армандағанды ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-c63e6121-c3ed-40cc-abc2-c1e6ea1e0858",
+        "type": "scale",
+        "text": {
+          "ru": "Доверяю тому, что люди говорят мне",
+          "kk": "Адамдардың айтқанына сенемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-02ee1930-36a7-4caa-b10c-c93efb682a44",
+        "type": "scale",
+        "text": {
+          "ru": "Справлюсь с задачами без проблем",
+          "kk": "Тапсырмаларды қиналмай орындаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-da8e6ed1-2296-4c58-8fdb-66f2f591989b",
+        "type": "scale",
+        "text": {
+          "ru": "Легко теряю самообладание",
+          "kk": "Өзімді ұстай алмай, ашуға берілемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-03c10b30-b88f-4c63-8acc-71251ca24615",
+        "type": "scale",
+        "text": {
+          "ru": "Предпочитаю быть одному",
+          "kk": "Жалғыз болғанды жөн көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-751a04bc-5adf-485a-8ea4-4308406ae85b",
+        "type": "scale",
+        "text": {
+          "ru": "Не люблю поэзию",
+          "kk": "Өлеңдерді ұнатпаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-982e83c2-d34e-48da-9c71-78494ab05c85",
+        "type": "scale",
+        "text": {
+          "ru": "Использую других людей при возможности",
+          "kk": "Басқалардың есебінен пайда көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f4891687-0ff0-47af-a4f6-d1202c8f6676",
+        "type": "scale",
+        "text": {
+          "ru": "Оставляю комнату в беспорядке",
+          "kk": "Бөлмемді шашып кетемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-743d8973-1de1-4485-91b4-8a5cf63e7d44",
+        "type": "scale",
+        "text": {
+          "ru": "Часто бывает очень грустно",
+          "kk": "Жиі жабырқаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-2452f034-8273-4f71-9122-a40f5ead31ba",
+        "type": "scale",
+        "text": {
+          "ru": "Беру контроль",
+          "kk": "Істерді бақылауға аламын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-2a300001-6e05-4c79-b8b5-2ccae4c3d463",
+        "type": "scale",
+        "text": {
+          "ru": "Редко замечаю свои эмоциальные реакции",
+          "kk": "Өзімнің эмоциялық реакцияларымды сирек байқаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-cd54bd76-ca9c-4030-b325-bb8d896bcb3f",
+        "type": "scale",
+        "text": {
+          "ru": "Безразличен к чувствам других",
+          "kk": "Басқалардың сезімдеріне немқұрайлы қараймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-4e6e3a34-176f-4e6e-8730-1341611f972b",
+        "type": "scale",
+        "text": {
+          "ru": "Нарушаю правила",
+          "kk": "Ережелерді бұзамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-20062533-a33d-4c1e-9cd9-bff868015b3f",
+        "type": "scale",
+        "text": {
+          "ru": "Чувствую себя комфортно только с друзьями",
+          "kk": "Тек достарымның арасында өзімді еркін сезінемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b2a077d5-1fe0-4b06-ab63-35455e001e54",
+        "type": "scale",
+        "text": {
+          "ru": "В свободное время занимаюсь много чем",
+          "kk": "Бос уақытымда көп іспен айналысамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-0d2e65ab-95d9-482f-beb4-3239a3a4944a",
+        "type": "scale",
+        "text": {
+          "ru": "Не люблю перемены",
+          "kk": "Өзгерістерді ұнатпаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-0de0f900-cede-4538-9c00-5da4f830b028",
+        "type": "scale",
+        "text": {
+          "ru": "Оскорбляю людей",
+          "kk": "Адамдарды қорлаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-a9c97d6b-6721-4150-8d84-64ef3082f164",
+        "type": "scale",
+        "text": {
+          "ru": "Делаю лишь столько, сколько достаточно",
+          "kk": "Жұмысты тек ең қажетті мөлшерде ғана орындаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-9f2e7f90-0ca5-4ed0-9fe5-e060238a9b5e",
+        "type": "scale",
+        "text": {
+          "ru": "Легко противостою соблазнам",
+          "kk": "Азғыруларға оңай қарсы тұрамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7dd6cf2d-5c14-48c2-8ae5-633a7a596c71",
+        "type": "scale",
+        "text": {
+          "ru": "Наслаждаюсь опрометчивостью",
+          "kk": "Тәуекелді, ойланбай жасалатын әрекеттерді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-fecc35f7-681e-4889-a404-4a973a3dfef0",
+        "type": "scale",
+        "text": {
+          "ru": "С трудом понимаю абстрактные идеи",
+          "kk": "Абстрактілі идеяларды түсіну маған қиын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-1d686958-6fe7-432f-85e6-186b99e4e232",
+        "type": "scale",
+        "text": {
+          "ru": "О себе высокого мнения",
+          "kk": "Өзім туралы пікірім жоғары"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-c7db0ed8-df7d-49bf-942f-59e46ef743c4",
+        "type": "scale",
+        "text": {
+          "ru": "Трачу время понапрасну",
+          "kk": "Уақытымды босқа өткіземін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b7e0e393-9b21-4e0d-adf3-8f28fb5b9d87",
+        "type": "scale",
+        "text": {
+          "ru": "Чувствую себя неспособным справляться с делами",
+          "kk": "Жағдайды еңсере алмайтындай сезінемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-79d956e8-1118-402a-a0e2-9380af18243e",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю жизнь",
+          "kk": "Өмірді жақсы көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-96ba77b2-1a44-4dfd-95f9-ae4d1f714460",
+        "type": "scale",
+        "text": {
+          "ru": "Склоняюсь голосовать за консервативных политических кандидатов",
+          "kk": "Консервативтік көзқарастағы саяси үміткерлерге дауыс беруге бейіммін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-77f54ab4-0fba-4efb-8700-066c7490eb87",
+        "type": "scale",
+        "text": {
+          "ru": "Не интересуют проблемы других людей",
+          "kk": "Басқалардың мәселелері мені қызықтырмайды"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-a354cf7c-8d11-46ac-acc5-da90d2048637",
+        "type": "scale",
+        "text": {
+          "ru": "Поспешно начинаю дела не обдумав",
+          "kk": "Іске асығыс кірісемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-43b03992-3f32-4ed1-a6f8-5d6d3e7ed246",
+        "type": "scale",
+        "text": {
+          "ru": "Легко впадаю в стресс",
+          "kk": "Оңай күйзеліске түсемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-41702602-08e4-4e2b-9a19-291d9efc581a",
+        "type": "scale",
+        "text": {
+          "ru": "Держу других на дистанции",
+          "kk": "Адамдарды өзіме жақындатпаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-935a7413-abac-4f54-9169-d1fbd39da752",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю потеряться в мыслях",
+          "kk": "Терең ойға батқанды ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-432dbde8-8756-4ff0-80d5-f47018235139",
+        "type": "scale",
+        "text": {
+          "ru": "Не доверяю людям",
+          "kk": "Адамдарға сенбеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-5727c93f-317b-4af1-a686-77fc9fbc5033",
+        "type": "scale",
+        "text": {
+          "ru": "Знаю, как доводить дела до конца",
+          "kk": "Істі қалай бітіру керегін білемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-d32bd062-4eb2-401b-99b2-e7afea39ca9b",
+        "type": "scale",
+        "text": {
+          "ru": "Не раздражаюсь легко",
+          "kk": "Мені ашуландыру оңай емес"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-9a47184f-6046-4e68-a61b-3d9b357b86ea",
+        "type": "scale",
+        "text": {
+          "ru": "Избегаю толпу",
+          "kk": "Адам көп жиналған жерлерден қашамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-87c5b27e-59a8-4c48-8ba8-f5413d735693",
+        "type": "scale",
+        "text": {
+          "ru": "Не наслаждаюсь музеями искусства",
+          "kk": "Өнер мұражайларына барғанды ұнатпаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-11b20adb-abed-4363-894c-3dd823ae0540",
+        "type": "scale",
+        "text": {
+          "ru": "Мешаю планам других людей",
+          "kk": "Басқалардың жоспарларына кедергі келтіремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-50418d86-712c-45d9-adc4-ea0231c93cf5",
+        "type": "scale",
+        "text": {
+          "ru": "Оставляю вещи где попало",
+          "kk": "Заттарымды әр жерге тастаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-f40e421f-6c24-4be2-bd9f-28d33358d8c6",
+        "type": "scale",
+        "text": {
+          "ru": "Чувствую себя комфортно с самим собой",
+          "kk": "Өзіммен үйлесімді сезінемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-8791f37b-686f-47c3-9db7-74c009951321",
+        "type": "scale",
+        "text": {
+          "ru": "Жду, что другие покажут мне путь",
+          "kk": "Басқалардың жол көрсетуін күтемін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-4fd25155-9cc2-4cd6-8852-3e0ca2d5e95d",
+        "type": "scale",
+        "text": {
+          "ru": "Не понимаю эмоциональных людей",
+          "kk": "Эмоцияға берілетін адамдарды түсінбеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b68af20d-24f9-4c27-85cc-fe0858994888",
+        "type": "scale",
+        "text": {
+          "ru": "Не уделяю времени другим людям",
+          "kk": "Басқаларға уақыт бөлмеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-54423933-0ebb-44a7-bdd9-2a9b100c70f2",
+        "type": "scale",
+        "text": {
+          "ru": "Нарушаю мои обещания",
+          "kk": "Уәделерімді бұзамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7317848c-3e1b-422f-bb16-02efc504f677",
+        "type": "scale",
+        "text": {
+          "ru": "Проблемные социальные ситуации не беспокоят меня",
+          "kk": "Күрделі әлеуметтік жағдайлар мені мазаламайды"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-7d93e1ca-46e8-4a30-9623-42a80c9b420c",
+        "type": "scale",
+        "text": {
+          "ru": "Люблю ничего не принимать близко к сердцу",
+          "kk": "Асықпай, жайбарақат жүргенді ұнатамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-a7f43928-8982-4ed5-8656-7a80346fe979",
+        "type": "scale",
+        "text": {
+          "ru": "Придерживаюсь старых устоев",
+          "kk": "Дәстүрлі тәсілдерге берікпін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-17910a55-a64a-4ed0-8b46-293e2fa2fe03",
+        "type": "scale",
+        "text": {
+          "ru": "Мстителен",
+          "kk": "Басқалардан кек аламын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-3890bb43-2695-4b8d-b289-ee10d11cc884",
+        "type": "scale",
+        "text": {
+          "ru": "Вкладываю мало времени и стараний в то, что делаю",
+          "kk": "Жұмысыма аз уақыт пен күш жұмсаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-49a85680-53aa-4208-86b5-dccc7a6f8e37",
+        "type": "scale",
+        "text": {
+          "ru": "Способен контролировать свои желания",
+          "kk": "Өз құмарлықтарымды басқара аламын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-10f90fa9-649c-4631-ac4c-3dd3f751597d",
+        "type": "scale",
+        "text": {
+          "ru": "Веду себя дико и безумно",
+          "kk": "Өзімді жүгенсіз, ессіз ұстаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-b86de003-c3c4-4cc8-9385-5ac8a0142c34",
+        "type": "scale",
+        "text": {
+          "ru": "Не заинтересован в теоретических рассуждениях",
+          "kk": "Теориялық пікірталастар мені қызықтырмайды"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-80c1d149-7050-481a-9953-aefb441642e7",
+        "type": "scale",
+        "text": {
+          "ru": "Хвастаюсь своими достоинствами",
+          "kk": "Өз жақсы қасиеттеріммен мақтанамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-51403620-968c-42fa-a772-65ba5ad8396f",
+        "type": "scale",
+        "text": {
+          "ru": "С трудом что-либо начинаю",
+          "kk": "Тапсырмаларды бастау маған қиын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-88a3c2fe-3aa4-4f46-9322-da656332268a",
+        "type": "scale",
+        "text": {
+          "ru": "Сохраняю самообладание в стрессовых ситуациях",
+          "kk": "Қысым кезінде сабыр сақтаймын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-e7b31bdc-5f6b-40ec-ba91-f5919b0f170e",
+        "type": "scale",
+        "text": {
+          "ru": "Смотрю на положительную сторону жизни",
+          "kk": "Өмірдің жақсы жақтарын көремін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-580b08d1-3c94-46e9-9d07-d6d80c698127",
+        "type": "scale",
+        "text": {
+          "ru": "Считаю, что наказания за преступления должны быть жестче",
+          "kk": "Қылмысқа қатаң қарауымыз керек деп есептеймін"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-48bee420-60c0-45cd-be43-3893dbc1969a",
+        "type": "scale",
+        "text": {
+          "ru": "Стараюсь не думать о нуждающихся",
+          "kk": "Мұқтаж адамдар туралы ойламауға тырысамын"
+        },
+        "options": []
+      },
+      {
+        "id": "ipip-ea3327ea-3529-4be4-8e2d-2174731ae4d7",
+        "type": "scale",
+        "text": {
+          "ru": "Действую необдуманно",
+          "kk": "Ойланбай әрекет етемін"
+        },
+        "options": []
+      }
+    ],
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "ipip-43c98ce8-a07a-4dc2-80f6-c1b2a2485f06": 3,
+          "ipip-d50a597f-632b-4f7b-89e6-6d85b50fd1c9": 3,
+          "ipip-888dd864-7449-4e96-8d5c-7a439603ea91": 3,
+          "ipip-ce2fbbf8-7a97-4199-bda5-117e4ecdf3b6": 3,
+          "ipip-c7f53c3c-2e77-432f-bb71-7470b67d3aa9": 3,
+          "ipip-48ad12ce-470e-4339-90ac-ea8c43a0103e": 3,
+          "ipip-458f3957-2359-4077-ade1-34525d633063": 3,
+          "ipip-58d571e5-d725-4cf8-a438-32c16ee28eb6": 3,
+          "ipip-0cf79e27-e702-45c2-9471-04ac96b58e0e": 3,
+          "ipip-cda1ca17-b599-4561-a6cd-ff9d36062d27": 3,
+          "ipip-5e8550d7-b8ef-4905-950a-f81d735d39e2": 3,
+          "ipip-8af754f2-68e9-48f3-8c5d-2e6633d4472c": 3,
+          "ipip-0727def6-3d18-4221-bf38-86b58f9f3eed": 3,
+          "ipip-ccf3a5c8-fb50-4bd4-8e7a-22af3d657279": 3,
+          "ipip-73d84e5d-cbf5-47f0-b8cb-4d2159a52e32": 3,
+          "ipip-b2d9ef74-73f5-4ea8-b00c-7aaca15937df": 3,
+          "ipip-48a761ef-438e-409b-ae59-ea2ce8f84414": 3,
+          "ipip-cae55842-8957-4e3b-83b3-ceff98fb9dcf": 3,
+          "ipip-e2028ad3-b128-4f76-be57-398bfe2aff22": 3,
+          "ipip-b7fc949b-02b6-4cb9-a3e2-dbb3d824b55f": 3,
+          "ipip-481efd08-c810-43b1-a952-f8ac9052f96b": 3,
+          "ipip-987efee2-899f-4a65-b9b5-1589ef0460d7": 3,
+          "ipip-e1e804c7-4a1d-498f-8610-f95147af9d1d": 3,
+          "ipip-71029381-3908-4c68-91e1-e41fb45542a2": 3,
+          "ipip-f6076eea-56ae-4b46-97f1-5f94a7676c96": 3,
+          "ipip-2f519935-92e8-48ad-9746-4a0f8b38466a": 3,
+          "ipip-899c3f66-51d0-46ea-963a-6fc36d3b3cb9": 3,
+          "ipip-79186f48-e7fa-4df4-b74b-b0627ee244e1": 3,
+          "ipip-fd50e1ca-d9e0-4037-a7a1-a191d4db2d96": 3,
+          "ipip-bd9eec0a-b68b-472c-8803-7db29c308cdb": 3,
+          "ipip-7f92ab2c-265c-4b84-8c74-09f9bb9d41a7": 3,
+          "ipip-af55f014-788c-4b6e-92c4-b2b59dc8a28d": 3,
+          "ipip-08ff6dca-02a5-4aeb-aaa4-2ecf2526f143": 3,
+          "ipip-6f66cdc0-9044-457b-b40d-501ecae15ee7": 3,
+          "ipip-f110fc66-2e9e-413c-920b-19f05e63d7ac": 3,
+          "ipip-7dab2a37-8635-4fc7-86b7-0abf13c183c9": 3,
+          "ipip-28ab59a0-e7cd-4fce-94e3-bba2ecc023b6": 3,
+          "ipip-b5919f2f-cded-4745-a9ce-c02703cee807": 3,
+          "ipip-5a5fa975-d024-4ac8-8845-2823f957c21b": 3,
+          "ipip-adf33f9f-45bd-43e3-af25-4c491176d97f": 3,
+          "ipip-f0a14e16-d726-47e9-a2c1-647fd3d7d52e": 3,
+          "ipip-0b38e3d3-c15c-454c-b034-f4eb7ae1580a": 3,
+          "ipip-5631b856-ff34-4f76-a0cd-edc7104c3bfa": 3,
+          "ipip-ada867af-4db1-4e3d-a604-2b695c1806e5": 3,
+          "ipip-c55e3958-00c4-4fc3-9118-47d8f31bfde1": 3,
+          "ipip-acd8fadc-5399-4a67-b5ff-9d1ada049c01": 3,
+          "ipip-d07b6c67-0d02-4948-a997-bb84ac234cd8": 3,
+          "ipip-33b81fd0-7e32-4cd8-a13a-d5f5f754f998": 3,
+          "ipip-d9a9a180-29c9-4ec5-8621-2256d411def7": 3,
+          "ipip-f12c3d9d-1d12-4aa6-ad2e-009cd0651cbb": 3,
+          "ipip-9891b7ba-a494-4307-aafe-301d8db506c6": 3,
+          "ipip-f1675af6-88bf-4376-a946-0281e762b39c": 3,
+          "ipip-95a3f20c-f933-4d19-a2c1-a7dbdf63c562": 3,
+          "ipip-7df44711-4cd4-4b05-8830-73fcc3ebdab5": 3,
+          "ipip-9d3cb5c7-955c-43a4-b6c7-b07ed01dcbd9": 3,
+          "ipip-13c58810-3864-42ba-aa87-d4166f858756": 3,
+          "ipip-961376e0-16a1-4c14-b059-789e63d11b63": 3,
+          "ipip-f08e1b27-3673-4898-9cae-896482d0d9f9": 3,
+          "ipip-c2038c12-7a37-47a8-9983-831bd6692aab": 3,
+          "ipip-956f3e17-ff17-4af5-a52f-9222b8968106": 3,
+          "ipip-4d81238b-5407-47d4-88e5-dc0e38aa14f5": 3,
+          "ipip-9f9166f0-fa94-4c14-a91d-3eecd8395794": 3,
+          "ipip-23a1034f-fab7-4887-a66e-5ef4eaafb25e": 3,
+          "ipip-c63e6121-c3ed-40cc-abc2-c1e6ea1e0858": 3,
+          "ipip-02ee1930-36a7-4caa-b10c-c93efb682a44": 3,
+          "ipip-da8e6ed1-2296-4c58-8fdb-66f2f591989b": 3,
+          "ipip-03c10b30-b88f-4c63-8acc-71251ca24615": 3,
+          "ipip-751a04bc-5adf-485a-8ea4-4308406ae85b": 3,
+          "ipip-982e83c2-d34e-48da-9c71-78494ab05c85": 3,
+          "ipip-f4891687-0ff0-47af-a4f6-d1202c8f6676": 3,
+          "ipip-743d8973-1de1-4485-91b4-8a5cf63e7d44": 3,
+          "ipip-2452f034-8273-4f71-9122-a40f5ead31ba": 3,
+          "ipip-2a300001-6e05-4c79-b8b5-2ccae4c3d463": 3,
+          "ipip-cd54bd76-ca9c-4030-b325-bb8d896bcb3f": 3,
+          "ipip-4e6e3a34-176f-4e6e-8730-1341611f972b": 3,
+          "ipip-20062533-a33d-4c1e-9cd9-bff868015b3f": 3,
+          "ipip-b2a077d5-1fe0-4b06-ab63-35455e001e54": 3,
+          "ipip-0d2e65ab-95d9-482f-beb4-3239a3a4944a": 3,
+          "ipip-0de0f900-cede-4538-9c00-5da4f830b028": 3,
+          "ipip-a9c97d6b-6721-4150-8d84-64ef3082f164": 3,
+          "ipip-9f2e7f90-0ca5-4ed0-9fe5-e060238a9b5e": 3,
+          "ipip-7dd6cf2d-5c14-48c2-8ae5-633a7a596c71": 3,
+          "ipip-fecc35f7-681e-4889-a404-4a973a3dfef0": 3,
+          "ipip-1d686958-6fe7-432f-85e6-186b99e4e232": 3,
+          "ipip-c7db0ed8-df7d-49bf-942f-59e46ef743c4": 3,
+          "ipip-b7e0e393-9b21-4e0d-adf3-8f28fb5b9d87": 3,
+          "ipip-79d956e8-1118-402a-a0e2-9380af18243e": 3,
+          "ipip-96ba77b2-1a44-4dfd-95f9-ae4d1f714460": 3,
+          "ipip-77f54ab4-0fba-4efb-8700-066c7490eb87": 3,
+          "ipip-a354cf7c-8d11-46ac-acc5-da90d2048637": 3,
+          "ipip-43b03992-3f32-4ed1-a6f8-5d6d3e7ed246": 3,
+          "ipip-41702602-08e4-4e2b-9a19-291d9efc581a": 3,
+          "ipip-935a7413-abac-4f54-9169-d1fbd39da752": 3,
+          "ipip-432dbde8-8756-4ff0-80d5-f47018235139": 3,
+          "ipip-5727c93f-317b-4af1-a686-77fc9fbc5033": 3,
+          "ipip-d32bd062-4eb2-401b-99b2-e7afea39ca9b": 3,
+          "ipip-9a47184f-6046-4e68-a61b-3d9b357b86ea": 3,
+          "ipip-87c5b27e-59a8-4c48-8ba8-f5413d735693": 3,
+          "ipip-11b20adb-abed-4363-894c-3dd823ae0540": 3,
+          "ipip-50418d86-712c-45d9-adc4-ea0231c93cf5": 3,
+          "ipip-f40e421f-6c24-4be2-bd9f-28d33358d8c6": 3,
+          "ipip-8791f37b-686f-47c3-9db7-74c009951321": 3,
+          "ipip-4fd25155-9cc2-4cd6-8852-3e0ca2d5e95d": 3,
+          "ipip-b68af20d-24f9-4c27-85cc-fe0858994888": 3,
+          "ipip-54423933-0ebb-44a7-bdd9-2a9b100c70f2": 3,
+          "ipip-7317848c-3e1b-422f-bb16-02efc504f677": 3,
+          "ipip-7d93e1ca-46e8-4a30-9623-42a80c9b420c": 3,
+          "ipip-a7f43928-8982-4ed5-8656-7a80346fe979": 3,
+          "ipip-17910a55-a64a-4ed0-8b46-293e2fa2fe03": 3,
+          "ipip-3890bb43-2695-4b8d-b289-ee10d11cc884": 3,
+          "ipip-49a85680-53aa-4208-86b5-dccc7a6f8e37": 3,
+          "ipip-10f90fa9-649c-4631-ac4c-3dd3f751597d": 3,
+          "ipip-b86de003-c3c4-4cc8-9385-5ac8a0142c34": 3,
+          "ipip-80c1d149-7050-481a-9953-aefb441642e7": 3,
+          "ipip-51403620-968c-42fa-a772-65ba5ad8396f": 3,
+          "ipip-88a3c2fe-3aa4-4f46-9322-da656332268a": 3,
+          "ipip-e7b31bdc-5f6b-40ec-ba91-f5919b0f170e": 3,
+          "ipip-580b08d1-3c94-46e9-9d07-d6d80c698127": 3,
+          "ipip-48bee420-60c0-45cd-be43-3893dbc1969a": 3,
+          "ipip-ea3327ea-3529-4be4-8e2d-2174731ae4d7": 3
+        },
+        "expected": {
+          "algorithm": "scales",
+          "scales": {
+            "N": {
+              "name": {
+                "ru": "Нейротизм",
+                "kk": "Нейротизм"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 72,
+              "mean": 3,
+              "count": 24
+            },
+            "N1": {
+              "name": {
+                "ru": "Тревожность",
+                "kk": "Мазасыздық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "N2": {
+              "name": {
+                "ru": "Гнев",
+                "kk": "Ашу"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "N3": {
+              "name": {
+                "ru": "Сниженное настроение",
+                "kk": "Көңілдің түсуі"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "N4": {
+              "name": {
+                "ru": "Застенчивость",
+                "kk": "Ұяңдық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "N5": {
+              "name": {
+                "ru": "Несдержанность",
+                "kk": "Ұстамсыздық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "N6": {
+              "name": {
+                "ru": "Уязвимость",
+                "kk": "Осалдық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E": {
+              "name": {
+                "ru": "Экстраверсия",
+                "kk": "Экстраверсия"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 72,
+              "mean": 3,
+              "count": 24
+            },
+            "E1": {
+              "name": {
+                "ru": "Дружелюбие",
+                "kk": "Достық пейіл"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E2": {
+              "name": {
+                "ru": "Общительность",
+                "kk": "Көпшілдік"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E3": {
+              "name": {
+                "ru": "Напористость",
+                "kk": "Табандылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E4": {
+              "name": {
+                "ru": "Активность",
+                "kk": "Белсенділік"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E5": {
+              "name": {
+                "ru": "Поиск впечатлений",
+                "kk": "Әсер іздеу"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "E6": {
+              "name": {
+                "ru": "Жизнерадостность",
+                "kk": "Өмірге құштарлық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O": {
+              "name": {
+                "ru": "Открытость опыту",
+                "kk": "Тәжірибеге ашықтық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 72,
+              "mean": 3,
+              "count": 24
+            },
+            "O1": {
+              "name": {
+                "ru": "Воображение",
+                "kk": "Қиял"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O2": {
+              "name": {
+                "ru": "Эстетические интересы",
+                "kk": "Эстетикалық қызығушылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O3": {
+              "name": {
+                "ru": "Эмоциональность",
+                "kk": "Эмоциялық сезімталдық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O4": {
+              "name": {
+                "ru": "Разнообразие",
+                "kk": "Әртүрлілік"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O5": {
+              "name": {
+                "ru": "Интеллектуальные интересы",
+                "kk": "Зияткерлік қызығушылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "O6": {
+              "name": {
+                "ru": "Либерализм",
+                "kk": "Либерализм"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A": {
+              "name": {
+                "ru": "Доброжелательность",
+                "kk": "Тілектестік"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 72,
+              "mean": 3,
+              "count": 24
+            },
+            "A1": {
+              "name": {
+                "ru": "Доверие",
+                "kk": "Сенім"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A2": {
+              "name": {
+                "ru": "Искренность",
+                "kk": "Шынайылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A3": {
+              "name": {
+                "ru": "Альтруизм",
+                "kk": "Альтруизм"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A4": {
+              "name": {
+                "ru": "Сотрудничество",
+                "kk": "Ынтымақтастық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A5": {
+              "name": {
+                "ru": "Скромность",
+                "kk": "Қарапайымдылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "A6": {
+              "name": {
+                "ru": "Сочувствие",
+                "kk": "Жанашырлық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C": {
+              "name": {
+                "ru": "Добросовестность",
+                "kk": "Ұқыптылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 72,
+              "mean": 3,
+              "count": 24
+            },
+            "C1": {
+              "name": {
+                "ru": "Самоэффективность",
+                "kk": "Өз күшіне сену"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C2": {
+              "name": {
+                "ru": "Организованность",
+                "kk": "Ұйымшылдық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C3": {
+              "name": {
+                "ru": "Ответственность",
+                "kk": "Жауапкершілік"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C4": {
+              "name": {
+                "ru": "Стремление к достижениям",
+                "kk": "Жетістікке ұмтылу"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C5": {
+              "name": {
+                "ru": "Самодисциплина",
+                "kk": "Өзіндік тәртіп"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "C6": {
+              "name": {
+                "ru": "Обдуманность",
+                "kk": "Ойластырушылық"
+              },
+              "min": 1,
+              "max": 5,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            }
+          },
+          "details": [
+            {
+              "questionId": "ipip-43c98ce8-a07a-4dc2-80f6-c1b2a2485f06",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-d50a597f-632b-4f7b-89e6-6d85b50fd1c9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-888dd864-7449-4e96-8d5c-7a439603ea91",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-ce2fbbf8-7a97-4199-bda5-117e4ecdf3b6",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-c7f53c3c-2e77-432f-bb71-7470b67d3aa9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-48ad12ce-470e-4339-90ac-ea8c43a0103e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-458f3957-2359-4077-ade1-34525d633063",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-58d571e5-d725-4cf8-a438-32c16ee28eb6",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-0cf79e27-e702-45c2-9471-04ac96b58e0e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-cda1ca17-b599-4561-a6cd-ff9d36062d27",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-5e8550d7-b8ef-4905-950a-f81d735d39e2",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-8af754f2-68e9-48f3-8c5d-2e6633d4472c",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-0727def6-3d18-4221-bf38-86b58f9f3eed",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-ccf3a5c8-fb50-4bd4-8e7a-22af3d657279",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-73d84e5d-cbf5-47f0-b8cb-4d2159a52e32",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b2d9ef74-73f5-4ea8-b00c-7aaca15937df",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-48a761ef-438e-409b-ae59-ea2ce8f84414",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-cae55842-8957-4e3b-83b3-ceff98fb9dcf",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-e2028ad3-b128-4f76-be57-398bfe2aff22",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b7fc949b-02b6-4cb9-a3e2-dbb3d824b55f",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-481efd08-c810-43b1-a952-f8ac9052f96b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-987efee2-899f-4a65-b9b5-1589ef0460d7",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-e1e804c7-4a1d-498f-8610-f95147af9d1d",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-71029381-3908-4c68-91e1-e41fb45542a2",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f6076eea-56ae-4b46-97f1-5f94a7676c96",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-2f519935-92e8-48ad-9746-4a0f8b38466a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-899c3f66-51d0-46ea-963a-6fc36d3b3cb9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-79186f48-e7fa-4df4-b74b-b0627ee244e1",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-fd50e1ca-d9e0-4037-a7a1-a191d4db2d96",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-bd9eec0a-b68b-472c-8803-7db29c308cdb",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7f92ab2c-265c-4b84-8c74-09f9bb9d41a7",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-af55f014-788c-4b6e-92c4-b2b59dc8a28d",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-08ff6dca-02a5-4aeb-aaa4-2ecf2526f143",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-6f66cdc0-9044-457b-b40d-501ecae15ee7",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f110fc66-2e9e-413c-920b-19f05e63d7ac",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7dab2a37-8635-4fc7-86b7-0abf13c183c9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-28ab59a0-e7cd-4fce-94e3-bba2ecc023b6",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b5919f2f-cded-4745-a9ce-c02703cee807",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-5a5fa975-d024-4ac8-8845-2823f957c21b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-adf33f9f-45bd-43e3-af25-4c491176d97f",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f0a14e16-d726-47e9-a2c1-647fd3d7d52e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-0b38e3d3-c15c-454c-b034-f4eb7ae1580a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-5631b856-ff34-4f76-a0cd-edc7104c3bfa",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-ada867af-4db1-4e3d-a604-2b695c1806e5",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-c55e3958-00c4-4fc3-9118-47d8f31bfde1",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-acd8fadc-5399-4a67-b5ff-9d1ada049c01",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-d07b6c67-0d02-4948-a997-bb84ac234cd8",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-33b81fd0-7e32-4cd8-a13a-d5f5f754f998",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-d9a9a180-29c9-4ec5-8621-2256d411def7",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f12c3d9d-1d12-4aa6-ad2e-009cd0651cbb",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-9891b7ba-a494-4307-aafe-301d8db506c6",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f1675af6-88bf-4376-a946-0281e762b39c",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-95a3f20c-f933-4d19-a2c1-a7dbdf63c562",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7df44711-4cd4-4b05-8830-73fcc3ebdab5",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-9d3cb5c7-955c-43a4-b6c7-b07ed01dcbd9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-13c58810-3864-42ba-aa87-d4166f858756",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-961376e0-16a1-4c14-b059-789e63d11b63",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f08e1b27-3673-4898-9cae-896482d0d9f9",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-c2038c12-7a37-47a8-9983-831bd6692aab",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-956f3e17-ff17-4af5-a52f-9222b8968106",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-4d81238b-5407-47d4-88e5-dc0e38aa14f5",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-9f9166f0-fa94-4c14-a91d-3eecd8395794",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-23a1034f-fab7-4887-a66e-5ef4eaafb25e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-c63e6121-c3ed-40cc-abc2-c1e6ea1e0858",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-02ee1930-36a7-4caa-b10c-c93efb682a44",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-da8e6ed1-2296-4c58-8fdb-66f2f591989b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-03c10b30-b88f-4c63-8acc-71251ca24615",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-751a04bc-5adf-485a-8ea4-4308406ae85b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-982e83c2-d34e-48da-9c71-78494ab05c85",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f4891687-0ff0-47af-a4f6-d1202c8f6676",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-743d8973-1de1-4485-91b4-8a5cf63e7d44",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-2452f034-8273-4f71-9122-a40f5ead31ba",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-2a300001-6e05-4c79-b8b5-2ccae4c3d463",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-cd54bd76-ca9c-4030-b325-bb8d896bcb3f",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-4e6e3a34-176f-4e6e-8730-1341611f972b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-20062533-a33d-4c1e-9cd9-bff868015b3f",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b2a077d5-1fe0-4b06-ab63-35455e001e54",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-0d2e65ab-95d9-482f-beb4-3239a3a4944a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-0de0f900-cede-4538-9c00-5da4f830b028",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-a9c97d6b-6721-4150-8d84-64ef3082f164",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-9f2e7f90-0ca5-4ed0-9fe5-e060238a9b5e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7dd6cf2d-5c14-48c2-8ae5-633a7a596c71",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-fecc35f7-681e-4889-a404-4a973a3dfef0",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-1d686958-6fe7-432f-85e6-186b99e4e232",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-c7db0ed8-df7d-49bf-942f-59e46ef743c4",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b7e0e393-9b21-4e0d-adf3-8f28fb5b9d87",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-79d956e8-1118-402a-a0e2-9380af18243e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-96ba77b2-1a44-4dfd-95f9-ae4d1f714460",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-77f54ab4-0fba-4efb-8700-066c7490eb87",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-a354cf7c-8d11-46ac-acc5-da90d2048637",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-43b03992-3f32-4ed1-a6f8-5d6d3e7ed246",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-41702602-08e4-4e2b-9a19-291d9efc581a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-935a7413-abac-4f54-9169-d1fbd39da752",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-432dbde8-8756-4ff0-80d5-f47018235139",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-5727c93f-317b-4af1-a686-77fc9fbc5033",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-d32bd062-4eb2-401b-99b2-e7afea39ca9b",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-9a47184f-6046-4e68-a61b-3d9b357b86ea",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-87c5b27e-59a8-4c48-8ba8-f5413d735693",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-11b20adb-abed-4363-894c-3dd823ae0540",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-50418d86-712c-45d9-adc4-ea0231c93cf5",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-f40e421f-6c24-4be2-bd9f-28d33358d8c6",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-8791f37b-686f-47c3-9db7-74c009951321",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-4fd25155-9cc2-4cd6-8852-3e0ca2d5e95d",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b68af20d-24f9-4c27-85cc-fe0858994888",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-54423933-0ebb-44a7-bdd9-2a9b100c70f2",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7317848c-3e1b-422f-bb16-02efc504f677",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-7d93e1ca-46e8-4a30-9623-42a80c9b420c",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-a7f43928-8982-4ed5-8656-7a80346fe979",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-17910a55-a64a-4ed0-8b46-293e2fa2fe03",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-3890bb43-2695-4b8d-b289-ee10d11cc884",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-49a85680-53aa-4208-86b5-dccc7a6f8e37",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-10f90fa9-649c-4631-ac4c-3dd3f751597d",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-b86de003-c3c4-4cc8-9385-5ac8a0142c34",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-80c1d149-7050-481a-9953-aefb441642e7",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-51403620-968c-42fa-a772-65ba5ad8396f",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-88a3c2fe-3aa4-4f46-9322-da656332268a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-e7b31bdc-5f6b-40ec-ba91-f5919b0f170e",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-580b08d1-3c94-46e9-9d07-d6d80c698127",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-48bee420-60c0-45cd-be43-3893dbc1969a",
+              "value": 3
+            },
+            {
+              "questionId": "ipip-ea3327ea-3529-4be4-8e2d-2174731ae4d7",
+              "value": 3
+            }
+          ],
+          "interpretation": "raw_only"
+        }
+      }
+    ]
+  },
+  {
+    "id": "motivation",
+    "name": {
+      "ru": "Мотивационный профиль",
+      "kk": "Мотивациялық бейін"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "motivation",
+    "source": "https://doi.org/10.1177/21582440221091263",
+    "durationMinutes": 7,
+    "instructions": {
+      "ru": "Отвечайте так, как вы обычно поступаете. Правильных и неправильных ответов здесь нет.",
+      "kk": "Әдетте қалай әрекет ететініңізге сай жауап беріңіз. Мұнда дұрыс не қате жауап жоқ."
+    },
+    "limitations": {
+      "ru": "Chengwei Xu (2022), WMPS, таблицы 1–2. Оригинальный контекст — китайская государственная служба, шкала 1–6. Перенос на другие организации и переводы требуют методологической проверки. Средние по шкалам — описательные показатели без локальных норм.",
+      "kk": "Chengwei Xu (2022), WMPS, 1–2-кестелер. Бастапқы контекст — Қытайдың мемлекеттік қызметі, шкала 1–6. Басқа ұйымдарға қолдану мен аудармалар әдістемелік тексеруді талап етеді. Шкала орташалары жергілікті нормасыз сипаттамалық көрсеткіштер."
+    },
+    "licenseStatus": "CC-BY-4.0",
+    "scientificBasis": "https://doi.org/10.1177/21582440221091263",
+    "algorithm": "scales",
+    "config": {
+      "min": 1,
+      "max": 6,
+      "scales": {
+        "M1": {
+          "name": {
+            "ru": "Внутренняя мотивация",
+            "kk": "Ішкі мотивация"
+          },
+          "min": 1,
+          "max": 6
+        },
+        "M2": {
+          "name": {
+            "ru": "Осознанная мотивация",
+            "kk": "Саналы мотивация"
+          },
+          "min": 1,
+          "max": 6
+        },
+        "M3": {
+          "name": {
+            "ru": "Инструментальная мотивация",
+            "kk": "Құралдық мотивация"
+          },
+          "min": 1,
+          "max": 6
+        },
+        "M4": {
+          "name": {
+            "ru": "Интроецированная мотивация",
+            "kk": "Интроекцияланған мотивация"
+          },
+          "min": 1,
+          "max": 6
+        },
+        "M5": {
+          "name": {
+            "ru": "Внешняя мотивация",
+            "kk": "Сыртқы мотивация"
+          },
+          "min": 1,
+          "max": 6
+        },
+        "M6": {
+          "name": {
+            "ru": "Амотивация",
+            "kk": "Амотивация"
+          },
+          "min": 1,
+          "max": 6
+        }
+      },
+      "items": {
+        "wmps-1": {
+          "scales": [
+            "M1"
+          ]
+        },
+        "wmps-2": {
+          "scales": [
+            "M1"
+          ]
+        },
+        "wmps-3": {
+          "scales": [
+            "M1"
+          ]
+        },
+        "wmps-4": {
+          "scales": [
+            "M1"
+          ]
+        },
+        "wmps-5": {
+          "scales": [
+            "M2"
+          ]
+        },
+        "wmps-6": {
+          "scales": [
+            "M2"
+          ]
+        },
+        "wmps-7": {
+          "scales": [
+            "M3"
+          ]
+        },
+        "wmps-8": {
+          "scales": [
+            "M3"
+          ]
+        },
+        "wmps-9": {
+          "scales": [
+            "M3"
+          ]
+        },
+        "wmps-10": {
+          "scales": [
+            "M3"
+          ]
+        },
+        "wmps-11": {
+          "scales": [
+            "M3"
+          ]
+        },
+        "wmps-12": {
+          "scales": [
+            "M4"
+          ]
+        },
+        "wmps-13": {
+          "scales": [
+            "M4"
+          ]
+        },
+        "wmps-14": {
+          "scales": [
+            "M4"
+          ]
+        },
+        "wmps-15": {
+          "scales": [
+            "M5"
+          ]
+        },
+        "wmps-16": {
+          "scales": [
+            "M5"
+          ]
+        },
+        "wmps-17": {
+          "scales": [
+            "M5"
+          ]
+        },
+        "wmps-18": {
+          "scales": [
+            "M5"
+          ]
+        },
+        "wmps-19": {
+          "scales": [
+            "M6"
+          ]
+        },
+        "wmps-20": {
+          "scales": [
+            "M6"
+          ]
+        }
+      }
+    },
+    "questions": [
+      {
+        "id": "wmps-1",
+        "type": "scale",
+        "text": {
+          "ru": "Работа на государственной службе соответствует моим интересам.",
+          "kk": "Мемлекеттік қызметтегі жұмыс менің қызығушылықтарыма сәйкес келеді."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-2",
+        "type": "scale",
+        "text": {
+          "ru": "Предоставление государственных услуг делает меня счастливым.",
+          "kk": "Мемлекеттік қызметтер көрсету мені қуантады."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-3",
+        "type": "scale",
+        "text": {
+          "ru": "Мне нравится служить другим людям.",
+          "kk": "Басқа адамдарға қызмет ету маған ұнайды."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-4",
+        "type": "scale",
+        "text": {
+          "ru": "На своей работе я могу узнавать новое.",
+          "kk": "Жұмысымда жаңа нәрселерді үйрене аламын."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-5",
+        "type": "scale",
+        "text": {
+          "ru": "Для меня важна содержательная работа на благо общества.",
+          "kk": "Қоғам игілігі үшін мағыналы қызмет ету мен үшін маңызды."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-6",
+        "type": "scale",
+        "text": {
+          "ru": "Я могу помогать нуждающимся людям.",
+          "kk": "Мұқтаж адамдарға көмектесе аламын."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-7",
+        "type": "scale",
+        "text": {
+          "ru": "Карьерное продвижение предсказуемо.",
+          "kk": "Мансаптық ілгерілеуді алдын ала болжауға болады."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-8",
+        "type": "scale",
+        "text": {
+          "ru": "Зарплата и льготы на моей работе неплохие.",
+          "kk": "Жұмысымдағы жалақы мен жеңілдіктер жаман емес."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-9",
+        "type": "scale",
+        "text": {
+          "ru": "Не состоящие в браке государственные служащие — идеальные партнёры для брака.",
+          "kk": "Некеде тұрмаған мемлекеттік қызметшілер — отбасын құруға тамаша серіктестер."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-10",
+        "type": "scale",
+        "text": {
+          "ru": "Работа в государственных органах стабильна, и мне не нужно беспокоиться о безработице.",
+          "kk": "Мемлекеттік органдардағы жұмыс тұрақты, сондықтан жұмыссыздық туралы алаңдаудың қажеті жоқ."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-11",
+        "type": "scale",
+        "text": {
+          "ru": "Моя работа даёт мне власть и привилегии.",
+          "kk": "Жұмысым маған билік пен артықшылықтар береді."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-12",
+        "type": "scale",
+        "text": {
+          "ru": "Если я уйду, полученные на государственной службе обучение и навыки окажутся бесполезными.",
+          "kk": "Кетсем, мемлекеттік қызметте алған білімім мен дағдыларым пайдасыз болып қалады."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-13",
+        "type": "scale",
+        "text": {
+          "ru": "Если я уйду, мой опыт государственной службы окажется бесполезным.",
+          "kk": "Кетсем, мемлекеттік қызметтегі тәжірибем пайдасыз болып қалады."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-14",
+        "type": "scale",
+        "text": {
+          "ru": "Если я уйду, мои связи в государственных органах окажутся бесполезными.",
+          "kk": "Кетсем, мемлекеттік органдардағы байланыстарым пайдасыз болып қалады."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-15",
+        "type": "scale",
+        "text": {
+          "ru": "Работа в государственных органах приносит мне и моей семье ощутимые выгоды.",
+          "kk": "Мемлекеттік органдардағы жұмыс маған және отбасыма нақты пайда әкеледі."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-16",
+        "type": "scale",
+        "text": {
+          "ru": "Уход из государственного сектора означает риск, а начинать новую работу всегда трудно.",
+          "kk": "Мемлекеттік сектордан кету — тәуекел, ал жаңа жұмысты бастау әрдайым қиын."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-17",
+        "type": "scale",
+        "text": {
+          "ru": "Мои знания и навыки устарели, и я могу не найти новую работу.",
+          "kk": "Білімім мен дағдыларым ескірген, сондықтан жаңа жұмыс таба алмауым мүмкін."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-18",
+        "type": "scale",
+        "text": {
+          "ru": "Многолетняя работа в государственных органах сделала меня менее деятельным; боюсь, я не справлюсь в частном секторе.",
+          "kk": "Мемлекеттік органдарда көп жыл жұмыс істеу мені енжар етті; жеке секторда жұмыс істей алмаймын деп қорқамын."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-19",
+        "type": "scale",
+        "text": {
+          "ru": "Я подумываю о работе в частном секторе и уйду, когда появится возможность.",
+          "kk": "Жеке сектордан жұмыс табуды ойлап жүрмін және мүмкіндік болса кетемін."
+        },
+        "options": []
+      },
+      {
+        "id": "wmps-20",
+        "type": "scale",
+        "text": {
+          "ru": "Моя работа кажется мне скучной и бессмысленной, и я хочу уйти как можно скорее.",
+          "kk": "Жұмысым қызықсыз әрі мағынасыз болып көрінеді, сондықтан тезірек кеткім келеді."
+        },
+        "options": []
+      }
+    ],
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "wmps-1": 3,
+          "wmps-2": 3,
+          "wmps-3": 3,
+          "wmps-4": 3,
+          "wmps-5": 3,
+          "wmps-6": 3,
+          "wmps-7": 3,
+          "wmps-8": 3,
+          "wmps-9": 3,
+          "wmps-10": 3,
+          "wmps-11": 3,
+          "wmps-12": 3,
+          "wmps-13": 3,
+          "wmps-14": 3,
+          "wmps-15": 3,
+          "wmps-16": 3,
+          "wmps-17": 3,
+          "wmps-18": 3,
+          "wmps-19": 3,
+          "wmps-20": 3
+        },
+        "expected": {
+          "algorithm": "scales",
+          "scales": {
+            "M1": {
+              "name": {
+                "ru": "Внутренняя мотивация",
+                "kk": "Ішкі мотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "M2": {
+              "name": {
+                "ru": "Осознанная мотивация",
+                "kk": "Саналы мотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 6,
+              "mean": 3,
+              "count": 2
+            },
+            "M3": {
+              "name": {
+                "ru": "Инструментальная мотивация",
+                "kk": "Құралдық мотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 15,
+              "mean": 3,
+              "count": 5
+            },
+            "M4": {
+              "name": {
+                "ru": "Интроецированная мотивация",
+                "kk": "Интроекцияланған мотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 9,
+              "mean": 3,
+              "count": 3
+            },
+            "M5": {
+              "name": {
+                "ru": "Внешняя мотивация",
+                "kk": "Сыртқы мотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 12,
+              "mean": 3,
+              "count": 4
+            },
+            "M6": {
+              "name": {
+                "ru": "Амотивация",
+                "kk": "Амотивация"
+              },
+              "min": 1,
+              "max": 6,
+              "sum": 6,
+              "mean": 3,
+              "count": 2
+            }
+          },
+          "details": [
+            {
+              "questionId": "wmps-1",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-2",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-3",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-4",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-5",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-6",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-7",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-8",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-9",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-10",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-11",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-12",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-13",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-14",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-15",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-16",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-17",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-18",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-19",
+              "value": 3
+            },
+            {
+              "questionId": "wmps-20",
+              "value": 3
+            }
+          ],
+          "interpretation": "raw_only"
+        }
+      }
+    ]
+  },
+  {
+    "id": "situations",
+    "name": {
+      "ru": "Управленческие ситуации",
+      "kk": "Басқарушылық жағдайлар"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "situations",
+    "source": "https://www.123test.com/situational-judgement-test/",
+    "durationMinutes": 10,
+    "instructions": {
+      "ru": "В каждой ситуации выберите одно наиболее вероятное действие (MOST) и одно наименее вероятное (LEAST). Один вариант нельзя выбрать дважды.",
+      "kk": "Әр жағдайда ең ықтимал (MOST) және ең аз ықтимал (LEAST) бір әрекетті таңдаңыз. Бір нұсқаны екі рет таңдауға болмайды."
+    },
+    "limitations": {
+      "ru": "Предварительный индекс совпадения AssessFlow, 0–16. Ключ из ТЗ 2.0 на основе разбора Jobzilla; не официальный ключ 123test, не процентиль и не валидированная оценка управленческого потенциала.",
+      "kk": "AssessFlow алдын ала сәйкестік индексі, 0–16. Кілт Jobzilla талдауына негізделген ТТ 2.0-ден алынған; 123test ресми кілті, процентиль немесе басқарушылық әлеуеттің валидтелген бағасы емес."
+    },
+    "licenseStatus": "permission_confirmed_by_owner",
+    "scientificBasis": "https://www.123test.com/situational-judgement-test/",
+    "algorithm": "sjt",
+    "config": {
+      "items": {
+        "sjt-1": {
+          "most": "sjt-1-A",
+          "least": "sjt-1-B"
+        },
+        "sjt-2": {
+          "most": "sjt-2-A",
+          "least": "sjt-2-C"
+        },
+        "sjt-3": {
+          "most": "sjt-3-C",
+          "least": "sjt-3-D"
+        },
+        "sjt-4": {
+          "most": "sjt-4-B",
+          "least": "sjt-4-A"
+        },
+        "sjt-5": {
+          "most": "sjt-5-D",
+          "least": "sjt-5-A"
+        },
+        "sjt-6": {
+          "most": "sjt-6-B",
+          "least": "sjt-6-A"
+        },
+        "sjt-7": {
+          "most": "sjt-7-D",
+          "least": "sjt-7-B"
+        },
+        "sjt-8": {
+          "most": "sjt-8-C",
+          "least": "sjt-8-A"
+        }
+      }
+    },
+    "questions": [
+      {
+        "id": "sjt-1",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы управляете крупным универмагом. Сотрудники работают в командах продаж и обслуживания разного размера, каждая отвечает за заказы своего отдела. Вас беспокоят всё более заметные признаки снижения командного духа в трёх самых крупных командах. Что вы, скорее всего и наименее вероятно, сделаете дальше?",
+          "kk": "Сіз ірі әмбебап дүкенді басқарасыз. Қызметкерлер көлемі әртүрлі сату және қызмет көрсету топтарында жұмыс істейді, әр топ өз бөлімінің тапсырыстарына жауап береді. Ең үлкен үш топта ұжымдық рухтың төмендеу белгілері күшейіп келеді. Келесі әрекеттердің қайсысын ең ықтимал және ең аз ықтимал жасар едіңіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-1-A",
+            "text": {
+              "ru": "Отдельно пригласите трёх руководителей команд, чтобы выслушать их идеи и объяснения.",
+              "kk": "Үш топ жетекшісін жеке шақырып, олардың ойлары мен түсініктемелерін тыңдайсыз."
+            }
+          },
+          {
+            "id": "sjt-1-B",
+            "text": {
+              "ru": "Подождёте ещё немного, чтобы всё улеглось, не вызывая ни у кого беспокойства.",
+              "kk": "Ешкімді мазаламай, жағдайдың өздігінен реттелуін тағы біраз күтесіз."
+            }
+          },
+          {
+            "id": "sjt-1-C",
+            "text": {
+              "ru": "Неформально поговорите с несколькими сотрудниками каждой из трёх команд.",
+              "kk": "Үш топтың әрқайсысындағы бірнеше қызметкермен бейресми сөйлесесіз."
+            }
+          },
+          {
+            "id": "sjt-1-D",
+            "text": {
+              "ru": "Проведёте мозговой штурм со всеми руководителями команд для поиска новых идей.",
+              "kk": "Жаңа идеялар табу үшін барлық топ жетекшілерімен бірлесіп талқылау өткізесіз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-2",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы недавно стали руководителем-стажёром после окончания университета. На прошлой неделе вы впервые поставили индивидуальные и командные цели, попросив всех работать вместе и завершить задачи к концу недели. Теперь ясно, что ни одна командная цель не достигнута. Индивидуальные задачи также выполнены лишь частично. Что вы сделаете?",
+          "kk": "Сіз университетті бітіргеннен кейін жақында тағылымгер басшы болдыңыз. Өткен аптада алғаш рет жеке және топтық мақсаттар қойып, барлығынан бірлесіп жұмыс істеп, тапсырмаларды апта соңына дейін аяқтауды сұрадыңыз. Енді топтық мақсаттардың ешқайсысына қол жетпегені анық. Жеке тапсырмалар да ішінара ғана орындалған. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-2-A",
+            "text": {
+              "ru": "На индивидуальных встречах обсудите реалистичные цели и совместно согласуете новые.",
+              "kk": "Жеке кездесулерде тиімді мақсаттарды талқылап, жаңа мақсаттарды бірге келісесіз."
+            }
+          },
+          {
+            "id": "sjt-2-B",
+            "text": {
+              "ru": "Откажетесь от постановки целей, поскольку этот подход явно не работает.",
+              "kk": "Мақсат қою тәсілі нәтиже бермегендіктен, одан бас тартасыз."
+            }
+          },
+          {
+            "id": "sjt-2-C",
+            "text": {
+              "ru": "Отправите команде срочное письмо с просьбой теснее сотрудничать.",
+              "kk": "Топқа тығызырақ ынтымақтасуды сұрап, шұғыл хат жібересіз."
+            }
+          },
+          {
+            "id": "sjt-2-D",
+            "text": {
+              "ru": "Соберёте команду, чтобы обсудить отношение к работе и недостаток усилий.",
+              "kk": "Жұмысқа көзқарасты және күш-жігердің жеткіліксіздігін талқылау үшін топты жинайсыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-3",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы проводите ежедневное короткое совещание с перегруженной работой командой медсестёр. Новый младший коллега постоянно перебивает остальных, когда они рассказывают о вчерашних трудностях. Вам кажется, что он пытается произвести впечатление, единолично предлагая медицинские решения каждой проблемы. Что вы сделаете?",
+          "kk": "Сіз жұмысы шамадан тыс көп мейіргерлер тобымен күнделікті қысқа жиналыс өткізесіз. Жаңа жас әріптес басқалар кешегі қиындықтарды айтқанда үнемі сөздерін бөледі. Ол әр мәселеге медициналық шешімді жалғыз өзі ұсынып, жақсы әсер қалдырғысы келетіндей көрінеді. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-3-A",
+            "text": {
+              "ru": "Скажете новому коллеге прекратить отвлекать всех от альтернативных решений.",
+              "kk": "Жаңа әріптеске басқалардың балама шешімдеріне кедергі келтіруді тоқтатуды айтасыз."
+            }
+          },
+          {
+            "id": "sjt-3-B",
+            "text": {
+              "ru": "Спросите, почему более опытные сотрудники не предлагают своих решений.",
+              "kk": "Тәжірибелі қызметкерлерден неге өз шешімдерін ұсынбай отырғандарын сұрайсыз."
+            }
+          },
+          {
+            "id": "sjt-3-C",
+            "text": {
+              "ru": "Твёрдо предложите новому коллеге дать каждому возможность высказаться.",
+              "kk": "Жаңа әріптеске әркімнің сөйлеуіне мүмкіндік беру әділ болатынын нық айтасыз."
+            }
+          },
+          {
+            "id": "sjt-3-D",
+            "text": {
+              "ru": "Предполагая, что остальные с вами согласны, озвучите свою версию происходящего.",
+              "kk": "Қалғандары сізбен келіседі деп болжап, болып жатқан жағдай туралы өз пікіріңізді айтасыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-4",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы недавно возглавили специализированную службу поддержки клиентов. В первые недели вы замечаете, что большинство сотрудников замкнуты и мало общаются, даже на индивидуальных встречах. Командный дух слабый, удовлетворённость работой низкая. Что вы сделаете?",
+          "kk": "Сіз жақында мамандандырылған клиенттерді қолдау қызметін басқаруға кірістіңіз. Алғашқы апталарда қызметкерлердің көбі тұйық әрі жеке кездесулерде де аз сөйлейтінін байқайсыз. Ұжымдық рух әлсіз, жұмысқа қанағаттану деңгейі төмен. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-4-A",
+            "text": {
+              "ru": "Созовёте разовое экстренное совещание, чтобы подчеркнуть цели и недостаток сотрудничества.",
+              "kk": "Мақсаттар мен ынтымақтастықтың жеткіліксіздігін атап өту үшін бір реттік шұғыл жиналыс өткізесіз."
+            }
+          },
+          {
+            "id": "sjt-4-B",
+            "text": {
+              "ru": "Начнёте с еженедельных получасовых встреч всей команды.",
+              "kk": "Бүкіл топ үшін апта сайынғы жарты сағаттық кездесулерден бастайсыз."
+            }
+          },
+          {
+            "id": "sjt-4-C",
+            "text": {
+              "ru": "Как можно скорее введёте обязательное обучение навыкам межличностного общения.",
+              "kk": "Тұлғааралық қарым-қатынас дағдылары бойынша міндетті оқытуды тезірек енгізесіз."
+            }
+          },
+          {
+            "id": "sjt-4-D",
+            "text": {
+              "ru": "Изучите цели команды и будете регулярно сообщать по email о прогрессе каждого.",
+              "kk": "Топтың мақсаттарымен танысып, әркімнің ілгерілеуі туралы электрондық пошта арқылы тұрақты хабарлайсыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-5",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы финансовый аналитик: исследуете данные, готовите и представляете отчёты компании. Вы также ставите задачи стажёру и проверяете его работу. Последний черновик стажёра не соответствует ни одной из целей, поставленных на прошлой неделе. До передачи важного отчёта клиенту осталось мало времени. Что вы сделаете?",
+          "kk": "Сіз қаржы талдаушысысыз: деректерді зерттеп, компания есептерін дайындайсыз және ұсынасыз. Сондай-ақ тағылымгерге міндеттер қойып, оның жұмысын тексересіз. Оның соңғы есеп жобасы өткен аптада қойылған мақсаттардың ешқайсысына сәйкес келмейді. Маңызды есепті клиентке тапсыруға аз уақыт қалды. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-5-A",
+            "text": {
+              "ru": "Позволите стажёру самому увидеть последствия передачи клиенту некачественного отчёта.",
+              "kk": "Тағылымгерге сапасыз есепті клиентке берудің салдарын өзі көруге мүмкіндік бересіз."
+            }
+          },
+          {
+            "id": "sjt-5-B",
+            "text": {
+              "ru": "Перешлёте черновик другим аналитикам отдела для комментариев.",
+              "kk": "Пікір алу үшін есеп жобасын бөлімдегі басқа талдаушыларға жібересіз."
+            }
+          },
+          {
+            "id": "sjt-5-C",
+            "text": {
+              "ru": "Спросите своего руководителя, что произошло бы, если бы вы не проверили отчёт.",
+              "kk": "Басшыңыздан есепті тексермегеніңізде не болар еді деп сұрайсыз."
+            }
+          },
+          {
+            "id": "sjt-5-D",
+            "text": {
+              "ru": "Отправите стажёру собранные правки и предложите подробно объяснить каждую.",
+              "kk": "Тағылымгерге жинақталған түзетулерді жіберіп, әрқайсысын егжей-тегжейлі түсіндіруді ұсынасыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-6",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы очень занятый руководитель команды в сфере общественного здравоохранения во время пандемии. Сейчас проходит очередная виртуальная презентация индивидуальных проектов, проводимая раз в две недели; выступающие меняются. Докладчик уже превысил отведённое время, некоторые сотрудники скучают. Вы тоже считаете, что выступление затянулось. Что вы сделаете?",
+          "kk": "Пандемия кезінде қоғамдық денсаулық сақтау саласында өте тығыз жұмыс істейтін топ жетекшісісіз. Қазір екі апта сайын өтетін жеке жобалардың онлайн таныстырылымы жүріп жатыр; баяндамашылар кезектеседі. Баяндамашы бөлінген уақыттан асып кетті, кейбір қызметкерлер жалығып отыр. Сіз де сөздің тым созылғанын байқайсыз. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-6-A",
+            "text": {
+              "ru": "Покинете встречу, объяснив, что у вас срочная работа.",
+              "kk": "Шұғыл жұмысыңыз бар екенін айтып, кездесуден шығасыз."
+            }
+          },
+          {
+            "id": "sjt-6-B",
+            "text": {
+              "ru": "Тактично завершите встречу, а позже в тот же день обсудите презентацию с докладчиком.",
+              "kk": "Кездесуді сыпайы аяқтап, сол күні кейінірек баяндамашымен таныстырылымды талқылайсыз."
+            }
+          },
+          {
+            "id": "sjt-6-C",
+            "text": {
+              "ru": "Завершите встречу, незаметно написав всем участникам, чтобы они сейчас задавали вопросы.",
+              "kk": "Барлық қатысушыға қазір сұрақ қоюды жасырын хабарлап, кездесуді аяқтауға бағыттайсыз."
+            }
+          },
+          {
+            "id": "sjt-6-D",
+            "text": {
+              "ru": "Оставите всё как есть: за время отвечает докладчик, а не вы.",
+              "kk": "Уақытты басқару баяндамашының міндеті деп, араласпайсыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-7",
+        "type": "sjt",
+        "text": {
+          "ru": "Вы работаете в офисе продаж открытой планировки. Сидящий рядом шумный коллега мешает вам сосредоточиться. Он мешает и другим, но никто пока ничего не сказал и не предпринял. Что вы сделаете?",
+          "kk": "Сіз ашық жоспарлы сату кеңсесінде жұмыс істейсіз. Жаныңызда отырған шулы әріптес зейін қоюыңызға кедергі келтіреді. Басқаларға да кедергі, бірақ әзірге ешкім ештеңе айтқан да, істеген де жоқ. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-7-A",
+            "text": {
+              "ru": "Обратитесь к непосредственному руководителю, поскольку он отвечает за ситуацию в целом.",
+              "kk": "Жалпы жағдайға жауапты тікелей басшыңызға жүгінесіз."
+            }
+          },
+          {
+            "id": "sjt-7-B",
+            "text": {
+              "ru": "Будете шуметь ещё сильнее, чтобы показать, насколько это раздражает.",
+              "kk": "Мұның қаншалықты жағымсыз екенін көрсету үшін одан да қатты шулайсыз."
+            }
+          },
+          {
+            "id": "sjt-7-C",
+            "text": {
+              "ru": "Напишете коллеге жалобу по email, поставив руководителя в копию.",
+              "kk": "Басшыңызды көшірмеге қосып, әріптеске шағым хат жазасыз."
+            }
+          },
+          {
+            "id": "sjt-7-D",
+            "text": {
+              "ru": "Поговорите с коллегой и попросите вести себя более внимательно к окружающим.",
+              "kk": "Әріптеспен сөйлесіп, айналасындағыларға қолайлырақ әрекет етуін сұрайсыз."
+            }
+          }
+        ]
+      },
+      {
+        "id": "sjt-8",
+        "type": "sjt",
+        "text": {
+          "ru": "В бухгалтерии с каждым днём растёт объём невыполненной работы. Причин несколько: нехватка сотрудников, недостаточная подготовка и другие кадровые проблемы. Большинство младших коллег уже регулярно срывают еженедельные сроки. Как руководитель, вы должны решить проблему до того, как она перерастёт в кризис. Что вы сделаете?",
+          "kk": "Бухгалтерияда орындалмаған жұмыс көлемі күн сайын өсіп келеді. Себептері бірнешеу: қызметкерлердің аздығы, дайындықтың жеткіліксіздігі және басқа кадрлық мәселелер. Жас әріптестердің көбі апта сайынғы мерзімдерді тұрақты өткізіп алады. Басшы ретінде мәселе дағдарысқа ұласпай тұрып шешуіңіз керек. Не істейсіз?"
+        },
+        "options": [
+          {
+            "id": "sjt-8-A",
+            "text": {
+              "ru": "Напомните команде о проблемах и необходимости соблюдать каждый срок.",
+              "kk": "Топқа мәселелерді және әр мерзімді сақтау қажеттігін еске саласыз."
+            }
+          },
+          {
+            "id": "sjt-8-B",
+            "text": {
+              "ru": "Сообщите команде, что лично занимаетесь решением проблем.",
+              "kk": "Мәселелерді өзіңіз шешіп жатқаныңызды топқа хабарлайсыз."
+            }
+          },
+          {
+            "id": "sjt-8-C",
+            "text": {
+              "ru": "Сохраните позитивный настрой и попросите непосредственного руководителя о дополнительных ресурсах.",
+              "kk": "Оң көзқарасты сақтап, тікелей басшыдан қосымша ресурстар сұрайсыз."
+            }
+          },
+          {
+            "id": "sjt-8-D",
+            "text": {
+              "ru": "Соберёте команду и расскажете, что, по вашему мнению, вызывает проблемы.",
+              "kk": "Топты жинап, мәселелердің себебі туралы өз пікіріңізді айтасыз."
+            }
+          }
+        ]
+      }
+    ],
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "sjt-1": {
+            "most": "sjt-1-A",
+            "least": "sjt-1-B"
+          },
+          "sjt-2": {
+            "most": "sjt-2-A",
+            "least": "sjt-2-C"
+          },
+          "sjt-3": {
+            "most": "sjt-3-C",
+            "least": "sjt-3-D"
+          },
+          "sjt-4": {
+            "most": "sjt-4-B",
+            "least": "sjt-4-A"
+          },
+          "sjt-5": {
+            "most": "sjt-5-D",
+            "least": "sjt-5-A"
+          },
+          "sjt-6": {
+            "most": "sjt-6-B",
+            "least": "sjt-6-A"
+          },
+          "sjt-7": {
+            "most": "sjt-7-D",
+            "least": "sjt-7-B"
+          },
+          "sjt-8": {
+            "most": "sjt-8-C",
+            "least": "sjt-8-A"
+          }
+        },
+        "expected": {
+          "algorithm": "sjt",
+          "total": 16,
+          "maximum": 16,
+          "percent": 100,
+          "mostMatches": 8,
+          "leastMatches": 8,
+          "details": [
+            {
+              "questionId": "sjt-1",
+              "value": {
+                "most": "sjt-1-A",
+                "least": "sjt-1-B"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-2",
+              "value": {
+                "most": "sjt-2-A",
+                "least": "sjt-2-C"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-3",
+              "value": {
+                "most": "sjt-3-C",
+                "least": "sjt-3-D"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-4",
+              "value": {
+                "most": "sjt-4-B",
+                "least": "sjt-4-A"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-5",
+              "value": {
+                "most": "sjt-5-D",
+                "least": "sjt-5-A"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-6",
+              "value": {
+                "most": "sjt-6-B",
+                "least": "sjt-6-A"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-7",
+              "value": {
+                "most": "sjt-7-D",
+                "least": "sjt-7-B"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            },
+            {
+              "questionId": "sjt-8",
+              "value": {
+                "most": "sjt-8-C",
+                "least": "sjt-8-A"
+              },
+              "mostMatch": true,
+              "leastMatch": true,
+              "score": 2
+            }
+          ],
+          "interpretation": "preliminary_matching_index"
+        }
+      }
+    ]
+  },
+  {
+    "id": "numerical",
+    "name": {
+      "ru": "Числовое мышление",
+      "kk": "Сандық ойлау"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "numerical",
+    "source": "https://doi.org/10.1017/S1930297500001819",
+    "durationMinutes": 8,
+    "instructions": {
+      "ru": "Четыре задачи Berlin Numeracy Test. Введите число без знака %. Используется одна неадаптивная форма с числовым вводом.",
+      "kk": "Berlin Numeracy Test төрт тапсырмасы. % белгісінсіз сан енгізіңіз. Сандық енгізуі бар бір бейімделмейтін нұсқа қолданылады."
+    },
+    "limitations": {
+      "ru": "Cokely et al. (2012), BNT: четыре уникальные задачи, неадаптивная форма. Не покрывает полностью анализ деловых таблиц и графиков. Перевод требует проверки; нормы не применяются.",
+      "kk": "Cokely et al. (2012), BNT: төрт бірегей тапсырма, бейімделмейтін нұсқа. Іскерлік кестелер мен графиктерді талдауды толық қамтымайды. Аударманы тексеру қажет; нормалар қолданылмайды."
+    },
+    "licenseStatus": "CC-BY",
+    "scientificBasis": "https://doi.org/10.1017/S1930297500001819",
+    "algorithm": "cognitive",
+    "config": {
+      "items": {
+        "bnt-1": {
+          "correct": 25
+        },
+        "bnt-2": {
+          "correct": 30
+        },
+        "bnt-3": {
+          "correct": 20
+        },
+        "bnt-4": {
+          "correct": 50
+        }
+      }
+    },
+    "questions": [
+      {
+        "id": "bnt-1",
+        "type": "number",
+        "text": {
+          "ru": "В городе 1000 жителей. Из 500 участников хора 100 — мужчины. Среди остальных 500 жителей мужчин 300. Какова вероятность, что случайно выбранный мужчина состоит в хоре? Укажите ответ в процентах.",
+          "kk": "Қалада 1000 тұрғын бар. Хордағы 500 адамның 100-і ер адам. Хорға қатыспайтын 500 тұрғынның 300-і ер адам. Кездейсоқ таңдалған ер адамның хорға қатысу ықтималдығы қандай? Пайызбен көрсетіңіз."
+        },
+        "options": []
+      },
+      {
+        "id": "bnt-2",
+        "type": "number",
+        "text": {
+          "ru": "Пятигранную игральную кость бросают 50 раз. Сколько раз в среднем выпадет нечётное число (1, 3 или 5)?",
+          "kk": "Бес қырлы ойын сүйегін 50 рет лақтырады. Орта есеппен неше рет тақ сан (1, 3 немесе 5) түседі?"
+        },
+        "options": []
+      },
+      {
+        "id": "bnt-3",
+        "type": "number",
+        "text": {
+          "ru": "У шестигранной игральной кости вероятность выпадения 6 вдвое выше вероятности каждого из остальных чисел. Сколько раз в среднем выпадет 6 за 70 бросков?",
+          "kk": "Алты қырлы ойын сүйегінде 6 түсу ықтималдығы қалған сандардың әрқайсысының ықтималдығынан екі есе жоғары. 70 лақтыруда орта есеппен неше рет 6 түседі?"
+        },
+        "options": []
+      },
+      {
+        "id": "bnt-4",
+        "type": "number",
+        "text": {
+          "ru": "В лесу 20% грибов красные, 50% коричневые и 30% белые. Красный гриб ядовит с вероятностью 20%, а некрасный — с вероятностью 5%. Какова вероятность, что ядовитый гриб красный? Укажите ответ в процентах.",
+          "kk": "Ормандағы саңырауқұлақтардың 20%-ы қызыл, 50%-ы қоңыр және 30%-ы ақ. Қызыл саңырауқұлақтың улы болу ықтималдығы 20%, ал қызыл емес саңырауқұлақтікі 5%. Улы саңырауқұлақтың қызыл болу ықтималдығы қандай? Пайызбен көрсетіңіз."
+        },
+        "options": []
+      }
+    ],
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "bnt-1": 25,
+          "bnt-2": 30,
+          "bnt-3": 20,
+          "bnt-4": 50
+        },
+        "expected": {
+          "algorithm": "cognitive",
+          "total": 4,
+          "maximum": 4,
+          "percent": 100,
+          "details": [
+            {
+              "questionId": "bnt-1",
+              "value": 25,
+              "score": 1
+            },
+            {
+              "questionId": "bnt-2",
+              "value": 30,
+              "score": 1
+            },
+            {
+              "questionId": "bnt-3",
+              "value": 20,
+              "score": 1
+            },
+            {
+              "questionId": "bnt-4",
+              "value": 50,
+              "score": 1
+            }
+          ],
+          "interpretation": "raw_only"
+        }
+      }
+    ]
+  },
+  {
+    "id": "verbal",
+    "name": {
+      "ru": "Вербальное мышление",
+      "kk": "Вербалды ойлау"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "verbal",
+    "source": "https://icar-project.com/attachments/download/61/Intelligence%20Supplement%202014.pdf",
+    "durationMinutes": 6,
+    "instructions": {
+      "ru": "Прочитайте вопрос и выберите один ответ. Выполняйте задания самостоятельно, без вспомогательных инструментов.",
+      "kk": "Сұрақты оқып, бір жауапты таңдаңыз. Тапсырмаларды қосымша құралсыз өзіңіз орындаңыз."
+    },
+    "limitations": {
+      "ru": "Четыре VR-задания из ICAR-16, Condon & Revelle (2014), Appendix A. Подшкала не является полным ICAR-16 и не подтверждает полноценное покрытие анализа деловой информации. Перевод и отдельное использование подшкалы требуют утверждения. Ключ проверен арифметически и логически, ожидает утверждения методологом.",
+      "kk": "ICAR-16-дан төрт VR тапсырмасы, Condon & Revelle (2014), Appendix A. Бұл толық ICAR-16 емес және іскерлік ақпаратты талдауды толық қамтымайды. Аударма мен ішкі шкаланы бөлек қолдану бекітуді талап етеді. Кілт арифметикалық және логикалық тексерілген, әдіскердің бекітуін күтуде."
+    },
+    "licenseStatus": "public_domain",
+    "scientificBasis": "https://icar-project.com/attachments/download/61/Intelligence%20Supplement%202014.pdf",
+    "algorithm": "cognitive",
+    "questions": [
+      {
+        "id": "icar-VR.4",
+        "type": "single",
+        "text": {
+          "ru": "Какое число составляет одну пятую от одной четвёртой от одной девятой числа 900?",
+          "kk": "900 санының тоғыздан бірінің төрттен бірінің бестен бірі қандай сан?"
+        },
+        "options": [
+          {
+            "id": "icar-VR.4-1",
+            "text": {
+              "ru": "2",
+              "kk": "2"
+            }
+          },
+          {
+            "id": "icar-VR.4-2",
+            "text": {
+              "ru": "3",
+              "kk": "3"
+            }
+          },
+          {
+            "id": "icar-VR.4-3",
+            "text": {
+              "ru": "4",
+              "kk": "4"
+            }
+          },
+          {
+            "id": "icar-VR.4-4",
+            "text": {
+              "ru": "5",
+              "kk": "5"
+            }
+          },
+          {
+            "id": "icar-VR.4-5",
+            "text": {
+              "ru": "6",
+              "kk": "6"
+            }
+          },
+          {
+            "id": "icar-VR.4-6",
+            "text": {
+              "ru": "7",
+              "kk": "7"
+            }
+          }
+        ]
+      },
+      {
+        "id": "icar-VR.16",
+        "type": "single",
+        "text": {
+          "ru": "Зак выше Мэтта, а Ричард ниже Зака. Какое утверждение наиболее точное?",
+          "kk": "Зак Мэтттен биік, ал Ричард Зактан аласа. Қай тұжырым ең дәл?"
+        },
+        "options": [
+          {
+            "id": "icar-VR.16-1",
+            "text": {
+              "ru": "Ричард выше Мэтта",
+              "kk": "Ричард Мэтттен биік"
+            }
+          },
+          {
+            "id": "icar-VR.16-2",
+            "text": {
+              "ru": "Ричард ниже Мэтта",
+              "kk": "Ричард Мэтттен аласа"
+            }
+          },
+          {
+            "id": "icar-VR.16-3",
+            "text": {
+              "ru": "Ричард одного роста с Мэттом",
+              "kk": "Ричард пен Мэтттің бойлары бірдей"
+            }
+          },
+          {
+            "id": "icar-VR.16-4",
+            "text": {
+              "ru": "Это невозможно определить",
+              "kk": "Мұны анықтау мүмкін емес"
+            }
+          }
+        ]
+      },
+      {
+        "id": "icar-VR.17",
+        "type": "single",
+        "text": {
+          "ru": "Джошуа 12 лет, а его сестра втрое старше. Сколько лет будет сестре, когда Джошуа исполнится 23?",
+          "kk": "Джошуа 12 жаста, ал әпкесі одан үш есе үлкен. Джошуа 23 жасқа толғанда әпкесі неше жаста болады?"
+        },
+        "options": [
+          {
+            "id": "icar-VR.17-1",
+            "text": {
+              "ru": "35",
+              "kk": "35"
+            }
+          },
+          {
+            "id": "icar-VR.17-2",
+            "text": {
+              "ru": "39",
+              "kk": "39"
+            }
+          },
+          {
+            "id": "icar-VR.17-3",
+            "text": {
+              "ru": "44",
+              "kk": "44"
+            }
+          },
+          {
+            "id": "icar-VR.17-4",
+            "text": {
+              "ru": "47",
+              "kk": "47"
+            }
+          },
+          {
+            "id": "icar-VR.17-5",
+            "text": {
+              "ru": "53",
+              "kk": "53"
+            }
+          },
+          {
+            "id": "icar-VR.17-6",
+            "text": {
+              "ru": "57",
+              "kk": "57"
+            }
+          }
+        ]
+      },
+      {
+        "id": "icar-VR.19",
+        "type": "single",
+        "text": {
+          "ru": "Если послезавтра будет за два дня до четверга, какой день сегодня?",
+          "kk": "Егер бүрсігүні бейсенбіден екі күн бұрын болса, бүгін қай күн?"
+        },
+        "options": [
+          {
+            "id": "icar-VR.19-1",
+            "text": {
+              "ru": "Пятница",
+              "kk": "Жұма"
+            }
+          },
+          {
+            "id": "icar-VR.19-2",
+            "text": {
+              "ru": "Понедельник",
+              "kk": "Дүйсенбі"
+            }
+          },
+          {
+            "id": "icar-VR.19-3",
+            "text": {
+              "ru": "Среда",
+              "kk": "Сәрсенбі"
+            }
+          },
+          {
+            "id": "icar-VR.19-4",
+            "text": {
+              "ru": "Суббота",
+              "kk": "Сенбі"
+            }
+          },
+          {
+            "id": "icar-VR.19-5",
+            "text": {
+              "ru": "Вторник",
+              "kk": "Сейсенбі"
+            }
+          },
+          {
+            "id": "icar-VR.19-6",
+            "text": {
+              "ru": "Воскресенье",
+              "kk": "Жексенбі"
+            }
+          }
+        ]
+      }
+    ],
+    "config": {
+      "items": {
+        "icar-VR.4": {
+          "correct": "icar-VR.4-4"
+        },
+        "icar-VR.16": {
+          "correct": "icar-VR.16-4"
+        },
+        "icar-VR.17": {
+          "correct": "icar-VR.17-4"
+        },
+        "icar-VR.19": {
+          "correct": "icar-VR.19-6"
+        }
+      }
+    },
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "icar-VR.4": "icar-VR.4-4",
+          "icar-VR.16": "icar-VR.16-4",
+          "icar-VR.17": "icar-VR.17-4",
+          "icar-VR.19": "icar-VR.19-6"
+        },
+        "expected": {
+          "algorithm": "cognitive",
+          "total": 4,
+          "maximum": 4,
+          "percent": 100,
+          "details": [
+            {
+              "questionId": "icar-VR.4",
+              "value": "icar-VR.4-4",
+              "score": 1
+            },
+            {
+              "questionId": "icar-VR.16",
+              "value": "icar-VR.16-4",
+              "score": 1
+            },
+            {
+              "questionId": "icar-VR.17",
+              "value": "icar-VR.17-4",
+              "score": 1
+            },
+            {
+              "questionId": "icar-VR.19",
+              "value": "icar-VR.19-6",
+              "score": 1
+            }
+          ],
+          "interpretation": "raw_only"
+        }
+      }
+    ]
+  },
+  {
+    "id": "logical",
+    "name": {
+      "ru": "Абстрактно-логическое мышление",
+      "kk": "Абстрактілі-логикалық ойлау"
+    },
+    "description": {
+      "ru": "Оценка отдельных характеристик с последующим экспертным анализом.",
+      "kk": "Жеке сипаттамаларды бағалау және кейінгі сараптамалық талдау."
+    },
+    "direction": "logical",
+    "source": "https://osf.io/4km79/",
+    "durationMinutes": 15,
+    "instructions": {
+      "ru": "Найдите закономерность в матрице и выберите недостающий элемент.",
+      "kk": "Матрицадағы заңдылықты тауып, жетіспейтін элементті таңдаңыз."
+    },
+    "limitations": {
+      "ru": "OMIB, Koch et al. (2022). Техническая адаптация первых 12 заданий банка: оригинал использует конструирование ответа, здесь добавлены варианты выбора. Это не валидированная форма OMIB; состав, дистракторы и перевод требуют утверждения. Применяются только первичные баллы, без IRT-норм.",
+      "kk": "OMIB, Koch et al. (2022). Банктің алғашқы 12 тапсырмасының техникалық бейімделуі: түпнұсқада жауап құрастырылады, мұнда таңдау нұсқалары қосылған. Бұл валидтелген OMIB нұсқасы емес; құрам, дистракторлар және аударма бекітуді талап етеді. IRT нормаларынсыз бастапқы балдар ғана қолданылады."
+    },
+    "licenseStatus": "GPL-3.0-source-review",
+    "scientificBasis": "https://osf.io/4km79/",
+    "algorithm": "cognitive",
+    "questions": [
+      {
+        "id": "omib-1",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-1.svg",
+        "options": [
+          {
+            "id": "omib-1-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-1.svg"
+          },
+          {
+            "id": "omib-1-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-2.svg"
+          },
+          {
+            "id": "omib-1-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-3.svg"
+          },
+          {
+            "id": "omib-1-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-4.svg"
+          },
+          {
+            "id": "omib-1-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-5.svg"
+          },
+          {
+            "id": "omib-1-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-1-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-2",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-2.svg",
+        "options": [
+          {
+            "id": "omib-2-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-1.svg"
+          },
+          {
+            "id": "omib-2-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-2.svg"
+          },
+          {
+            "id": "omib-2-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-3.svg"
+          },
+          {
+            "id": "omib-2-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-4.svg"
+          },
+          {
+            "id": "omib-2-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-5.svg"
+          },
+          {
+            "id": "omib-2-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-2-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-3",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-3.svg",
+        "options": [
+          {
+            "id": "omib-3-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-1.svg"
+          },
+          {
+            "id": "omib-3-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-2.svg"
+          },
+          {
+            "id": "omib-3-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-3.svg"
+          },
+          {
+            "id": "omib-3-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-4.svg"
+          },
+          {
+            "id": "omib-3-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-5.svg"
+          },
+          {
+            "id": "omib-3-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-3-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-4",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-4.svg",
+        "options": [
+          {
+            "id": "omib-4-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-1.svg"
+          },
+          {
+            "id": "omib-4-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-2.svg"
+          },
+          {
+            "id": "omib-4-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-3.svg"
+          },
+          {
+            "id": "omib-4-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-4.svg"
+          },
+          {
+            "id": "omib-4-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-5.svg"
+          },
+          {
+            "id": "omib-4-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-4-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-5",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-5.svg",
+        "options": [
+          {
+            "id": "omib-5-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-1.svg"
+          },
+          {
+            "id": "omib-5-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-2.svg"
+          },
+          {
+            "id": "omib-5-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-3.svg"
+          },
+          {
+            "id": "omib-5-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-4.svg"
+          },
+          {
+            "id": "omib-5-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-5.svg"
+          },
+          {
+            "id": "omib-5-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-5-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-6",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-6.svg",
+        "options": [
+          {
+            "id": "omib-6-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-1.svg"
+          },
+          {
+            "id": "omib-6-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-2.svg"
+          },
+          {
+            "id": "omib-6-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-3.svg"
+          },
+          {
+            "id": "omib-6-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-4.svg"
+          },
+          {
+            "id": "omib-6-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-5.svg"
+          },
+          {
+            "id": "omib-6-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-6-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-7",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-7.svg",
+        "options": [
+          {
+            "id": "omib-7-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-1.svg"
+          },
+          {
+            "id": "omib-7-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-2.svg"
+          },
+          {
+            "id": "omib-7-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-3.svg"
+          },
+          {
+            "id": "omib-7-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-4.svg"
+          },
+          {
+            "id": "omib-7-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-5.svg"
+          },
+          {
+            "id": "omib-7-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-7-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-8",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-8.svg",
+        "options": [
+          {
+            "id": "omib-8-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-1.svg"
+          },
+          {
+            "id": "omib-8-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-2.svg"
+          },
+          {
+            "id": "omib-8-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-3.svg"
+          },
+          {
+            "id": "omib-8-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-4.svg"
+          },
+          {
+            "id": "omib-8-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-5.svg"
+          },
+          {
+            "id": "omib-8-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-8-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-9",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-9.svg",
+        "options": [
+          {
+            "id": "omib-9-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-1.svg"
+          },
+          {
+            "id": "omib-9-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-2.svg"
+          },
+          {
+            "id": "omib-9-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-3.svg"
+          },
+          {
+            "id": "omib-9-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-4.svg"
+          },
+          {
+            "id": "omib-9-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-5.svg"
+          },
+          {
+            "id": "omib-9-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-9-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-10",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-10.svg",
+        "options": [
+          {
+            "id": "omib-10-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-1.svg"
+          },
+          {
+            "id": "omib-10-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-2.svg"
+          },
+          {
+            "id": "omib-10-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-3.svg"
+          },
+          {
+            "id": "omib-10-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-4.svg"
+          },
+          {
+            "id": "omib-10-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-5.svg"
+          },
+          {
+            "id": "omib-10-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-10-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-11",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-11.svg",
+        "options": [
+          {
+            "id": "omib-11-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-1.svg"
+          },
+          {
+            "id": "omib-11-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-2.svg"
+          },
+          {
+            "id": "omib-11-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-3.svg"
+          },
+          {
+            "id": "omib-11-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-4.svg"
+          },
+          {
+            "id": "omib-11-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-5.svg"
+          },
+          {
+            "id": "omib-11-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-11-option-6.svg"
+          }
+        ]
+      },
+      {
+        "id": "omib-12",
+        "type": "image",
+        "text": {
+          "ru": "Выберите изображение, которое завершает матрицу.",
+          "kk": "Матрицаны толықтыратын суретті таңдаңыз."
+        },
+        "imageUrl": "/api/assets/omib/item-12.svg",
+        "options": [
+          {
+            "id": "omib-12-1",
+            "text": {
+              "ru": "Вариант 1",
+              "kk": "1-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-1.svg"
+          },
+          {
+            "id": "omib-12-2",
+            "text": {
+              "ru": "Вариант 2",
+              "kk": "2-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-2.svg"
+          },
+          {
+            "id": "omib-12-3",
+            "text": {
+              "ru": "Вариант 3",
+              "kk": "3-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-3.svg"
+          },
+          {
+            "id": "omib-12-4",
+            "text": {
+              "ru": "Вариант 4",
+              "kk": "4-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-4.svg"
+          },
+          {
+            "id": "omib-12-5",
+            "text": {
+              "ru": "Вариант 5",
+              "kk": "5-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-5.svg"
+          },
+          {
+            "id": "omib-12-6",
+            "text": {
+              "ru": "Вариант 6",
+              "kk": "6-нұсқа"
+            },
+            "imageUrl": "/api/assets/omib/item-12-option-6.svg"
+          }
+        ]
+      }
+    ],
+    "config": {
+      "items": {
+        "omib-1": {
+          "correct": "omib-1-2"
+        },
+        "omib-2": {
+          "correct": "omib-2-3"
+        },
+        "omib-3": {
+          "correct": "omib-3-4"
+        },
+        "omib-4": {
+          "correct": "omib-4-5"
+        },
+        "omib-5": {
+          "correct": "omib-5-6"
+        },
+        "omib-6": {
+          "correct": "omib-6-1"
+        },
+        "omib-7": {
+          "correct": "omib-7-2"
+        },
+        "omib-8": {
+          "correct": "omib-8-3"
+        },
+        "omib-9": {
+          "correct": "omib-9-4"
+        },
+        "omib-10": {
+          "correct": "omib-10-5"
+        },
+        "omib-11": {
+          "correct": "omib-11-6"
+        },
+        "omib-12": {
+          "correct": "omib-12-1"
+        }
+      }
+    },
+    "controlExamples": [
+      {
+        "name": "Полный контрольный набор",
+        "answers": {
+          "omib-1": "omib-1-2",
+          "omib-2": "omib-2-3",
+          "omib-3": "omib-3-4",
+          "omib-4": "omib-4-5",
+          "omib-5": "omib-5-6",
+          "omib-6": "omib-6-1",
+          "omib-7": "omib-7-2",
+          "omib-8": "omib-8-3",
+          "omib-9": "omib-9-4",
+          "omib-10": "omib-10-5",
+          "omib-11": "omib-11-6",
+          "omib-12": "omib-12-1"
+        },
+        "expected": {
+          "algorithm": "cognitive",
+          "total": 12,
+          "maximum": 12,
+          "percent": 100,
+          "details": [
+            {
+              "questionId": "omib-1",
+              "value": "omib-1-2",
+              "score": 1
+            },
+            {
+              "questionId": "omib-2",
+              "value": "omib-2-3",
+              "score": 1
+            },
+            {
+              "questionId": "omib-3",
+              "value": "omib-3-4",
+              "score": 1
+            },
+            {
+              "questionId": "omib-4",
+              "value": "omib-4-5",
+              "score": 1
+            },
+            {
+              "questionId": "omib-5",
+              "value": "omib-5-6",
+              "score": 1
+            },
+            {
+              "questionId": "omib-6",
+              "value": "omib-6-1",
+              "score": 1
+            },
+            {
+              "questionId": "omib-7",
+              "value": "omib-7-2",
+              "score": 1
+            },
+            {
+              "questionId": "omib-8",
+              "value": "omib-8-3",
+              "score": 1
+            },
+            {
+              "questionId": "omib-9",
+              "value": "omib-9-4",
+              "score": 1
+            },
+            {
+              "questionId": "omib-10",
+              "value": "omib-10-5",
+              "score": 1
+            },
+            {
+              "questionId": "omib-11",
+              "value": "omib-11-6",
+              "score": 1
+            },
+            {
+              "questionId": "omib-12",
+              "value": "omib-12-1",
+              "score": 1
+            }
+          ],
+          "interpretation": "raw_only"
+        }
+      }
+    ]
+  }
+]

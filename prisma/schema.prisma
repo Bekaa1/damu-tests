@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  emailVerified Boolean @default(false)
+  image String?
+  platformAdmin Boolean @default(false)
+  mustChangePassword Boolean @default(true)
+  locale String @default("ru")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions Session[]
+  accounts Account[]
+  memberships Membership[]
+  @@map("users")
+}
+model Session {
+  id String @id @default(cuid())
+  token String @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("sessions")
+}
+model Account {
+  id String @id @default(cuid())
+  accountId String
+  providerId String
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  password String?
+  accessToken String?
+  refreshToken String?
+  idToken String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([providerId,accountId])
+  @@map("accounts")
+}
+model Verification {
+  id String @id @default(cuid())
+  identifier String
+  value String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([identifier])
+  @@map("verifications")
+}
+model RateLimit {
+  id String @id @default(cuid())
+  key String @unique
+  count Int
+  lastRequest BigInt
+  @@map("rate_limits")
+}
+model Organization {
+  exercises AssessmentExercise[]
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  status String @default("active")
+  logoUrl String?
+  color String @default("#25635f")
+  employeeLimit Int @default(100)
+  assessmentLimit Int @default(1000)
+  showPreliminary Boolean @default(false)
+  showApproved Boolean @default(true)
+  aiBudget Float @default(25)
+  retentionDays Int @default(1095)
+  matrixConfig Json
+  createdAt DateTime @default(now())
+  memberships Membership[]
+  units OrganizationUnit[]
+  campaigns Campaign[]
+  @@map("organizations")
+}
+model OrganizationUnit {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  name String
+  @@unique([organizationId,name])
+  @@unique([id,organizationId])
+  @@map("organization_units")
+}
+model Membership {
+  assignments TestAssignment[] @relation("AssignedParticipant")
+  expertAssignments TestAssignment[] @relation("AssignedExpert")
+  aiReports AiReport[]
+  observations ExpertObservation[]
+  reports FinalReport[]
+  files FileAsset[]
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  role String @default("employee")
+  position String @default("")
+  unit String @default("Головной офис")
+  category String @default("Руководитель")
+  status String @default("active")
+  consentAt DateTime?
+  consentVersion String?
+  createdAt DateTime @default(now())
+  @@unique([organizationId,userId])
+  @@unique([id,organizationId])
+  @@map("memberships")
+}
+model Campaign {
+  aiReports AiReport[]
+  observations ExpertObservation[]
+  reports FinalReport[]
+  files FileAsset[]
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  name String
+  description String @default("")
+  status String @default("active")
+  startsAt DateTime @default(now())
+  endsAt DateTime
+  createdAt DateTime @default(now())
+  assignments TestAssignment[]
+  @@unique([id,organizationId])
+  @@map("campaigns")
+}
+model Test {
+  id String @id
+  name Json
+  description Json
+  direction String
+  source String
+  licenseStatus String
+  scientificBasis String
+  versions TestVersion[]
+  @@map("tests")
+}
+model TestVersion {
+  id String @id @default(cuid())
+  testId String
+  test Test @relation(fields:[testId],references:[id])
+  version String
+  status String @default("draft")
+  durationMinutes Int
+  timeLimitSeconds Int?
+  instructions Json
+  limitations Json
+  translationStatus String @default("draft")
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  questions Question[]
+  keys ScoringKey[]
+  assignments TestAssignment[]
+  @@unique([testId,version])
+  @@map("test_versions")
+}
+model Question {
+  id String @id
+  testVersionId String
+  testVersion TestVersion @relation(fields:[testVersionId],references:[id])
+  position Int
+  type String
+  text Json
+  imageUrl String?
+  options AnswerOption[]
+  @@unique([testVersionId,position])
+  @@map("questions")
+}
+model AnswerOption {
+  id String @id
+  questionId String
+  question Question @relation(fields:[questionId],references:[id])
+  position Int
+  text Json
+  imageUrl String?
+  @@map("answer_options")
+}
+model ScoringKey {
+  id String @id @default(cuid())
+  testVersionId String
+  testVersion TestVersion @relation(fields:[testVersionId],references:[id])
+  version String
+  algorithm String
+  config Json
+  source String
+  status String @default("preliminary")
+  approvedBy String?
+  approvedAt DateTime?
+  controlExamples Json
+  createdAt DateTime @default(now())
+  @@unique([testVersionId,version])
+  @@map("scoring_keys")
+}
+model TestAssignment {
+  membership Membership @relation("AssignedParticipant",fields:[membershipId,organizationId],references:[id,organizationId])
+  expert Membership? @relation("AssignedExpert",fields:[expertId,organizationId],references:[id,organizationId])
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId])
+  membershipId String
+  testVersionId String
+  testVersion TestVersion @relation(fields:[testVersionId],references:[id])
+  expertId String?
+  createdAt DateTime @default(now())
+  attempts TestAttempt[]
+  @@unique([campaignId,membershipId,testVersionId])
+  @@unique([id,organizationId])
+  @@index([organizationId,membershipId])
+  @@map("test_assignments")
+}
+model TestAttempt {
+  id String @id @default(cuid())
+  organizationId String
+  assignmentId String
+  assignment TestAssignment @relation(fields:[assignmentId,organizationId],references:[id,organizationId])
+  attemptNumber Int @default(1)
+  language String
+  status String @default("in_progress")
+  scoringKeyId String
+  startedAt DateTime @default(now())
+  submittedAt DateTime?
+  expiresAt DateTime?
+  answers UserAnswer[]
+  results TestResult[]
+  @@unique([assignmentId,attemptNumber])
+  @@unique([id,organizationId])
+  @@map("test_attempts")
+}
+model UserAnswer {
+  id String @id @default(cuid())
+  organizationId String
+  attemptId String
+  attempt TestAttempt @relation(fields:[attemptId,organizationId],references:[id,organizationId])
+  questionId String
+  value Json
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@unique([attemptId,questionId])
+  @@map("user_answers")
+}
+model TestResult {
+  id String @id @default(cuid())
+  organizationId String
+  attemptId String
+  attempt TestAttempt @relation(fields:[attemptId,organizationId],references:[id,organizationId])
+  scoringKeyId String
+  result Json
+  reason String @default("initial")
+  calculatedBy String?
+  createdAt DateTime @default(now())
+  @@unique([attemptId,scoringKeyId])
+  @@map("test_results")
+}
+model AiReport {
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId])
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId])
+  id String @id @default(cuid())
+  prompt String @default("")
+  providerConfig Json @default("{}")
+  organizationId String
+  campaignId String
+  membershipId String
+  status String @default("pending")
+  model String
+  promptVersion String
+  inputHash String
+  resultIds Json
+  content Json?
+  error String?
+  promptTokens Int @default(0)
+  completionTokens Int @default(0)
+  cost Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId,campaignId,membershipId])
+  @@map("ai_reports")
+}
+model AssessmentExercise {
+  organization Organization @relation(fields:[organizationId],references:[id])
+  observations ExpertObservation[]
+  @@unique([id,organizationId])
+  id String @id @default(cuid())
+  organizationId String
+  type String
+  name Json
+  version Int @default(1)
+  criteria Json
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@index([organizationId])
+  @@map("assessment_exercises")
+}
+model ExpertObservation {
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId])
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId])
+  exercise AssessmentExercise @relation(fields:[exerciseId,organizationId],references:[id,organizationId])
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  membershipId String
+  expertId String
+  exerciseId String
+  criteriaSnapshot Json
+  scores Json
+  notes String
+  version Int
+  createdAt DateTime @default(now())
+  @@index([organizationId,campaignId,membershipId])
+  @@map("expert_observations")
+}
+model FinalReport {
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId])
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId])
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  membershipId String
+  authorId String
+  version Int
+  status String @default("draft")
+  content Json
+  resultIds Json
+  observationIds Json
+  aiReportId String?
+  matrixX Int?
+  matrixY Int?
+  matrixReason String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([organizationId,campaignId,membershipId,version])
+  @@index([organizationId,campaignId])
+  @@map("final_reports")
+}
+model LicenseRecord {
+  id String @id @default(cuid())
+  testId String
+  source String
+  status String
+  notes String
+  recordedAt DateTime @default(now())
+  @@map("license_records")
+}
+model AuditLog {
+  id String @id @default(cuid())
+  organizationId String?
+  actorId String?
+  action String
+  entityId String?
+  detail Json?
+  createdAt DateTime @default(now())
+  @@index([organizationId,createdAt])
+  @@map("audit_logs")
+}
+model FileAsset {
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId])
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId])
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  membershipId String
+  uploadedBy String
+  name String
+  contentType String
+  size Int
+  storageKey String @unique
+  createdAt DateTime @default(now())
+  @@index([organizationId,membershipId])
+  @@map("file_assets")
+}
+model PlatformSettings {
+  id String @id @default("default")
+  aiModel String @default("")
+  encryptedApiKey String?
+  aiPrompt String
+  aiPromptVersion String @default("1.0")
+  aiProviderAllowlist Json
+  aiZdr Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  @@map("platform_settings")
+}

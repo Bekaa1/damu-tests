@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+!.env.production.example
+.next/
+dist/
+coverage/
+artifacts/
+*.log
+*.tsbuildinfo
+.data/
+backups/
+audit-report.json

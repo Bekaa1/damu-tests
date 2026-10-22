@@ -1,0 +1,13 @@
+node_modules
+**/.next
+.git
+.env
+.env.*
+!.env.example
+artifacts
+.data
+*.log
+audit-report.json
+data/sources/omib/*.zip
+data/sources/omib/web
+data/sources/omib/matrices

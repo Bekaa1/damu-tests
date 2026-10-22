@@ -1,0 +1,66 @@
+{
+  "name": "assessflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB -c cyan,blue \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch apps/api/src/main.ts",
+    "dev:web": "next dev apps/web --webpack -p 3000",
+    "build": "prisma generate && tsc --noEmit && next build apps/web --webpack",
+    "start:api": "tsx apps/api/src/main.ts",
+    "start:web": "next start apps/web -p 3000",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:integration": "tsx tests/integration.ts",
+    "typecheck": "tsc --noEmit",
+    "infra:up": "docker compose up -d postgres redis minio",
+    "setup": "npm run db:generate && npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1000.0",
+    "@aws-sdk/s3-request-presigner": "^3.1000.0",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@prisma/client": "6.19.3",
+    "better-auth": "^1.6.0",
+    "bullmq": "^5.70.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.0",
+    "exceljs": "^4.4.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.8.0",
+    "lucide-react": "^0.577.0",
+    "next": "16.4.2",
+    "playwright": "^1.58.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "concurrently": "^9.2.0",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "effect": "^3.20.0",
+    "uuid": "^11.1.1"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
