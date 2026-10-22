@@ -25,10 +25,7 @@ export function individualTemplate(d: any, language: "ru" | "kk" = "ru") {
   const ai = (section: string) =>
     d.ai?.status === "completed"
       ? (d.ai.content?.[section] || [])
-          .map(
-            (p: any) =>
-              `<p>${esc(p.text)}</p><p class="limit">${t("Основания", "Негіздер")}: ${esc(p.evidenceIds.join(", "))}</p>`,
-          )
+          .map((p: any) => `<p>${esc(p.text)}</p>`)
           .join("")
       : "";
   const bars = (scales: any, filter = (id: string) => true) =>

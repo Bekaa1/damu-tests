@@ -487,12 +487,6 @@ export function Participant({ id }: { id: string }) {
                                 <p className="report-text">
                                   {typeof p === "string" ? p : p.text}
                                 </p>
-                                {p.evidenceIds && (
-                                  <small className="text-muted">
-                                    {t("Основания", "Негіздер")}:{" "}
-                                    {p.evidenceIds.join(", ")}
-                                  </small>
-                                )}
                               </div>
                             ))}
                           </section>

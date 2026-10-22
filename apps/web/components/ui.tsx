@@ -2,6 +2,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -92,6 +93,9 @@ export function useData<T>(path: string | null) {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
   const [refreshKey, refresh] = useState(0);
+  const pathRef = useRef(path);
+  const silentRefreshInFlight = useRef(false);
+  pathRef.current = path;
   useEffect(() => {
     let active = true;
     if (!path) {
@@ -114,7 +118,25 @@ export function useData<T>(path: string | null) {
       active = false;
     };
   }, [path, refreshKey]);
-  return { data, error, loading, refresh: () => refresh((k) => k + 1) };
+  const refreshSilently = useCallback(async () => {
+    if (!path || silentRefreshInFlight.current) return;
+    silentRefreshInFlight.current = true;
+    try {
+      const nextData = await api<T>(path);
+      if (pathRef.current === path) setData(nextData);
+    } catch {
+      // Keep the current page and its data visible if a background refresh fails.
+    } finally {
+      silentRefreshInFlight.current = false;
+    }
+  }, [path]);
+  return {
+    data,
+    error,
+    loading,
+    refresh: () => refresh((k) => k + 1),
+    refreshSilently,
+  };
 }
 export function Button({
   children,

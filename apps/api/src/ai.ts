@@ -29,6 +29,7 @@ export async function queueAi(
   campaignId: string,
   membershipId: string,
   regenerate = false,
+  oncePerCampaign = false,
 ) {
   const tasks = await db.testAssignment.findMany({
     where: { organizationId, campaignId, membershipId },
@@ -52,7 +53,7 @@ export async function queueAi(
     where: { id: "default" },
   });
   const model = settings?.aiModel || process.env.OPENROUTER_MODEL || "";
-  const promptVersion = settings?.aiPromptVersion || "1.0",
+  const promptVersion = settings?.aiPromptVersion || "1.1",
     prompt = settings?.aiPrompt || DEFAULT_AI_PROMPT;
   const providerConfig = {
     only: (settings?.aiProviderAllowlist ?? []) as string[],
@@ -66,12 +67,24 @@ export async function queueAi(
   const ready = Boolean(openRouterKey(settings) && model);
   const outcome = await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM memberships WHERE id = ${membershipId} AND "organizationId" = ${organizationId} FOR UPDATE`;
+    if (oncePerCampaign) {
+      const existing = await tx.aiReport.findFirst({
+        where: {
+          organizationId,
+          campaignId,
+          membershipId,
+          status: { in: ["pending", "processing", "completed"] },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existing) return { report: existing, created: false };
+    }
     const recent = await tx.aiReport.findFirst({
       where: {
         organizationId,
         campaignId,
         membershipId,
-        inputHash,
+        ...(!oncePerCampaign ? { inputHash } : {}),
         status: {
           in: ["pending", "processing", "completed", "awaiting_configuration"],
         },
@@ -120,7 +133,11 @@ export async function queueAi(
   }
   return { id: outcome.report.id, status: outcome.report.status };
 }
-export async function generateAi(reportId: string) {
+export async function generateAi(
+  reportId: string,
+  attemptsMade = 0,
+  maxAttempts = 1,
+) {
   const report = await db.aiReport.findUniqueOrThrow({
     where: { id: reportId },
   });
@@ -177,7 +194,6 @@ export async function generateAi(reportId: string) {
   const provider = report.providerConfig as { only?: string[]; zdr?: boolean };
   const request = {
     model: report.model,
-    temperature: 0.2,
     max_tokens: 6000,
     provider: {
       data_collection: "deny",
@@ -243,6 +259,7 @@ export async function generateAi(reportId: string) {
     });
     return;
   }
+  let refundReservation = false;
   try {
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -257,7 +274,10 @@ export async function generateAi(reportId: string) {
         body: requestBody,
       },
     );
-    if (!response.ok) throw new Error(`OpenRouter HTTP ${response.status}`);
+    if (!response.ok) {
+      refundReservation = true;
+      throw new Error(`OpenRouter HTTP ${response.status}`);
+    }
     const body = (await response.json()) as any;
     const actualCost = body.usage?.cost;
     if (
@@ -297,7 +317,11 @@ export async function generateAi(reportId: string) {
           : "Generation failed";
     await db.aiReport.update({
       where: { id: reportId },
-      data: { status: "failed", error: message },
+      data: {
+        status: attemptsMade + 1 >= maxAttempts ? "failed" : "processing",
+        error: message,
+        ...(refundReservation ? { cost: { decrement: 1 } } : {}),
+      },
     });
     throw new Error(message);
   }
@@ -305,12 +329,26 @@ export async function generateAi(reportId: string) {
 export function startAiWorker() {
   const worker = new Worker(
     "assessflow-ai",
-    (job) => generateAi(job.data.reportId),
+    (job) => generateAi(job.data.reportId, job.attemptsMade, job.opts.attempts ?? 1),
     { connection, concurrency: 1 },
   );
   worker.on("error", () => {});
-  worker.on("failed", (job) => {
+  worker.on("failed", (job, error) => {
     console.error("AI job failed", job?.id);
+    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      const message = error?.message.slice(0, 250) || "Generation failed";
+      void db.aiReport
+        .updateMany({
+          where: {
+            id: job.data.reportId,
+            status: { in: ["pending", "processing"] },
+          },
+          data: { status: "failed", error: message },
+        })
+        .catch((persistError) =>
+          console.error("Failed to persist terminal AI status", persistError),
+        );
+    }
   });
   return worker;
 }

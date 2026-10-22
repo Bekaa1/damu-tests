@@ -216,12 +216,68 @@ try {
   );
   assert.equal(details.allDone, true);
   assert.equal(details.assignments.length, 6);
-  const ai = await admin.post("/ai/generate", {
+  const employeeResultsBeforeEnable = await employee.get(
+    `/people/${emp.id}?campaignId=${campaign.id}`,
+  );
+  assert.equal(employeeResultsBeforeEnable.canSelfGenerateAi, false);
+  await employee.request(
+    "/ai/generate",
+    "POST",
+    { membershipId: emp.id, campaignId: campaign.id },
+    403,
+  );
+  await admin.patch("/settings", { showPreliminary: true });
+  const employeeResults = await employee.get(
+    `/people/${emp.id}?campaignId=${campaign.id}`,
+  );
+  assert.equal(employeeResults.canSelfGenerateAi, true);
+  assert.equal(
+    await db.aiReport.count({
+      where: { organizationId: orgId, campaignId: campaign.id, membershipId: emp.id },
+    }),
+    0,
+  );
+  const seededAi = await db.aiReport.create({
+    data: {
+      organizationId: orgId,
+      campaignId: campaign.id,
+      membershipId: emp.id,
+      model: "integration-test-model",
+      promptVersion: "test",
+      inputHash: "integration-test",
+      resultIds: [],
+      status: "pending",
+    },
+  });
+  const selfAi = await employee.post("/ai/generate", {
     membershipId: emp.id,
     campaignId: campaign.id,
   });
-  assert.equal(ai.status, "awaiting_configuration");
-  pass("OpenRouter absence does not interrupt completion; no fake AI result");
+  assert.equal(selfAi.id, seededAi.id);
+  assert.equal(selfAi.status, "pending");
+  const repeatSelfAi = await employee.post("/ai/generate", {
+    membershipId: emp.id,
+    campaignId: campaign.id,
+  });
+  assert.equal(repeatSelfAi.id, seededAi.id);
+  await employee.request(
+    "/ai/generate",
+    "POST",
+    { membershipId: demoMember.id, campaignId: campaign.id },
+    403,
+  );
+  assert.equal(
+    await db.aiReport.count({
+      where: {
+        organizationId: orgId,
+        campaignId: campaign.id,
+        membershipId: emp.id,
+      },
+    }),
+    1,
+  );
+  pass("Employee AI generation is organization-gated, self-only and idempotent per campaign");
+  pass("AI analysis starts only when requested, and employee generation is limited to one report per campaign");
   const exercise = await admin.post("/exercises", {
     type: "interview",
     name: { ru: "Структурированное интервью", kk: "Құрылымдалған сұхбат" },

@@ -49,6 +49,7 @@ export async function participantDetails(
       observations: [],
       files: [],
       allDone: false,
+      canSelfGenerateAi: false,
     };
   const ai =
     !employee || ctx.org!.showPreliminary
@@ -81,6 +82,7 @@ export async function participantDetails(
   return {
     member: { ...member, user },
     allDone,
+    canSelfGenerateAi: employee && ctx.org!.showPreliminary,
     assignments:
       employee && !ctx.org!.showPreliminary
         ? []

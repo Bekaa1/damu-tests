@@ -262,11 +262,7 @@ export class AppController {
     @Req() req: AuthRequest,
     @Param("id") id: string,
   ) {
-    const result = await submitAttempt(req.ctx, id);
-    void queueAi(orgId(req.ctx), result.campaignId, result.membershipId).catch(
-      () => {},
-    );
-    return result;
+    return submitAttempt(req.ctx, id);
   }
   @Post("attempts/:id/recalculate") recalc(
     @Req() req: AuthRequest,
@@ -326,12 +322,21 @@ export class AppController {
     @Req() req: AuthRequest,
     @Body() body: unknown,
   ) {
-    requireRole(req.ctx, "admin", "expert");
+    const employee = req.ctx.role === "employee";
+    if (!employee) requireRole(req.ctx, "admin", "expert");
     const d = z
       .object({ campaignId: z.string(), membershipId: z.string() })
       .parse(body);
     await participant(req.ctx, d.membershipId, d.campaignId);
-    return queueAi(orgId(req.ctx), d.campaignId, d.membershipId, true);
+    if (employee && !req.ctx.org?.showPreliminary)
+      throw new ForbiddenException("Предварительный AI-анализ отключён организацией");
+    return queueAi(
+      orgId(req.ctx),
+      d.campaignId,
+      d.membershipId,
+      !employee,
+      employee,
+    );
   }
   @Get("activity") async activity(@Req() req: AuthRequest) {
     requireRole(req.ctx, "admin");

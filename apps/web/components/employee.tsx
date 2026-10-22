@@ -20,6 +20,8 @@ import {
   Compass,
   MessageSquare,
   CalendarDays,
+  Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import {
   useApp,
@@ -766,9 +768,24 @@ export function TestRunner({ id }: { id: string }) {
 }
 export function MyResults() {
   const { t, me, campaign, campaigns, setCampaign, loc, notify } = useApp();
-  const { data, loading, error } = useData<any>(
+  const { data, loading, error, refreshSilently } = useData<any>(
     campaign ? `/people/${me.member.id}?campaignId=${campaign}` : null,
   );
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiRefreshRef = useRef(refreshSilently);
+  const completedAi = data?.ai?.find((report: any) => report.status === "completed");
+  const latestAi = data?.ai?.[0];
+  const aiInProgress = Boolean(
+    data?.ai?.some((report: any) => ["pending", "processing"].includes(report.status)),
+  );
+  useEffect(() => {
+    aiRefreshRef.current = refreshSilently;
+  }, [refreshSilently]);
+  useEffect(() => {
+    if (!aiInProgress) return;
+    const timer = window.setInterval(() => aiRefreshRef.current(), 2500);
+    return () => window.clearInterval(timer);
+  }, [aiInProgress]);
   return (
     <>
       <PageTitle
@@ -846,6 +863,11 @@ export function MyResults() {
               </div>
             )}
             {data.assignments?.length > 0 && (
+              <details className="primary-results-collapse">
+                <summary>
+                  <span>{t("\u041f\u0435\u0440\u0432\u0438\u0447\u043d\u044b\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u044b", "\u0411\u0430\u0441\u0442\u0430\u043f\u049b\u044b \u043d\u04d9\u0442\u0438\u0436\u0435\u043b\u0435\u0440")}</span>
+                  <ChevronDown className="primary-results-chevron" size={19} aria-hidden="true" />
+                </summary>
               <Panel title={t("Первичные результаты", "Бастапқы нәтижелер")}>
                 <div className="score-list">
                   {data.assignments.map((a: any) => {
@@ -895,30 +917,89 @@ export function MyResults() {
                   })}
                 </div>
               </Panel>
+              </details>
             )}
-            {data.ai?.[0]?.status === "completed" ? (
-              <Panel
-                title={t("Предварительный AI-анализ", "Алдын ала AI-талдау")}
-              >
-                <div className="panel-body">
-                  {data.ai[0].content.generalProfile.map(
-                    (s: any, i: number) => (
-                      <p key={i} className="report-text">
-                        {s.text}
-                      </p>
-                    ),
-                  )}
+            {data.canSelfGenerateAi && completedAi ? (
+              <Panel title={t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437", "\u0410\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443")}>
+                <div className="panel-body stack">
+                  {Object.entries(completedAi.content).map(([section, items]: [string, any]) => (
+                    <section key={section}>
+                      <h3>{({
+                        generalProfile: t("\u041e\u0431\u0449\u0438\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c", "\u0416\u0430\u043b\u043f\u044b \u0431\u0435\u0439\u0456\u043d"),
+                        analyticalAbilities: t("\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u043f\u043e\u0441\u043e\u0431\u043d\u043e\u0441\u0442\u0438", "\u0422\u0430\u043b\u0434\u0430\u0443 \u049b\u0430\u0431\u0456\u043b\u0435\u0442\u0442\u0435\u0440\u0456"),
+                        personality: t("\u041b\u0438\u0447\u043d\u043e\u0441\u0442\u043d\u044b\u0435 \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438", "\u0422\u04b1\u043b\u0493\u0430\u043b\u044b\u049b \u0435\u0440\u0435\u043a\u0448\u0435\u043b\u0456\u043a\u0442\u0435\u0440"),
+                        motivation: t("\u041c\u043e\u0442\u0438\u0432\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c", "\u0423\u04d9\u0436\u0434\u0435\u043c\u0435\u043b\u0456\u043a \u0431\u0435\u0439\u0456\u043d"),
+                        situations: t("\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u0438", "\u0411\u0430\u0441\u049b\u0430\u0440\u0443 \u0436\u0430\u0493\u0434\u0430\u0439\u043b\u0430\u0440\u044b"),
+                        strengths: t("\u0421\u0438\u043b\u044c\u043d\u044b\u0435 \u0441\u0442\u043e\u0440\u043e\u043d\u044b", "\u041a\u04af\u0448\u0442\u0456 \u0436\u0430\u049b\u0442\u0430\u0440\u044b"),
+                        developmentAreas: t("\u0417\u043e\u043d\u044b \u0440\u0430\u0437\u0432\u0438\u0442\u0438\u044f", "\u0414\u0430\u043c\u044b\u0442\u0443 \u0431\u0430\u0493\u044b\u0442\u0442\u0430\u0440\u044b"),
+                        recommendations: t("\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438", "\u04b0\u0441\u044b\u043d\u044b\u0441\u0442\u0430\u0440"),
+                        limitations: t("\u041e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u044f", "\u0428\u0435\u043a\u0442\u0435\u0443\u043b\u0435\u0440"),
+                      } as Record<string, string>)[section] || section}</h3>
+                      {items.map((item: any, index: number) => (
+                        <div key={index}>
+                          <p className="report-text">{typeof item === "string" ? item : item.text}</p>
+                        </div>
+                      ))}
+                    </section>
+                  ))}
+                  <div className="notice"><Info size={18} />{t("\u042d\u0442\u043e \u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437. \u042d\u043a\u0441\u043f\u0435\u0440\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0438 \u0443\u0442\u0432\u0435\u0440\u0434\u0438\u0442 \u0438\u0442\u043e\u0433\u043e\u0432\u043e\u0435 \u0437\u0430\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435.", "\u0411\u04b1\u043b \u0430\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443. \u0421\u0430\u0440\u0430\u043f\u0448\u044b \u0442\u04af\u043f\u043a\u0456\u043b\u0456\u043a \u049b\u043e\u0440\u044b\u0442\u044b\u043d\u0434\u044b\u043d\u044b \u0442\u0435\u043a\u0441\u0435\u0440\u0456\u043f, \u0431\u0435\u043a\u0456\u0442\u0435\u0434\u0456.")}</div>
                 </div>
               </Panel>
-            ) : (
-              <div className="notice">
-                <Info size={18} />
-                {t(
-                  "Предварительный AI-анализ пока недоступен.",
-                  "Алдын ала AI-талдау әзірге қолжетімсіз.",
-                )}
-              </div>
-            )}
+            ) : data.canSelfGenerateAi ? (
+              <Panel title={t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437", "\u0410\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443")}>
+                <div className="panel-body stack">
+                  <div className="notice">
+                    {aiInProgress ? <Clock3 size={18} /> : <Info size={18} />}
+                    {aiInProgress
+                      ? t("AI-\u0430\u043d\u0430\u043b\u0438\u0437 \u0433\u043e\u0442\u043e\u0432\u0438\u0442\u0441\u044f. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.", "AI-\u0442\u0430\u043b\u0434\u0430\u0443 \u0434\u0430\u0439\u044b\u043d\u0434\u0430\u043b\u044b\u043f \u0436\u0430\u0442\u044b\u0440. \u041d\u04d9\u0442\u0438\u0436\u0435 \u043e\u0441\u044b \u0436\u0435\u0440\u0434\u0435 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0442\u044b \u0442\u04af\u0440\u0434\u0435 \u043a\u04e9\u0440\u0441\u0435\u0442\u0456\u043b\u0435\u0434\u0456.")
+                      : latestAi?.status === "awaiting_configuration"
+                        ? t("\u041f\u0440\u0435\u0434\u044b\u0434\u0443\u0449\u0430\u044f \u043f\u043e\u043f\u044b\u0442\u043a\u0430 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u043b\u0430\u0441\u044c. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437.", "\u0410\u043b\u0434\u044b\u04a3\u0493\u044b \u04d9\u0440\u0435\u043a\u0435\u0442 \u0456\u0441\u043a\u0435 \u049b\u043e\u0441\u044b\u043b\u043c\u0430\u0434\u044b. \u0422\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0430\u043b\u0443 \u04af\u0448\u0456\u043d \u0442\u04af\u0439\u043c\u0435\u043d\u0456 \u0431\u0430\u0441\u044b\u04a3\u044b\u0437.")
+                        : latestAi?.status === "failed"
+                          ? t("\u0410\u043d\u0430\u043b\u0438\u0437\u0434\u0456 \u049b\u04b1\u0440\u0443 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0442\u0435 \u0448\u044b\u049b\u0442\u044b. \u049a\u0430\u0439\u0442\u0430 \u0442\u044b\u0440\u044b\u0441\u044b\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437.", "\u0422\u0430\u043b\u0434\u0430\u0443 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0442\u0435 \u0442\u0443\u044b\u043d\u0434\u0430\u0434\u044b. \u049a\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437.")
+                          : t("\u0421\u0444\u043e\u0440\u043c\u0438\u0440\u0443\u0439\u0442\u0435 \u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437 \u043f\u043e \u0432\u0441\u0435\u043c \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u043c \u0442\u0435\u0441\u0442\u0430\u043c. \u041e\u043d \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043e\u0434\u0438\u043d \u0440\u0430\u0437 \u0437\u0430 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044e.", "\u0411\u0430\u0440\u043b\u044b\u049b \u0442\u0435\u0441\u0442\u0442\u0435\u0440\u0434\u0456 \u0430\u044f\u049b\u0442\u0430\u0493\u0430\u043d\u043d\u0430\u043d \u043a\u0435\u0439\u0456\u043d \u0430\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u04a3\u044b\u0437. \u041e\u043b \u0431\u0456\u0440 \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430 \u0431\u0456\u0440 \u0440\u0435\u0442 \u049b\u0430\u043b\u044b\u043f\u0442\u0430\u0441\u0430\u0434\u044b.")}
+                  </div>
+                  {aiInProgress && (
+                    <div className="ai-progress-wrap">
+                      <div
+                        className="ai-progress-track"
+                        role="progressbar"
+                        aria-label={t("\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f AI-\u0430\u043d\u0430\u043b\u0438\u0437\u0430", "AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u0443")}
+                        aria-valuetext={t("\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435 \u043e\u0442\u0432\u0435\u0442\u0430 AI-\u043c\u043e\u0434\u0435\u043b\u0438", "AI-\u043c\u043e\u0434\u0435\u043b\u0456\u043d\u0456\u04a3 \u0436\u0430\u0443\u0430\u0431\u044b\u043d \u043a\u04af\u0442\u0443")}
+                      >
+                        <span />
+                      </div>
+                      <p className="ai-progress-label">
+                        {latestAi?.status === "processing"
+                          ? t("AI-\u043c\u043e\u0434\u0435\u043b\u044c \u0444\u043e\u0440\u043c\u0438\u0440\u0443\u0435\u0442 \u0430\u043d\u0430\u043b\u0438\u0437", "AI-\u043c\u043e\u0434\u0435\u043b\u044c \u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u049b\u04b1\u0440\u0430\u0441\u0442\u044b\u0440\u044b\u043f \u0436\u0430\u0442\u044b\u0440")
+                          : t("\u0417\u0430\u043f\u0440\u043e\u0441 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438, \u043e\u0436\u0438\u0434\u0430\u0435\u043c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438", "\u0421\u04b1\u0440\u0430\u043d\u044b\u0441 \u043a\u0435\u0437\u0435\u043a\u0442\u0435, \u04e9\u04a3\u0434\u0435\u043b\u0443\u0456\u043d \u043a\u04af\u0442\u0456\u04a3\u0456\u0437")}
+                      </p>
+                    </div>
+                  )}
+                  {!aiInProgress && (
+                    <Button variant="secondary" busy={aiBusy} onClick={async () => {
+                      setAiBusy(true);
+                      try {
+                        const result = await post<{ status: string }>("/ai/generate", { membershipId: me.member.id, campaignId: campaign });
+                        if (result.status === "awaiting_configuration") notify(t("AI \u0435\u0449\u0451 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d. \u041e\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044c \u043a \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443.", "AI \u04d9\u043b\u0456 \u049b\u043e\u0441\u044b\u043b\u043c\u0430\u0493\u0430\u043d. \u04d8\u043a\u0456\u043c\u0448\u0456\u0433\u0435 \u0445\u0430\u0431\u0430\u0440\u043b\u0430\u0441\u044b\u04a3\u044b\u0437."), "error");
+                        else if (result.status === "completed") notify(t("\u0410\u043d\u0430\u043b\u0438\u0437 \u0434\u043b\u044f \u044d\u0442\u043e\u0439 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u0438 \u0443\u0436\u0435 \u0441\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d.", "\u0411\u04b1\u043b \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430\u0493\u044b \u0442\u0430\u043b\u0434\u0430\u0443 \u0431\u04b1\u0440\u044b\u043d \u049b\u0430\u043b\u044b\u043f\u0442\u0430\u0441\u049b\u0430\u043d."));
+                        else if (["pending", "processing"].includes(result.status)) notify(t("\u0410\u043d\u0430\u043b\u0438\u0437 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c.", "\u0422\u0430\u043b\u0434\u0430\u0443 \u043a\u0435\u0437\u0435\u043a\u043a\u0435 \u049b\u043e\u0441\u044b\u043b\u0434\u044b. \u041d\u04d9\u0442\u0438\u0436\u0435 \u043e\u0441\u044b \u0436\u0435\u0440\u0434\u0435 \u043a\u04e9\u0440\u0456\u043d\u0435\u0434\u0456."));
+                        else notify(t("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.", "\u0422\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0456\u0441\u043a\u0435 \u049b\u043e\u0441\u0443 \u043c\u04af\u043c\u043a\u0456\u043d \u0431\u043e\u043b\u043c\u0430\u0434\u044b. \u041a\u0435\u0439\u0456\u043d\u0456\u0440\u0435\u043a \u049b\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437."), "error");
+                        await refreshSilently();
+                      } catch (e) { notify((e as Error).message, "error"); }
+                      finally { setAiBusy(false); }
+                    }}>
+                      <Sparkles size={16} />
+                      {latestAi?.status === "failed"
+                        ? t("\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c", "\u049a\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u0443")
+                        : latestAi?.status === "awaiting_configuration"
+                          ? t("\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437 \u043f\u043e \u0442\u0435\u0441\u0442\u0430\u043c", "\u0422\u0435\u0441\u0442\u0442\u0435\u0440 \u0431\u043e\u0439\u044b\u043d\u0448\u0430 \u0442\u0430\u043b\u0434\u0430\u0443 \u0430\u043b\u0443")
+                          : t("\u0421\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u0442\u044c AI-\u0430\u043d\u0430\u043b\u0438\u0437", "AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u0443")}
+                    </Button>
+                  )}
+                  <p className="text-small text-muted">{t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043e\u0434\u0438\u043d \u0440\u0430\u0437 \u0437\u0430 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044e. \u041f\u0440\u0438 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u0439 \u043e\u0448\u0438\u0431\u043a\u0435 \u043c\u043e\u0436\u043d\u043e \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c.", "\u0410\u043b\u0434\u044b\u043d \u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0431\u0456\u0440 \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430 \u0431\u0456\u0440 \u0440\u0435\u0442 \u0436\u0430\u0441\u0430\u0443\u0493\u0430 \u0431\u043e\u043b\u0430\u0434\u044b. \u0422\u0435\u0445\u043d\u0438\u043a\u0430\u043b\u044b\u049b \u049b\u0430\u0442\u0435 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u0443\u0493\u0430 \u0431\u043e\u043b\u0430\u0434\u044b.")}</p>
+                </div>
+              </Panel>
+            ) : null}
           </div>
         )}
       </LoadState>
