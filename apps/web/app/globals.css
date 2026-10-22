@@ -384,6 +384,10 @@ tbody tr:hover {
   flex-direction: column;
   padding: 31px 18px 18px;
   z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2b transparent;
 }
 .brand {
   display: flex;
@@ -470,6 +474,12 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2b transparent;
 }
 .nav-item {
   display: flex;
@@ -506,10 +516,13 @@ tbody tr:hover {
 }
 .sidebar-bottom {
   margin-top: auto;
-  padding-top: 35px;
+  flex: 0 0 auto;
+  padding-top: 12px;
+  background: var(--navy);
 }
 .sidebar-bottom .nav-item {
   font-size: 14px;
+  flex-shrink: 0;
 }
 .workspace-main {
   margin-left: 238px;
@@ -1074,6 +1087,14 @@ tbody tr:hover {
   max-height: 90vh;
   background: #fff;
   color: var(--ink);
+}
+.modal[open] {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 .modal.test-start-modal[open] {
   position: fixed;

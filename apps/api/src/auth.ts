@@ -82,6 +82,7 @@ export const auth = betterAuth({
     },
   ],
   advanced: {
+    cookiePrefix: "assessflow-admin",
     ipAddress: { ipAddressHeaders: ["x-real-ip"] },
     useSecureCookies: process.env.APP_URL?.startsWith("https://") ?? false,
     defaultCookieAttributes: { httpOnly: true, sameSite: "lax" },

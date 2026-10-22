@@ -82,12 +82,25 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
   const { data, loading, error } = useData<any[]>(
     campaign ? `/my/assignments?campaignId=${campaign}` : null,
   );
+  const latestAssignments = new Map<string, any>();
+  for (const assignment of data || []) {
+    const key = `${assignment.campaignId}:${assignment.testVersion.testId}`;
+    const current = latestAssignments.get(key);
+    if (
+      !current ||
+      new Date(assignment.createdAt).getTime() >=
+        new Date(current.createdAt).getTime()
+    ) {
+      latestAssignments.set(key, assignment);
+    }
+  }
+  const visibleAssignments = Array.from(latestAssignments.values());
   const [selected, setSelected] = useState<any>(null),
     [language, setLanguage] = useState(locale),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false),
     [startError, setStartError] = useState("");
-  const completed = (data || []).filter(
+  const completed = visibleAssignments.filter(
     (a) => a.attempts[0]?.status === "completed",
   ).length;
   const begin = async () => {
@@ -166,7 +179,11 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                 )}
               </p>
               <Progress
-                value={data?.length ? (completed / data.length) * 100 : 0}
+                value={
+                  visibleAssignments.length
+                    ? (completed / visibleAssignments.length) * 100
+                    : 0
+                }
               />
             </div>
             <div className="welcome-counter">
@@ -174,14 +191,15 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                 {completed}
                 <span style={{ fontSize: 19, color: "#819aa9" }}>
                   {" "}
-                  / {data?.length || 0}
+                  / {visibleAssignments.length}
                 </span>
               </strong>
               <small>{t("направлений пройдено", "бағыт аяқталды")}</small>
             </div>
           </div>
         )}
-        {data?.length && completed === data.length ? (
+        {visibleAssignments.length > 0 &&
+        completed === visibleAssignments.length ? (
           <div className="notice success" style={{ marginBottom: 24 }}>
             <CheckCircle2 size={19} />
             <div>
@@ -205,7 +223,7 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           </div>
         ) : null}
         <div className="test-grid">
-          {(data || []).map((a) => {
+          {visibleAssignments.map((a) => {
             const v = a.testVersion,
               attempt = a.attempts[0],
               status = attempt?.status || "not_started",
@@ -266,7 +284,7 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
             );
           })}
         </div>
-        {!data?.length && (
+        {!visibleAssignments.length && (
           <Empty
             title={t("Тесты пока не назначены", "Тесттер әлі тағайындалмады")}
             description={t(
