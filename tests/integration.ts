@@ -7,6 +7,10 @@ const base = process.env.TEST_BASE_URL || "http://localhost:3000";
 const password = "AssessFlow!2026";
 const suffix = Date.now().toString(36);
 const catalog = JSON.parse(await readFile("data/catalog.json", "utf8"));
+const questionCount = catalog.reduce(
+  (total: number, method: any) => total + method.questions.length,
+  0,
+);
 const results: string[] = [];
 function pass(s: string) {
   results.push(s);
@@ -114,10 +118,19 @@ try {
     name: "Контрольная кампания",
     endsAt: new Date(Date.now() + 86400000).toISOString(),
   });
+  const availableTests = await admin.get("/tests");
+  const latestPublishedVersion = new Map(
+    availableTests.map((test: any) => [
+      test.id,
+      test.versions.find((version: any) => version.status === "published")?.id,
+    ]),
+  );
   const assignment = {
     campaignId: campaign.id,
     membershipIds: [emp.id],
-    testVersionIds: catalog.map((m: any) => m.id + "-v1"),
+    testVersionIds: catalog.map(
+      (m: any) => latestPublishedVersion.get(m.id) ?? `${m.id}-v1`,
+    ),
     expertId: exp.id,
   };
   await admin.post("/assignments", assignment);
@@ -209,7 +222,7 @@ try {
     attempts.push({ id: a.id, method: m.id, resultId: result.id });
   }
   pass(
-    "168 bilingual answers, resume, revision conflicts, server scoring and duplicate submission",
+    `${questionCount} bilingual answers, resume, revision conflicts, server scoring and duplicate submission`,
   );
   const details = await expert.get(
     `/people/${emp.id}?campaignId=${campaign.id}`,

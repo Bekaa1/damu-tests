@@ -1365,8 +1365,8 @@ export function SettingsPage() {
       <PageTitle
         title={t("Настройки организации", "Ұйым баптаулары")}
         description={t(
-          "Брендинг, доступ к результатам и методология оценки.",
-          "Брендинг, нәтижелерге қолжетімділік және бағалау әдістемесі.",
+          "Основные параметры организации, доступ к результатам и методология оценки.",
+          "Ұйымның негізгі параметрлері, нәтижелерге қолжетімділік және бағалау әдістемесі.",
         )}
       />
       <form
@@ -1379,9 +1379,7 @@ export function SettingsPage() {
               name: org.name,
               showPreliminary: org.showPreliminary,
               showApproved: org.showApproved,
-              retentionDays: Number(org.retentionDays),
               matrixConfig: org.matrixConfig,
-              ...(org.logoUrl ? { logoUrl: org.logoUrl } : {}),
             });
             await reload();
             notify(t("Настройки сохранены", "Баптаулар сақталды"));
@@ -1393,64 +1391,13 @@ export function SettingsPage() {
         }}
       >
         <div className="settings-grid">
-          <Panel title={t("Организация и брендинг", "Ұйым және брендинг")}>
+          <Panel title={t("Организация", "Ұйым")}>
             <div className="panel-body form-stack">
               <Field label={t("Название организации", "Ұйым атауы")}>
                 <input
                   required
                   value={org.name}
                   onChange={(e) => setOrg({ ...org, name: e.target.value })}
-                />
-              </Field>
-              <Field
-                label={t(
-                  "Логотип для интерфейса и PDF",
-                  "Интерфейс пен PDF үшін логотип",
-                )}
-              >
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    if (f.size > 350000) {
-                      notify("Максимум 350 КБ", "error");
-                      return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () =>
-                      setOrg({ ...org, logoUrl: reader.result });
-                    reader.readAsDataURL(f);
-                  }}
-                />
-              </Field>
-              {org.logoUrl && (
-                <img
-                  src={org.logoUrl}
-                  alt={org.name}
-                  style={{
-                    maxHeight: 60,
-                    maxWidth: 200,
-                    objectFit: "contain",
-                    alignSelf: "flex-start",
-                  }}
-                />
-              )}
-              <Field
-                label={t(
-                  "Срок хранения результатов, дней",
-                  "Нәтижелерді сақтау мерзімі, күн",
-                )}
-              >
-                <input
-                  type="number"
-                  min={30}
-                  max={3650}
-                  value={org.retentionDays}
-                  onChange={(e) =>
-                    setOrg({ ...org, retentionDays: e.target.value })
-                  }
                 />
               </Field>
             </div>

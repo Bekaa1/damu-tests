@@ -434,6 +434,9 @@ catalog.push({
 // OMIB original format is construction, not multiple choice. Store this explicitly as an unvalidated adapted form.
 const book = new ExcelJS.Workbook();
 await book.xlsx.readFile("data/sources/omib/items.xlsx");
+const omibItemCount = book.worksheets[0].actualRowCount - 1;
+if (omibItemCount !== 220)
+  throw new Error(`Expected all 220 source OMIB items, found ${omibItemCount}`);
 const paths = [
   "0,0 25,0 0,25",
   "25,100 0,100 0,75",
@@ -454,7 +457,7 @@ function svg(code: string) {
 mkdirSync("data/assets/omib", { recursive: true });
 const omibQuestions: QuestionInput[] = [],
   omibItems: ScoringConfig["items"] = {};
-for (let i = 1; i <= 12; i++) {
+for (let i = 1; i <= omibItemCount; i++) {
   const row = book.worksheets[0].getRow(i + 1);
   const solution = String(row.getCell(14).value);
   if (!/^[01]{20}$/.test(solution))
@@ -472,11 +475,12 @@ for (let i = 1; i <= 12; i++) {
   const options = [...codes];
   const correctPos = i % 6;
   [options[0], options[correctPos]] = [options[correctPos], options[0]];
+  const questionId = `omib-full-${i}`;
   options.forEach((code, j) =>
     writeFileSync(`data/assets/omib/item-${i}-option-${j + 1}.svg`, svg(code)),
   );
   omibQuestions.push({
-    id: `omib-${i}`,
+    id: questionId,
     type: "image",
     text: L(
       "Выберите изображение, которое завершает матрицу.",
@@ -484,12 +488,12 @@ for (let i = 1; i <= 12; i++) {
     ),
     imageUrl: `/api/assets/omib/item-${i}.svg`,
     options: options.map((_, j) => ({
-      id: `omib-${i}-${j + 1}`,
+      id: `${questionId}-${j + 1}`,
       text: L(`Вариант ${j + 1}`, `${j + 1}-нұсқа`),
       imageUrl: `/api/assets/omib/item-${i}-option-${j + 1}.svg`,
     })),
   });
-  omibItems[`omib-${i}`] = { correct: `omib-${i}-${correctPos + 1}` };
+  omibItems[questionId] = { correct: `${questionId}-${correctPos + 1}` };
 }
 catalog.push({
   ...base(
@@ -498,7 +502,7 @@ catalog.push({
     "Абстрактілі-логикалық ойлау",
     "logical",
     "https://osf.io/4km79/",
-    15,
+    90,
   ),
   licenseStatus: "GPL-3.0-source-review",
   algorithm: "cognitive",
@@ -507,13 +511,128 @@ catalog.push({
     "Матрицадағы заңдылықты тауып, жетіспейтін элементті таңдаңыз.",
   ),
   limitations: L(
-    "OMIB, Koch et al. (2022). Техническая адаптация первых 12 заданий банка: оригинал использует конструирование ответа, здесь добавлены варианты выбора. Это не валидированная форма OMIB; состав, дистракторы и перевод требуют утверждения. Применяются только первичные баллы, без IRT-норм.",
-    "OMIB, Koch et al. (2022). Банктің алғашқы 12 тапсырмасының техникалық бейімделуі: түпнұсқада жауап құрастырылады, мұнда таңдау нұсқалары қосылған. Бұл валидтелген OMIB нұсқасы емес; құрам, дистракторлар және аударма бекітуді талап етеді. IRT нормаларынсыз бастапқы балдар ғана қолданылады.",
+    "OMIB, Koch et al. (2022). Включены все 220 матриц банка. Это техническая адаптация: оригинал использует конструирование ответа, здесь добавлены программно сформированные варианты выбора. Форма не валидирована как единый тест; состав, дистракторы и перевод требуют методологического утверждения. Применяются только первичные баллы, без IRT-норм.",
+    "OMIB, Koch et al. (2022). Банктегі барлық 220 матрица енгізілді. Бұл техникалық бейімдеу: түпнұсқада жауап құрастырылады, мұнда таңдау нұсқалары бағдарлама арқылы жасалған. Нұсқа біртұтас тест ретінде валидтелмеген; құрамы, дистракторлары мен аудармасы әдістемелік бекітуді талап етеді. IRT нормаларынсыз бастапқы балдар ғана қолданылады.",
   ),
   questions: omibQuestions,
   config: { items: omibItems },
   controlExamples: [],
 });
+const practiceExtensions = JSON.parse(
+  readFileSync("data/practice-extensions.json", "utf8"),
+);
+const verbal = catalog.find((test) => test.id === "verbal")!;
+const verbalPracticeQuestions = practiceExtensions.verbal.map(
+  (question: any, index: number) => {
+    const id = `af-verbal-${String(index + 1).padStart(2, "0")}`;
+    return {
+      id,
+      type: "single",
+      text: L(question.ru, question.kk),
+      options: question.options.map((option: string[], optionIndex: number) => ({
+        id: `${id}-${optionIndex + 1}`,
+        text: L(option[0], option[1]),
+      })),
+    };
+  },
+);
+verbal.questions.push(...verbalPracticeQuestions);
+Object.assign(
+  verbal.config.items ??= {},
+  Object.fromEntries(
+    practiceExtensions.verbal.map((question: any, index: number) => {
+      const id = `af-verbal-${String(index + 1).padStart(2, "0")}`;
+      return [id, { correct: `${id}-${question.correct + 1}` }];
+    }),
+  ),
+);
+verbal.durationMinutes = 15;
+verbal.source += "; AssessFlow original practice additions";
+verbal.licenseStatus = "public_domain_source_items_with_original_supplement";
+verbal.instructions = L(
+  "16 заданий: 4 задания ICAR-16 и 12 дополнительных вопросов AssessFlow. Прочитайте каждый вопрос и выберите один ответ.",
+  "16 тапсырма: ICAR-16-ның 4 тапсырмасы және AssessFlow жасаған 12 қосымша сұрақ. Әр сұрақты оқып, бір жауапты таңдаңыз.",
+);
+verbal.limitations = L(
+  "Включены 4 исходных VR-задания ICAR-16 и 12 оригинальных вопросов AssessFlow. Дополнения не являются частью ICAR или его закрытого банка из 180 вопросов. Перевод и ключ требуют проверки методологом; результаты — только предварительные баллы без норм.",
+  "ICAR-16-ның бастапқы 4 VR тапсырмасы және AssessFlow жасаған 12 қосымша сұрақ енгізілді. Қосымша сұрақтар ICAR құрамына да, оның 180 сұрақтан тұратын жабық банкіне де кірмейді. Аударма мен кілтті әдіскер тексеруі керек; нәтиже — нормасыз бастапқы балдар.",
+);
+
+const numerical = catalog.find((test) => test.id === "numerical")!;
+const numericalPracticeQuestions = practiceExtensions.numberSeries.map(
+  (question: any, index: number) => {
+    const id = `af-series-${String(index + 1).padStart(2, "0")}`;
+    return {
+      id,
+      type: "number",
+      text: L(
+        `Какое число продолжает ряд: ${question.sequence}, ?`,
+        `Қатарды жалғастыратын келесі санды табыңыз: ${question.sequence}, ?`,
+      ),
+      options: [],
+    };
+  },
+);
+numerical.questions.push(...numericalPracticeQuestions);
+Object.assign(
+  numerical.config.items ??= {},
+  Object.fromEntries(
+    practiceExtensions.numberSeries.map((question: any, index: number) => [
+      `af-series-${String(index + 1).padStart(2, "0")}`,
+      { correct: question.answer },
+    ]),
+  ),
+);
+numerical.durationMinutes = 45;
+numerical.source += "; https://cran.r-project.org/package=numGen (item-family reference)";
+numerical.licenseStatus = "BNT-source-with-original-number-series-supplement";
+numerical.instructions = L(
+  "52 задания: 4 задачи Berlin Numeracy Test и 48 дополнительных рядов чисел. Введите один числовой ответ. Для первых четырёх задач укажите процент без знака %.",
+  "52 тапсырма: Berlin Numeracy Test-тің 4 тапсырмасы және 48 қосымша сан қатары. Бір сандық жауап енгізіңіз. Алғашқы төрт тапсырмада пайызды % белгісінсіз жазыңыз.",
+);
+numerical.limitations = L(
+  "Cokely et al. (2012), BNT включает 4 уникальные задачи. Ещё 48 рядов — оригинальные учебные задания AssessFlow по распространённым моделям числовых последовательностей; это не вопросы ICAR/ANSIG. Смешанная форма не валидирована как единая шкала; нормы BNT к общему баллу не применяются.",
+  "Cokely et al. (2012), BNT 4 бірегей тапсырмадан тұрады. Қосылған 48 сан қатары — AssessFlow жасаған сандық тізбек тапсырмалары; олар ICAR/ANSIG сұрақтары емес. Аралас нұсқа бір шкала ретінде валидтелмеген; BNT нормалары жалпы балға қолданылмайды.",
+);
+
+const situations = catalog.find((test) => test.id === "situations")!;
+const situationPracticeQuestions = practiceExtensions.situations.map(
+  (question: any, index: number) => {
+    const id = `af-sjt-${String(index + 1).padStart(2, "0")}`;
+    return {
+      id,
+      type: "sjt",
+      text: L(question.ru, question.kk),
+      options: question.options.map((option: string[], optionIndex: number) => ({
+        id: `${id}-${"ABCD"[optionIndex]}`,
+        text: L(option[0], option[1]),
+      })),
+    };
+  },
+);
+situations.questions.push(...situationPracticeQuestions);
+Object.assign(
+  situations.config.items ??= {},
+  Object.fromEntries(
+    practiceExtensions.situations.map((question: any, index: number) => {
+      const id = `af-sjt-${String(index + 1).padStart(2, "0")}`;
+      return [id, { most: `${id}-${question.most}`, least: `${id}-${question.least}` }];
+    }),
+  ),
+);
+situations.durationMinutes = 20;
+situations.source += "; AssessFlow original practice additions";
+situations.licenseStatus =
+  "permission_confirmed_for_source_items_with_original_supplement";
+situations.instructions = L(
+  "В каждой из 16 ситуаций выберите одно наиболее вероятное действие (MOST) и одно наименее вероятное (LEAST). Один вариант нельзя выбрать дважды.",
+  "16 жағдайдың әрқайсысында ең ықтимал (MOST) және ең аз ықтимал (LEAST) бір әрекетті таңдаңыз. Бір нұсқаны екі рет таңдауға болмайды.",
+);
+situations.limitations = L(
+  "Предварительный индекс совпадения AssessFlow, 0–32. Включены 8 разрешённых вопросов 123test и 8 оригинальных дополнительных ситуаций AssessFlow. Ключ предварительный, не официальный ключ 123test; форма и переводы не валидированы, процентиль не рассчитывается.",
+  "AssessFlow алдын ала сәйкестік индексі, 0–32. Рұқсат берілген 123test-тің 8 сұрағы және AssessFlow жасаған 8 қосымша жағдай енгізілген. Кілт алдын ала жасалған, 123test ресми кілті емес; нұсқа мен аудармалар валидтелмеген, процентиль есептелмейді.",
+);
+
 for (const test of catalog) {
   const answers = Object.fromEntries(
     test.questions.map((q) => {
