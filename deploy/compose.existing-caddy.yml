@@ -1,0 +1,17 @@
+services:
+  api:
+    networks:
+      default: {}
+      external_proxy: {}
+  web:
+    networks:
+      default: {}
+      external_proxy: {}
+  proxy:
+    profiles:
+      - standalone-proxy
+
+networks:
+  external_proxy:
+    external: true
+    name: ${EXTERNAL_PROXY_NETWORK:?Set EXTERNAL_PROXY_NETWORK}

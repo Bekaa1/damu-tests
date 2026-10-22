@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:integration": "tsx tests/integration.ts",
     "typecheck": "tsc --noEmit",
-    "infra:up": "docker compose up -d postgres redis minio",
+    "infra:up": "docker compose up -d postgres redis object-store",
     "setup": "npm run db:generate && npm run db:migrate && npm run db:seed"
   },
   "dependencies": {
