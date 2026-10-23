@@ -10,6 +10,7 @@ import type { Request } from "express";
 import type { Membership, User, Organization } from "@prisma/client";
 import { auth } from "./auth";
 import { db } from "./db";
+import { isTrustedOrigin } from "./origins";
 export type Context = {
   user: User;
   member: Membership | null;
@@ -21,9 +22,7 @@ export class AccessGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<AuthRequest>();
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
-      if (
-        req.headers.origin !== (process.env.APP_URL || "http://localhost:3000")
-      )
+      if (!isTrustedOrigin(req.headers.origin))
         throw new ForbiddenException("Недопустимый источник запроса");
     }
     const session = await auth.api.getSession({

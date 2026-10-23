@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { db } from "./db";
 import { createHash } from "node:crypto";
+import { trustedOrigins } from "./origins";
 if (
   !process.env.BETTER_AUTH_SECRET ||
   process.env.BETTER_AUTH_SECRET.length < 32
@@ -12,7 +13,7 @@ export const auth = betterAuth({
   baseURL: process.env.APP_URL || "http://localhost:3000",
   basePath: "/api/auth",
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [process.env.APP_URL || "http://localhost:3000"],
+  trustedOrigins: trustedOrigins(),
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
