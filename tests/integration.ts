@@ -110,6 +110,25 @@ try {
     currentPassword: exp.temporaryPassword,
     newPassword: "Expert!Changed2026",
   });
+  const initialOrgSettings = await admin.get("/settings");
+  assert.equal(initialOrgSettings.showPreliminary, true);
+  assert.equal(initialOrgSettings.showApproved, true);
+  const matrixConfig = {
+    ...initialOrgSettings.matrixConfig,
+    criteria:
+      "Уровни устанавливает эксперт по данным тестов, интервью и практических упражнений.",
+  };
+  const updatedMatrix = await expert.patch("/matrix-config", { matrixConfig });
+  assert.equal(updatedMatrix.matrixConfig.criteria, matrixConfig.criteria);
+  await admin.request(
+    "/matrix-config",
+    "PATCH",
+    { matrixConfig },
+    403,
+  );
+  await admin.request("/settings", "PATCH", { retentionDays: 730 }, 400);
+  await admin.request("/settings", "PATCH", { logoUrl: "invalid" }, 400);
+  pass("Expert-only matrix configuration and permanent result retention settings");
   const campaign = await admin.post("/campaigns", {
     name: "Контрольная кампания",
     endsAt: new Date(Date.now() + 86400000).toISOString(),
@@ -229,22 +248,83 @@ try {
   pass(
     `${answeredQuestionCount} bilingual answers, resume, revision conflicts, server scoring and duplicate submission`,
   );
+  const timerCampaign = await admin.post("/campaigns", {
+    name: "Проверка таймера",
+    endsAt: new Date(Date.now() + 86400000).toISOString(),
+  });
+  await admin.post("/assignments", {
+    campaignId: timerCampaign.id,
+    membershipIds: [emp.id],
+    testVersionIds: ["verbal-v1"],
+    expertId: exp.id,
+  });
+  const timerAssignment = (
+    await employee.get("/my/assignments?campaignId=" + timerCampaign.id)
+  )[0];
+  const firstAttempt = await employee.post(
+    `/assignments/${timerAssignment.id}/start`,
+    { language: "ru" },
+  );
+  const timerDetails = await employee.get(`/attempts/${firstAttempt.id}`);
+  const actualDuration =
+    new Date(timerDetails.expiresAt).getTime() -
+    new Date(timerDetails.startedAt).getTime();
+  assert(
+    Math.abs(actualDuration - timerDetails.questions.length * 60_000) < 2_000,
+    "Attempt deadline should be one minute per question",
+  );
+  await db.testAttempt.update({
+    where: { id: firstAttempt.id },
+    data: { expiresAt: new Date(Date.now() - 1_000) },
+  });
+  const expiredAssignments = await employee.get(
+    "/my/assignments?campaignId=" + timerCampaign.id,
+  );
+  assert.equal(expiredAssignments[0].attempts[0].status, "expired");
+  const restarted = await employee.post(
+    `/assignments/${timerAssignment.id}/start`,
+    { language: "ru" },
+  );
+  assert.notEqual(restarted.id, firstAttempt.id);
+  const restartedDetails = await employee.get(`/attempts/${restarted.id}`);
+  assert.equal(restartedDetails.status, "in_progress");
+  assert.equal(restartedDetails.answers.length, 0);
+  assert.equal(
+    await db.testAttempt.count({
+      where: { assignmentId: timerAssignment.id, status: "expired" },
+    }),
+    1,
+  );
+  pass(
+    "One-minute-per-question deadline, server-side expiry and clean restart after timeout",
+  );
+  const timerAttemptIds = (
+    await db.testAttempt.findMany({
+      where: { assignmentId: timerAssignment.id },
+      select: { id: true },
+    })
+  ).map((attempt) => attempt.id);
+  await db.$transaction([
+    db.userAnswer.deleteMany({ where: { attemptId: { in: timerAttemptIds } } }),
+    db.testResult.deleteMany({ where: { attemptId: { in: timerAttemptIds } } }),
+    db.testAttempt.deleteMany({ where: { assignmentId: timerAssignment.id } }),
+    db.testAssignment.delete({ where: { id: timerAssignment.id } }),
+  ]);
   const details = await expert.get(
     `/people/${emp.id}?campaignId=${campaign.id}`,
   );
   assert.equal(details.allDone, true);
   assert.equal(details.assignments.length, 6);
+  const matrixParticipants = await expert.get(
+    `/people?campaignId=${campaign.id}`,
+  );
+  assert(matrixParticipants.some((person: any) => person.id === emp.id));
   const employeeResultsBeforeEnable = await employee.get(
     `/people/${emp.id}?campaignId=${campaign.id}`,
   );
-  assert.equal(employeeResultsBeforeEnable.canSelfGenerateAi, false);
-  await employee.request(
-    "/ai/generate",
-    "POST",
-    { membershipId: emp.id, campaignId: campaign.id },
-    403,
-  );
-  await admin.patch("/settings", { showPreliminary: true });
+  assert.equal(employeeResultsBeforeEnable.canSelfGenerateAi, true);
+  await admin.request("/settings", "PATCH", { showPreliminary: false }, 400);
+  await admin.request("/settings", "PATCH", { showApproved: false }, 400);
   const employeeResults = await employee.get(
     `/people/${emp.id}?campaignId=${campaign.id}`,
   );
@@ -294,9 +374,9 @@ try {
     }),
     1,
   );
-  pass("Employee AI generation is organization-gated, self-only and idempotent per campaign");
+  pass("Employee AI generation is enabled by default, self-only and idempotent per campaign");
   pass("AI analysis starts only when requested, and employee generation is limited to one report per campaign");
-  const exercise = await admin.post("/exercises", {
+  const exerciseInput = {
     type: "interview",
     name: { ru: "Структурированное интервью", kk: "Құрылымдалған сұхбат" },
     criteria: [
@@ -311,11 +391,24 @@ try {
         allowNotObserved: true,
       },
     ],
-  });
+  };
+  const exercise = await expert.post("/exercises", exerciseInput);
+  await admin.request("/exercises", "POST", exerciseInput, 403);
+  const revisedExercise = await expert.post(
+    `/exercises/${exercise.id}/version`,
+    exerciseInput,
+  );
+  assert.equal(revisedExercise.version, 2);
+  assert.notEqual(revisedExercise.id, exercise.id);
+  assert(
+    (await expert.get("/exercises")).some(
+      (item: any) => item.id === revisedExercise.id,
+    ),
+  );
   const observation = await expert.post("/observations", {
     campaignId: campaign.id,
     membershipId: emp.id,
-    exerciseId: exercise.id,
+    exerciseId: revisedExercise.id,
     scores: { planning: null },
     notes: "Поведение по данному индикатору в этом упражнении не наблюдалось.",
   });
@@ -390,6 +483,45 @@ try {
   });
   await other.get(`/people/${emp.id}?campaignId=${campaign.id}`, 403);
   pass("Unassigned expert cannot read the participant");
+  const generatedFixture = {
+    organizationId: orgId, campaignId: campaign.id, membershipId: emp.id,
+    kind: "individual", language: "ru", status: "completed",
+    participantIds: [emp.id], inputHash: "integration", model: "fixture",
+    prompt: "fixture", promptVersion: "test", providerConfig: {}, createdBy: emp.userId,
+    snapshot: {
+      organization: { name: "Test", matrixConfig: initialOrgSettings.matrixConfig },
+      campaign: { id: campaign.id, name: "Test campaign" },
+      people: [{ id: emp.id, name: emp.user.name, position: "", unit: "Test", category: "Manager", status: "completed", completed: 6, total: 6, results: [], observations: [], expert: null }],
+    },
+    content: {
+      summary: [{ text: "Test report summary", evidenceIds: ["coverage"] }],
+      analytical: [], personality: [], motivation: [], management: [], competencies: [], potential: [],
+      strengths: [], development: [], risks: [], recommendations: [{ text: "Practice planning", evidenceIds: ["coverage"] }],
+      developmentPlan: [{ focus: "Plan", action: "Practice", format: "Work", timeframe: "30 days", success: "Review", evidenceIds: ["coverage"] }],
+      limitations: ["Fixture"],
+    },
+  };
+  const generated = await db.generatedReport.create({ data: generatedFixture });
+  const generatedList = await admin.get("/generated-reports?campaignId=" + campaign.id);
+  assert(generatedList.some((r: any) => r.id === generated.id));
+  assert.equal(generatedList[0].snapshot, undefined);
+  assert((await expert.get("/generated-reports?campaignId=" + campaign.id)).some((r: any) => r.id === generated.id));
+  assert.equal((await other.get("/generated-reports?campaignId=" + campaign.id)).length, 0);
+  await other.get("/generated-reports/" + generated.id + "/pdf", 403);
+  const employeeGenerated = await employee.get("/generated-reports?campaignId=" + campaign.id + "&kind=individual");
+  assert(employeeGenerated.some((r: any) => r.id === generated.id));
+  const employeeVisibleReport = employeeGenerated.find((r: any) => r.id === generated.id);
+  assert.equal(employeeVisibleReport.snapshot, undefined);
+  assert.equal(employeeVisibleReport.createdByName, emp.user.name);
+  await employee.get("/generated-reports?campaignId=" + campaign.id + "&kind=team", 403);
+  await employee.post("/generated-reports", { campaignId: campaign.id, kind: "team", language: "ru" }, 403);
+  await expert.post("/generated-reports", { campaignId: campaign.id, kind: "team", language: "ru" }, 403);
+  await admin.get("/generated-reports?campaignId=demo-campaign", 404);
+  if (process.env.TEST_PDF === "true") {
+    const generatedPdf = await admin.request("/generated-reports/" + generated.id + "/pdf");
+    assert.equal(Buffer.from(await generatedPdf.arrayBuffer()).subarray(0, 4).toString(), "%PDF");
+  }
+  pass("Generated reports: admin generation, expert visibility, private snapshots and tenant isolation");
   const xlsx = await admin.request("/export/people?campaignId=" + campaign.id);
   assert(xlsx.headers.get("content-type")?.includes("spreadsheetml"));
   assert((await xlsx.arrayBuffer()).byteLength > 1000);
@@ -406,6 +538,10 @@ try {
     email: "qa-delete-" + suffix + "@example.test",
     unit: "Тест",
   });
+  const teamWithDisposable = await db.generatedReport.create({
+    data: { ...generatedFixture, membershipId: null, kind: "team", participantIds: [emp.id, disposable.id] },
+  });
+  await expert.get("/generated-reports/" + teamWithDisposable.id + "/pdf", 403);
   await admin.request(
     "/people/" + disposable.id,
     "DELETE",
@@ -419,6 +555,7 @@ try {
     await db.membership.findUnique({ where: { id: disposable.id } }),
     null,
   );
+  assert.equal(await db.generatedReport.findUnique({ where: { id: teamWithDisposable.id } }), null);
   pass(
     "Personal data deletion requires exact confirmation and removes the employee",
   );
@@ -538,6 +675,7 @@ try {
         "test_attempts",
         "test_assignments",
         "ai_reports",
+        "generated_reports",
         "expert_observations",
         "final_reports",
         "file_assets",

@@ -53,6 +53,10 @@ export async function exportPersonalData(ctx: Context, id: string) {
       createdAt: true,
     },
   });
+  const generatedReports = await db.generatedReport.findMany({
+    where: { organizationId, membershipId: id },
+    select: { id: true, campaignId: true, status: true, content: true, snapshot: true, createdAt: true },
+  });
   await audit(organizationId, ctx.user.id, "personal_data.exported", id);
   return {
     exportedAt: new Date(),
@@ -63,6 +67,7 @@ export async function exportPersonalData(ctx: Context, id: string) {
     observations,
     ai,
     files,
+    generatedReports,
   };
 }
 export async function erasePersonalData(
@@ -115,6 +120,9 @@ export async function erasePersonalData(
     });
     await tx.aiReport.deleteMany({
       where: { organizationId, membershipId: id },
+    });
+    await tx.generatedReport.deleteMany({
+      where: { organizationId, participantIds: { array_contains: [id] } },
     });
     await tx.finalReport.deleteMany({
       where: { organizationId, membershipId: id },

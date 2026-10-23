@@ -78,7 +78,7 @@ model Organization {
   color String @default("#25635f")
   employeeLimit Int @default(100)
   assessmentLimit Int @default(1000)
-  showPreliminary Boolean @default(false)
+  showPreliminary Boolean @default(true)
   showApproved Boolean @default(true)
   aiBudget Float @default(25)
   retentionDays Int @default(1095)
@@ -123,6 +123,7 @@ model Membership {
   @@map("memberships")
 }
 model Campaign {
+  generatedReports GeneratedReport[]
   aiReports AiReport[]
   observations ExpertObservation[]
   reports FinalReport[]
@@ -349,6 +350,33 @@ model FinalReport {
   @@index([organizationId,campaignId])
   @@map("final_reports")
 }
+model GeneratedReport {
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  membershipId String?
+  kind String
+  language String
+  status String @default("pending")
+  participantIds Json
+  snapshot Json
+  inputHash String
+  content Json?
+  model String
+  prompt String
+  promptVersion String
+  providerConfig Json
+  error String?
+  cost Float @default(0)
+  promptTokens Int @default(0)
+  completionTokens Int @default(0)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId,campaignId,kind])
+  @@map("generated_reports")
+}
 model LicenseRecord {
   id String @id @default(cuid())
   testId String
@@ -390,7 +418,7 @@ model PlatformSettings {
   aiModel String @default("")
   encryptedApiKey String?
   aiPrompt String
-  aiPromptVersion String @default("1.0")
+  aiPromptVersion String @default("2.0")
   aiProviderAllowlist Json
   aiZdr Boolean @default(true)
   updatedAt DateTime @updatedAt

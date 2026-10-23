@@ -26,7 +26,7 @@ export const questionDTO = (q: any): QuestionInput => ({
 });
 export async function myAssignments(ctx: Context, campaignId?: string) {
   if (!ctx.member) throw new ForbiddenException();
-  return db.testAssignment.findMany({
+  const assignments = await db.testAssignment.findMany({
     where: {
       organizationId: orgId(ctx),
       membershipId: ctx.member.id,
@@ -45,6 +45,26 @@ export async function myAssignments(ctx: Context, campaignId?: string) {
     },
     orderBy: { createdAt: "asc" },
   });
+  for (const assignment of assignments) {
+    const latest = assignment.attempts[0];
+    if (!latest || latest.status !== "in_progress") continue;
+    const limitSeconds = assignment.testVersion._count.questions * 60;
+    const deadline =
+      latest.expiresAt ??
+      new Date(latest.startedAt.getTime() + limitSeconds * 1000);
+    if (!latest.expiresAt) {
+      await db.testAttempt.update({
+        where: { id: latest.id },
+        data: { expiresAt: deadline },
+      });
+      latest.expiresAt = deadline;
+    }
+    if (deadline <= new Date()) {
+      const outcome = await submitAttempt(ctx, latest.id);
+      latest.status = outcome.status;
+    }
+  }
+  return assignments;
 }
 async function ownedAttempt(ctx: Context, id: string) {
   const attempt = await db.testAttempt.findFirst({
@@ -68,6 +88,14 @@ async function ownedAttempt(ctx: Context, id: string) {
   });
   if (!attempt || attempt.assignment.membershipId !== ctx.member?.id)
     throw new NotFoundException("Прохождение не найдено");
+  if (attempt.status === "in_progress" && !attempt.expiresAt) {
+    const expiresAt = new Date(
+      attempt.startedAt.getTime() +
+        attempt.assignment.testVersion.questions.length * 60_000,
+    );
+    await db.testAttempt.update({ where: { id }, data: { expiresAt } });
+    attempt.expiresAt = expiresAt;
+  }
   return attempt;
 }
 export async function startAttempt(ctx: Context, id: string, input: unknown) {
@@ -81,7 +109,12 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
     where: { id, organizationId: orgId(ctx), membershipId: ctx.member.id },
     include: {
       campaign: true,
-      testVersion: { include: { keys: { orderBy: { createdAt: "desc" } } } },
+      testVersion: {
+        include: {
+          keys: { orderBy: { createdAt: "desc" } },
+          _count: { select: { questions: true } },
+        },
+      },
     },
   });
   if (!assignment) throw new NotFoundException("Назначение не найдено");
@@ -89,7 +122,15 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
     where: { assignmentId: id },
     orderBy: { attemptNumber: "desc" },
   });
-  if (existing) return { id: existing.id };
+  if (existing?.status === "completed") return { id: existing.id };
+  if (existing?.status === "in_progress") {
+    const current = await ownedAttempt(ctx, existing.id);
+    if (current.expiresAt && current.expiresAt <= new Date()) {
+      await submitAttempt(ctx, existing.id);
+    } else {
+      return { id: existing.id };
+    }
+  }
   if (
     assignment.campaign.status !== "active" ||
     assignment.campaign.endsAt < new Date()
@@ -99,26 +140,39 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
     throw new BadRequestException("Методика недоступна");
   const key = assignment.testVersion.keys[0];
   if (!key) throw new BadRequestException("Ключ оценивания не настроен");
-  const attempt = await db.testAttempt.upsert({
-    where: {
-      assignmentId_attemptNumber: { assignmentId: id, attemptNumber: 1 },
-    },
-    update: {},
-    create: {
-      organizationId: orgId(ctx),
-      assignmentId: id,
-      language,
-      scoringKeyId: key.id,
-      expiresAt: assignment.testVersion.timeLimitSeconds
-        ? new Date(Date.now() + assignment.testVersion.timeLimitSeconds * 1000)
-        : null,
-    },
+  const attempt = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM test_assignments WHERE id = ${id} FOR UPDATE`;
+    const latest = await tx.testAttempt.findFirst({
+      where: { assignmentId: id },
+      orderBy: { attemptNumber: "desc" },
+    });
+    if (latest && latest.status !== "expired") return latest;
+    return tx.testAttempt.create({
+      data: {
+        organizationId: orgId(ctx),
+        assignmentId: id,
+        attemptNumber: (latest?.attemptNumber ?? 0) + 1,
+        language,
+        scoringKeyId: key.id,
+        expiresAt: new Date(
+          Date.now() + assignment.testVersion._count.questions * 60_000,
+        ),
+      },
+    });
   });
   await audit(orgId(ctx), ctx.user.id, "attempt.started", attempt.id);
   return { id: attempt.id };
 }
 export async function getAttempt(ctx: Context, id: string) {
-  const attempt = await ownedAttempt(ctx, id);
+  let attempt = await ownedAttempt(ctx, id);
+  if (
+    attempt.status === "in_progress" &&
+    attempt.expiresAt &&
+    attempt.expiresAt <= new Date()
+  ) {
+    await submitAttempt(ctx, id);
+    attempt = await ownedAttempt(ctx, id);
+  }
   const answers = await db.userAnswer.findMany({
     where: { attemptId: id, organizationId: orgId(ctx) },
   });
@@ -142,7 +196,7 @@ export async function getAttempt(ctx: Context, id: string) {
       value: a.value,
       revision: a.revision,
     })),
-    durationMinutes: version.durationMinutes,
+    durationMinutes: version.questions.length,
     responseScale: { min: config.min ?? 1, max: config.max ?? 5 },
   };
 }
@@ -155,6 +209,12 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
     })
     .parse(input);
   const attempt = await ownedAttempt(ctx, id);
+  if (attempt.status === "expired")
+    throw new ConflictException("Время истекло. Начните тест заново.");
+  if (attempt.expiresAt && attempt.expiresAt <= new Date()) {
+    await submitAttempt(ctx, id);
+    throw new ConflictException("Время истекло. Начните тест заново.");
+  }
   const question = attempt.assignment.testVersion.questions.find(
     (q) => q.id === data.questionId,
   );
@@ -178,7 +238,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
     const current = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
     if (current.status !== "in_progress")
       throw new ConflictException("Тест уже завершён");
-    if (current.expiresAt && current.expiresAt < new Date())
+    if (current.expiresAt && current.expiresAt <= new Date())
       throw new ConflictException("Время прохождения истекло");
     const previous = await tx.userAnswer.findUnique({
       where: {
@@ -213,12 +273,37 @@ export async function submitAttempt(ctx: Context, id: string) {
       where: { id },
       include: { answers: true, results: { orderBy: { createdAt: "asc" } } },
     });
+    if (current.status === "expired") return { status: "expired" as const };
     if (current.status === "completed")
       return {
+        status: "completed" as const,
         resultId: current.results[0].id,
         campaignId: attempt.assignment.campaignId,
         membershipId: attempt.assignment.membershipId,
       };
+    const questions = attempt.assignment.testVersion.questions;
+    const answered = new Set(current.answers.map((answer) => answer.questionId));
+    const allAnswered = questions.every((question) => answered.has(question.id));
+    const timeExpired = Boolean(
+      current.expiresAt && current.expiresAt <= new Date(),
+    );
+    if (timeExpired && !allAnswered) {
+      await tx.testAttempt.update({
+        where: { id },
+        data: { status: "expired" },
+      });
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(ctx),
+          actorId: ctx.user.id,
+          action: "attempt.expired",
+          entityId: id,
+        },
+      });
+      return { status: "expired" as const };
+    }
+    if (!allAnswered)
+      throw new BadRequestException("Ответьте на все вопросы перед завершением");
     const key = await tx.scoringKey.findUniqueOrThrow({
       where: { id: current.scoringKeyId },
     });
@@ -254,6 +339,7 @@ export async function submitAttempt(ctx: Context, id: string) {
       },
     });
     return {
+      status: "completed" as const,
       resultId: result.id,
       campaignId: attempt.assignment.campaignId,
       membershipId: attempt.assignment.membershipId,

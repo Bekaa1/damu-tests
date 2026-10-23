@@ -23,7 +23,13 @@ export async function createOrganization(ctx: Context, input: unknown) {
     password = await hashPassword(temporaryPassword);
   const result = await db.$transaction(async (tx) => {
     const organization = await tx.organization.create({
-      data: { name: d.name, slug: d.slug, matrixConfig: json(defaultMatrix) },
+      data: {
+        name: d.name,
+        slug: d.slug,
+        showPreliminary: true,
+        showApproved: true,
+        matrixConfig: json(defaultMatrix),
+      },
     });
     const user = await tx.user.create({
       data: {

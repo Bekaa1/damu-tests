@@ -16,6 +16,7 @@ import { auth } from "./auth";
 import { AppController } from "./controller";
 import { db } from "./db";
 import { startAiWorker, aiQueue } from "./ai";
+import { startReportWorker, reportsQueue } from "./generated-reports";
 @Catch()
 class ApiErrors implements ExceptionFilter {
   catch(error: any, host: ArgumentsHost) {
@@ -81,9 +82,12 @@ app.use((req: any, res: any, next: any) => {
 });
 app.useGlobalFilters(new ApiErrors());
 const worker = startAiWorker();
+const reportWorker = startReportWorker();
 await app.listen(Number(process.env.API_PORT || 4000), "0.0.0.0");
 console.log("AssessFlow API ready on port " + (process.env.API_PORT || 4000));
 async function shutdown() {
+  await reportWorker.close();
+  await reportsQueue.close();
   await worker.close();
   await aiQueue.close();
   await app.close();

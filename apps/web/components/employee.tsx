@@ -46,6 +46,12 @@ const icons: Record<string, typeof Brain> = {
   motivation: Heart,
   situations: Compass,
 };
+const formatCountdown = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  return `${minutes}:${(seconds % 60).toString().padStart(2, "0")}`;
+};
 function ProfileScaleRows({
   scales,
   loc,
@@ -84,6 +90,7 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
   const { data, loading, error } = useData<any[]>(
     campaign ? `/my/assignments?campaignId=${campaign}` : null,
   );
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const latestAssignments = new Map<string, any>();
   for (const assignment of data || []) {
     const key = `${assignment.campaignId}:${assignment.testVersion.testId}`;
@@ -97,8 +104,13 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
     }
   }
   const visibleAssignments = Array.from(latestAssignments.values());
+  useEffect(() => {
+    if (!data?.some((assignment) => assignment.attempts[0]?.status === "in_progress"))
+      return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [data]);
   const [selected, setSelected] = useState<any>(null),
-    [language, setLanguage] = useState(locale),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false),
     [startError, setStartError] = useState("");
@@ -113,7 +125,9 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
         await post("/me/consent", { accepted: consent });
         await reload();
       }
-      const a = await post(`/assignments/${selected.id}/start`, { language });
+      const a = await post(`/assignments/${selected.id}/start`, {
+        language: locale,
+      });
       router.push(`/test/${a.id}`);
     } catch (e) {
       setStartError((e as Error).message);
@@ -228,7 +242,23 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           {visibleAssignments.map((a) => {
             const v = a.testVersion,
               attempt = a.attempts[0],
-              status = attempt?.status || "not_started",
+              questionCount = v._count.questions,
+              remainingSeconds =
+                attempt?.status === "in_progress" && attempt.expiresAt
+                  ? Math.max(
+                      0,
+                      Math.ceil(
+                        (new Date(attempt.expiresAt).getTime() - clockNow) /
+                          1000,
+                      ),
+                    )
+                  : null,
+              timedOut =
+                attempt?.status === "expired" || remainingSeconds === 0,
+              status = timedOut
+                ? "expired"
+                : attempt?.status || "not_started",
+              canResume = status === "in_progress",
               Icon = icons[v.test.direction] || BookOpen;
             return (
               <div className="test-card" key={a.id}>
@@ -236,7 +266,11 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                   <div className="test-icon">
                     <Icon size={22} />
                   </div>
-                  <Badge status={status} />
+                  <Badge status={status}>
+                    {timedOut
+                      ? t("Время вышло", "Уақыт аяқталды")
+                      : undefined}
+                  </Badge>
                 </div>
                 <div>
                   <h3>{loc(v.test.name)}</h3>
@@ -249,10 +283,22 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                   </span>
                   <span>
                     <Clock3 size={13} />
-                    {v.durationMinutes} {t("мин", "мин")}
+                    {status === "completed"
+                      ? t("Завершён", "Аяқталды")
+                      : timedOut
+                        ? t("Начните заново", "Қайта бастаңыз")
+                        : canResume && remainingSeconds !== null
+                          ? t(
+                              `Осталось ${formatCountdown(remainingSeconds)}`,
+                              `Қалды ${formatCountdown(remainingSeconds)}`,
+                            )
+                          : t(
+                              `Лимит: ${formatCountdown(questionCount * 60)}`,
+                              `Уақыт: ${formatCountdown(questionCount * 60)}`,
+                            )}
                   </span>
                 </div>
-                {attempt && (
+                {attempt && !timedOut && (
                   <Progress
                     value={
                       attempt.status === "completed"
@@ -268,14 +314,15 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                   onClick={() => {
                     setSelected(a);
                     setStartError("");
-                    setLanguage(locale);
                   }}
                 >
                   {status === "completed"
                     ? t("Завершено", "Аяқталды")
-                    : attempt
+                    : canResume
                       ? t("Продолжить", "Жалғастыру")
-                      : t("Начать тест", "Тестті бастау")}
+                      : timedOut
+                        ? t("Начать заново", "Қайта бастау")
+                        : t("Начать тест", "Тестті бастау")}
                   {status === "completed" ? (
                     <CheckCircle2 size={15} />
                   ) : (
@@ -303,17 +350,12 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           className="test-start-modal"
         >
           <div className="modal-body form-stack">
-            {!selected.attempts.length && (
-              <Field label={t("Язык тестирования", "Тестілеу тілі")}>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as any)}
-                >
-                  <option value="ru">Русский</option>
-                  <option value="kk">Қазақша</option>
-                </select>
-              </Field>
-            )}
+            <p className="text-small text-muted">
+              {t(
+                `На каждый из ${selected.testVersion._count.questions} вопросов отводится одна минута. Если выйти, таймер продолжит идти.`,
+                `Әр ${selected.testVersion._count.questions} сұраққа бір минут беріледі. Шықсаңыз да, таймер жүре береді.`,
+              )}
+            </p>
             {!me.member.consentAt && (
               <label className="row align-start">
                 <input
@@ -335,7 +377,11 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
               disabled={!me.member.consentAt && !consent}
               onClick={begin}
             >
-              {t("Перейти к заданиям", "Тапсырмаларға өту")}
+              {selected.attempts[0]?.status === "in_progress" &&
+              selected.attempts[0]?.expiresAt &&
+              new Date(selected.attempts[0].expiresAt).getTime() > clockNow
+                ? t("Продолжить тест", "Тесті жалғастыру")
+                : t("Начать тест", "Тестті бастау")}
               <ArrowRight size={16} />
             </Button>
           </div>
@@ -357,10 +403,13 @@ export function TestRunner({ id }: { id: string }) {
     [confirm, setConfirm] = useState(false),
     [submitting, setSubmitting] = useState(false),
     [done, setDone] = useState(false),
-    [autoAdvance, setAutoAdvance] = useState(true);
+    [expired, setExpired] = useState(false),
+    [autoAdvance, setAutoAdvance] = useState(true),
+    [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revisionsRef = useRef<Record<string, number>>({});
   const pendingRef = useRef(false);
+  const timeoutSubmitRef = useRef(false);
   useEffect(() => {
     if (data) {
       const a = Object.fromEntries(
@@ -379,6 +428,7 @@ export function TestRunner({ id }: { id: string }) {
         ),
       );
       setDone(data.status === "completed");
+      setExpired(data.status === "expired");
     }
   }, [data]);
   useEffect(() => {
@@ -394,9 +444,52 @@ export function TestRunner({ id }: { id: string }) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, []);
+  useEffect(() => {
+    if (
+      !data?.expiresAt ||
+      data.status !== "in_progress" ||
+      done ||
+      expired
+    ) {
+      setSecondsRemaining(null);
+      return;
+    }
+    const deadline = new Date(data.expiresAt).getTime();
+    if (!Number.isFinite(deadline)) return;
+    let retryAfter = 0;
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+      if (
+        remaining > 0 ||
+        timeoutSubmitRef.current ||
+        Date.now() < retryAfter
+      )
+        return;
+      timeoutSubmitRef.current = true;
+      setSubmitting(true);
+      void post(`/attempts/${id}/submit`)
+        .then((result) => {
+          if (result.status === "expired") setExpired(true);
+          else setDone(true);
+        })
+        .catch((e) => {
+          retryAfter = Date.now() + 5000;
+          setSaveError((e as Error).message);
+        })
+        .finally(() => {
+          timeoutSubmitRef.current = false;
+          setSubmitting(false);
+        });
+    };
+    updateTimer();
+    const timer = window.setInterval(updateTimer, 1000);
+    return () => window.clearInterval(timer);
+  }, [data?.expiresAt, data?.status, done, expired, id]);
   const q = data?.questions[index];
   const loc = (x: any) => x?.[data?.language] || x?.ru || "";
   const persist = async (questionId: string, value: unknown) => {
+    if (secondsRemaining === 0) return;
     setSaving(true);
     setSaveError("");
     try {
@@ -427,7 +520,7 @@ export function TestRunner({ id }: { id: string }) {
     }
   };
   const choose = (value: any) => {
-    if (saving) return;
+    if (saving || secondsRemaining === 0) return;
     setAnswers((prev) => ({ ...prev, [q.id]: value }));
     setPending(true);
     pendingRef.current = true;
@@ -435,6 +528,7 @@ export function TestRunner({ id }: { id: string }) {
     void persist(q.id, value);
   };
   const numeric = (value: string) => {
+    if (secondsRemaining === 0) return;
     setAnswers((prev) => ({ ...prev, [q.id]: value }));
     setPending(true);
     pendingRef.current = true;
@@ -443,6 +537,25 @@ export function TestRunner({ id }: { id: string }) {
     if (value.trim())
       saveTimer.current = setTimeout(() => void persist(q.id, value), 700);
   };
+  if (expired)
+    return (
+      <Panel>
+        <Empty
+          icon={<Clock3 size={30} />}
+          title={t("Время вышло", "Уақыт аяқталды")}
+          description={t(
+            "Не на все вопросы успели ответить. Эта попытка не засчитана — вернитесь в кабинет и начните тест заново.",
+            "Барлық сұраққа жауап беріп үлгермедіңіз. Бұл әрекет есептелмейді — кабинетке оралып, тестті қайта бастаңыз.",
+          )}
+          action={
+            <Button onClick={() => router.push("/cabinet")}>
+              {t("Вернуться в кабинет", "Кабинетке оралу")}
+              <ArrowRight size={16} />
+            </Button>
+          }
+        />
+      </Panel>
+    );
   if (done)
     return (
       <Panel>
@@ -503,7 +616,32 @@ export function TestRunner({ id }: { id: string }) {
                 {Object.keys(revisions).length} / {data.questions.length}{" "}
                 {t("сохранено", "сақталды")}
               </span>
+              <span
+                className={`test-timer ${secondsRemaining !== null && secondsRemaining <= 60 ? "urgent" : ""}`}
+                aria-live="polite"
+              >
+                <Clock3 size={15} />
+                {secondsRemaining === null
+                  ? t(
+                      `Ориентир: ${data.durationMinutes} мин`,
+                      `Шамамен: ${data.durationMinutes} мин`,
+                    )
+                  : secondsRemaining === 0
+                    ? t("Отправляем ответы…", "Жауаптар жіберілуде…")
+                    : t(
+                        `Осталось ${formatCountdown(secondsRemaining)}`,
+                        `Қалды ${formatCountdown(secondsRemaining)}`,
+                      )}
+              </span>
             </div>
+            {secondsRemaining === 0 && (
+              <div className="notice warning test-timeout-notice">
+                {t(
+                  "Время вышло. Проверяем, сохранены ли ответы на все вопросы.",
+                  "Уақыт аяқталды. Барлық сұраққа жауап сақталғанын тексеріп жатырмыз.",
+                )}
+              </div>
+            )}
             <Panel>
               <div className="question-panel">
                 <div className="question-number" aria-live="polite">
@@ -764,8 +902,9 @@ export function TestRunner({ id }: { id: string }) {
                   onClick={async () => {
                     setSubmitting(true);
                     try {
-                      await post(`/attempts/${id}/submit`);
-                      setDone(true);
+                      const result = await post(`/attempts/${id}/submit`);
+                      if (result.status === "expired") setExpired(true);
+                      else setDone(true);
                       setConfirm(false);
                     } catch (e) {
                       notify((e as Error).message, "error");
@@ -785,25 +924,56 @@ export function TestRunner({ id }: { id: string }) {
   );
 }
 export function MyResults() {
-  const { t, me, campaign, campaigns, setCampaign, loc, notify } = useApp();
+  const { t, me, campaign, campaigns, setCampaign, loc, locale, notify } = useApp();
   const { data, loading, error, refreshSilently } = useData<any>(
     campaign ? `/people/${me.member.id}?campaignId=${campaign}` : null,
   );
-  const [aiBusy, setAiBusy] = useState(false);
-  const aiRefreshRef = useRef(refreshSilently);
-  const completedAi = data?.ai?.find((report: any) => report.status === "completed");
-  const latestAi = data?.ai?.[0];
-  const aiInProgress = Boolean(
-    data?.ai?.some((report: any) => ["pending", "processing"].includes(report.status)),
-  );
+  const generated = useData<any[]>(campaign ? `/generated-reports?campaignId=${campaign}&kind=individual` : null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const generatedRefreshRef = useRef(generated.refreshSilently);
+  const generatedRows = generated.data || [];
+  const latestOwnLanguageReport = generatedRows.find((report) => report.language === locale);
+  const reportInProgress = generatedRows.some((report) => ["pending", "processing"].includes(report.status));
   useEffect(() => {
-    aiRefreshRef.current = refreshSilently;
-  }, [refreshSilently]);
+    generatedRefreshRef.current = generated.refreshSilently;
+  }, [generated.refreshSilently]);
   useEffect(() => {
-    if (!aiInProgress) return;
-    const timer = window.setInterval(() => aiRefreshRef.current(), 2500);
+    const refreshVisibleResults = () => {
+      if (document.visibilityState !== "visible") return;
+      void refreshSilently();
+      void generated.refreshSilently();
+    };
+    window.addEventListener("focus", refreshVisibleResults);
+    document.addEventListener("visibilitychange", refreshVisibleResults);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleResults);
+      document.removeEventListener("visibilitychange", refreshVisibleResults);
+    };
+  }, [refreshSilently, generated.refreshSilently]);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") generatedRefreshRef.current();
+    }, reportInProgress ? 2500 : 8000);
     return () => window.clearInterval(timer);
-  }, [aiInProgress]);
+  }, [reportInProgress]);
+  const generatePersonalReport = async () => {
+    setReportBusy(true);
+    try {
+      await post("/generated-reports", {
+        campaignId: campaign,
+        membershipId: me.member.id,
+        kind: "individual",
+        language: locale,
+        regenerate: latestOwnLanguageReport?.status === "completed",
+      });
+      await generated.refreshSilently();
+      notify(t("Отчёт формируется и появится в истории по готовности.", "Есеп дайындалуда. Дайын болғанда тарихта көрсетіледі."));
+    } catch (e) {
+      notify((e as Error).message, "error");
+    } finally {
+      setReportBusy(false);
+    }
+  };
   return (
     <>
       <PageTitle
@@ -851,24 +1021,86 @@ export function MyResults() {
           </Panel>
         ) : (
           <div className="stack">
-            {data.reports?.length > 0 ? (
-              <Panel title={t("Утверждённый отчёт", "Бекітілген есеп")}>
-                <div className="panel-body">
-                  <p className="report-text">
-                    {data.reports[0].content.conclusion}
+            <Panel
+              title={t("Отчёт по результатам", "Нәтижелер бойынша есеп")}
+              action={
+                <Button
+                  busy={reportBusy}
+                  disabled={reportInProgress || generated.loading}
+                  onClick={generatePersonalReport}
+                >
+                  <Sparkles size={16} />
+                  {latestOwnLanguageReport?.status === "completed"
+                    ? t("Сформировать новую версию", "Жаңа нұсқасын жасау")
+                    : t("Сформировать отчёт", "Есепті жасау")}
+                </Button>
+              }
+            >
+              <div className="panel-body stack">
+                <p className="text-muted">
+                  {t(
+                    "Сформируйте такой же индивидуальный PDF-отчёт, который доступен администратору. Все версии сохраняются в истории.",
+                    "Әкімші көретін жеке PDF-есепті жасаңыз. Барлық нұсқалар тарихта сақталады.",
+                  )}
+                </p>
+                {generated.error ? <div className="notice error">{generated.error}</div> : null}
+                {generatedRows.length ? (
+                  <div className="report-history">
+                    {generatedRows.map((report) => (
+                      <div key={report.id}>
+                        <div>
+                          <strong>
+                            {new Date(report.createdAt).toLocaleString(locale === "ru" ? "ru-RU" : "kk-KZ", { dateStyle: "medium", timeStyle: "short" })}
+                          </strong>
+                          <p className="text-muted">
+                            {t("Сформировал", "Жасаған")}: {report.createdByName || t("Пользователь", "Пайдаланушы")} · {report.language.toUpperCase()}
+                          </p>
+                        </div>
+                        {report.status === "completed" ? (
+                          <Button
+                            variant="secondary"
+                            onClick={() => download(`/generated-reports/${report.id}/pdf`, `AssessFlow-report-${report.language}.pdf`).catch((e) => notify(e.message, "error"))}
+                          >
+                            <Download size={16} />PDF
+                          </Button>
+                        ) : ["pending", "processing"].includes(report.status) ? (
+                          <span className="report-state"><Clock3 size={16} />{t("Формируется", "Дайындалуда")}</span>
+                        ) : (
+                          <span className="report-state failed" title={report.error || undefined}>{t("Не удалось сформировать", "Жасау сәтсіз аяқталды")}</span>
+                        )}
+                        {report.status === "failed" && report.error ? <p className="text-small text-muted">{report.error}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-small text-muted">
+                    {t("Сформированные отчёты появятся здесь и будут доступны администратору в истории индивидуальных отчётов.", "Жасалған есептер осында көрсетіледі және әкімшіге жеке есептер тарихында қолжетімді болады.")}
                   </p>
-                  <Button
-                    className="mt"
-                    onClick={() =>
-                      download(
-                        `/reports/${data.reports[0].id}/pdf`,
-                        "my-report.pdf",
-                      ).catch((e) => notify(e.message, "error"))
-                    }
-                  >
-                    <Download size={16} />
-                    {t("Скачать PDF", "PDF жүктеу")}
-                  </Button>
+                )}
+              </div>
+            </Panel>
+            {data.reports?.length > 0 ? (
+              <Panel title={t("История утверждённых экспертных отчётов", "Бекітілген сараптамалық есептер тарихы")}>
+                <div className="panel-body stack">
+                  {data.reports.map((report: any) => (
+                    <section className="report-history" key={report.id}>
+                      <div>
+                        <div>
+                          <strong>{t("Версия", "Нұсқа")} {report.version}</strong>
+                          <p className="text-muted">
+                            {new Date(report.createdAt).toLocaleString(locale === "ru" ? "ru-RU" : "kk-KZ", { dateStyle: "medium", timeStyle: "short" })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          onClick={() => download(`/reports/${report.id}/pdf`, `AssessFlow-approved-report-${report.version}.pdf`).catch((e) => notify(e.message, "error"))}
+                        >
+                          <Download size={16} />{t("Скачать PDF", "PDF жүктеу")}
+                        </Button>
+                      </div>
+                      {report.content?.conclusion ? <p className="report-text">{report.content.conclusion}</p> : null}
+                    </section>
+                  ))}
                 </div>
               </Panel>
             ) : (
@@ -937,87 +1169,7 @@ export function MyResults() {
               </Panel>
               </details>
             )}
-            {data.canSelfGenerateAi && completedAi ? (
-              <Panel title={t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437", "\u0410\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443")}>
-                <div className="panel-body stack">
-                  {Object.entries(completedAi.content).map(([section, items]: [string, any]) => (
-                    <section key={section}>
-                      <h3>{({
-                        generalProfile: t("\u041e\u0431\u0449\u0438\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c", "\u0416\u0430\u043b\u043f\u044b \u0431\u0435\u0439\u0456\u043d"),
-                        analyticalAbilities: t("\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u043f\u043e\u0441\u043e\u0431\u043d\u043e\u0441\u0442\u0438", "\u0422\u0430\u043b\u0434\u0430\u0443 \u049b\u0430\u0431\u0456\u043b\u0435\u0442\u0442\u0435\u0440\u0456"),
-                        personality: t("\u041b\u0438\u0447\u043d\u043e\u0441\u0442\u043d\u044b\u0435 \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438", "\u0422\u04b1\u043b\u0493\u0430\u043b\u044b\u049b \u0435\u0440\u0435\u043a\u0448\u0435\u043b\u0456\u043a\u0442\u0435\u0440"),
-                        motivation: t("\u041c\u043e\u0442\u0438\u0432\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c", "\u0423\u04d9\u0436\u0434\u0435\u043c\u0435\u043b\u0456\u043a \u0431\u0435\u0439\u0456\u043d"),
-                        situations: t("\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u0438", "\u0411\u0430\u0441\u049b\u0430\u0440\u0443 \u0436\u0430\u0493\u0434\u0430\u0439\u043b\u0430\u0440\u044b"),
-                        strengths: t("\u0421\u0438\u043b\u044c\u043d\u044b\u0435 \u0441\u0442\u043e\u0440\u043e\u043d\u044b", "\u041a\u04af\u0448\u0442\u0456 \u0436\u0430\u049b\u0442\u0430\u0440\u044b"),
-                        developmentAreas: t("\u0417\u043e\u043d\u044b \u0440\u0430\u0437\u0432\u0438\u0442\u0438\u044f", "\u0414\u0430\u043c\u044b\u0442\u0443 \u0431\u0430\u0493\u044b\u0442\u0442\u0430\u0440\u044b"),
-                        recommendations: t("\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438", "\u04b0\u0441\u044b\u043d\u044b\u0441\u0442\u0430\u0440"),
-                        limitations: t("\u041e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u044f", "\u0428\u0435\u043a\u0442\u0435\u0443\u043b\u0435\u0440"),
-                      } as Record<string, string>)[section] || section}</h3>
-                      {items.map((item: any, index: number) => (
-                        <div key={index}>
-                          <p className="report-text">{typeof item === "string" ? item : item.text}</p>
-                        </div>
-                      ))}
-                    </section>
-                  ))}
-                  <div className="notice"><Info size={18} />{t("\u042d\u0442\u043e \u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437. \u042d\u043a\u0441\u043f\u0435\u0440\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0438 \u0443\u0442\u0432\u0435\u0440\u0434\u0438\u0442 \u0438\u0442\u043e\u0433\u043e\u0432\u043e\u0435 \u0437\u0430\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435.", "\u0411\u04b1\u043b \u0430\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443. \u0421\u0430\u0440\u0430\u043f\u0448\u044b \u0442\u04af\u043f\u043a\u0456\u043b\u0456\u043a \u049b\u043e\u0440\u044b\u0442\u044b\u043d\u0434\u044b\u043d\u044b \u0442\u0435\u043a\u0441\u0435\u0440\u0456\u043f, \u0431\u0435\u043a\u0456\u0442\u0435\u0434\u0456.")}</div>
-                </div>
-              </Panel>
-            ) : data.canSelfGenerateAi ? (
-              <Panel title={t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437", "\u0410\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443")}>
-                <div className="panel-body stack">
-                  <div className="notice">
-                    {aiInProgress ? <Clock3 size={18} /> : <Info size={18} />}
-                    {aiInProgress
-                      ? t("AI-\u0430\u043d\u0430\u043b\u0438\u0437 \u0433\u043e\u0442\u043e\u0432\u0438\u0442\u0441\u044f. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.", "AI-\u0442\u0430\u043b\u0434\u0430\u0443 \u0434\u0430\u0439\u044b\u043d\u0434\u0430\u043b\u044b\u043f \u0436\u0430\u0442\u044b\u0440. \u041d\u04d9\u0442\u0438\u0436\u0435 \u043e\u0441\u044b \u0436\u0435\u0440\u0434\u0435 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0442\u044b \u0442\u04af\u0440\u0434\u0435 \u043a\u04e9\u0440\u0441\u0435\u0442\u0456\u043b\u0435\u0434\u0456.")
-                      : latestAi?.status === "awaiting_configuration"
-                        ? t("\u041f\u0440\u0435\u0434\u044b\u0434\u0443\u0449\u0430\u044f \u043f\u043e\u043f\u044b\u0442\u043a\u0430 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u043b\u0430\u0441\u044c. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437.", "\u0410\u043b\u0434\u044b\u04a3\u0493\u044b \u04d9\u0440\u0435\u043a\u0435\u0442 \u0456\u0441\u043a\u0435 \u049b\u043e\u0441\u044b\u043b\u043c\u0430\u0434\u044b. \u0422\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0430\u043b\u0443 \u04af\u0448\u0456\u043d \u0442\u04af\u0439\u043c\u0435\u043d\u0456 \u0431\u0430\u0441\u044b\u04a3\u044b\u0437.")
-                        : latestAi?.status === "failed"
-                          ? t("\u0410\u043d\u0430\u043b\u0438\u0437\u0434\u0456 \u049b\u04b1\u0440\u0443 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0442\u0435 \u0448\u044b\u049b\u0442\u044b. \u049a\u0430\u0439\u0442\u0430 \u0442\u044b\u0440\u044b\u0441\u044b\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437.", "\u0422\u0430\u043b\u0434\u0430\u0443 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0442\u0435 \u0442\u0443\u044b\u043d\u0434\u0430\u0434\u044b. \u049a\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437.")
-                          : t("\u0421\u0444\u043e\u0440\u043c\u0438\u0440\u0443\u0439\u0442\u0435 \u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 AI-\u0430\u043d\u0430\u043b\u0438\u0437 \u043f\u043e \u0432\u0441\u0435\u043c \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u043c \u0442\u0435\u0441\u0442\u0430\u043c. \u041e\u043d \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043e\u0434\u0438\u043d \u0440\u0430\u0437 \u0437\u0430 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044e.", "\u0411\u0430\u0440\u043b\u044b\u049b \u0442\u0435\u0441\u0442\u0442\u0435\u0440\u0434\u0456 \u0430\u044f\u049b\u0442\u0430\u0493\u0430\u043d\u043d\u0430\u043d \u043a\u0435\u0439\u0456\u043d \u0430\u043b\u0434\u044b\u043d AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u04a3\u044b\u0437. \u041e\u043b \u0431\u0456\u0440 \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430 \u0431\u0456\u0440 \u0440\u0435\u0442 \u049b\u0430\u043b\u044b\u043f\u0442\u0430\u0441\u0430\u0434\u044b.")}
-                  </div>
-                  {aiInProgress && (
-                    <div className="ai-progress-wrap">
-                      <div
-                        className="ai-progress-track"
-                        role="progressbar"
-                        aria-label={t("\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f AI-\u0430\u043d\u0430\u043b\u0438\u0437\u0430", "AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u0443")}
-                        aria-valuetext={t("\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435 \u043e\u0442\u0432\u0435\u0442\u0430 AI-\u043c\u043e\u0434\u0435\u043b\u0438", "AI-\u043c\u043e\u0434\u0435\u043b\u0456\u043d\u0456\u04a3 \u0436\u0430\u0443\u0430\u0431\u044b\u043d \u043a\u04af\u0442\u0443")}
-                      >
-                        <span />
-                      </div>
-                      <p className="ai-progress-label">
-                        {latestAi?.status === "processing"
-                          ? t("AI-\u043c\u043e\u0434\u0435\u043b\u044c \u0444\u043e\u0440\u043c\u0438\u0440\u0443\u0435\u0442 \u0430\u043d\u0430\u043b\u0438\u0437", "AI-\u043c\u043e\u0434\u0435\u043b\u044c \u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u049b\u04b1\u0440\u0430\u0441\u0442\u044b\u0440\u044b\u043f \u0436\u0430\u0442\u044b\u0440")
-                          : t("\u0417\u0430\u043f\u0440\u043e\u0441 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438, \u043e\u0436\u0438\u0434\u0430\u0435\u043c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438", "\u0421\u04b1\u0440\u0430\u043d\u044b\u0441 \u043a\u0435\u0437\u0435\u043a\u0442\u0435, \u04e9\u04a3\u0434\u0435\u043b\u0443\u0456\u043d \u043a\u04af\u0442\u0456\u04a3\u0456\u0437")}
-                      </p>
-                    </div>
-                  )}
-                  {!aiInProgress && (
-                    <Button variant="secondary" busy={aiBusy} onClick={async () => {
-                      setAiBusy(true);
-                      try {
-                        const result = await post<{ status: string }>("/ai/generate", { membershipId: me.member.id, campaignId: campaign });
-                        if (result.status === "awaiting_configuration") notify(t("AI \u0435\u0449\u0451 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d. \u041e\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044c \u043a \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0443.", "AI \u04d9\u043b\u0456 \u049b\u043e\u0441\u044b\u043b\u043c\u0430\u0493\u0430\u043d. \u04d8\u043a\u0456\u043c\u0448\u0456\u0433\u0435 \u0445\u0430\u0431\u0430\u0440\u043b\u0430\u0441\u044b\u04a3\u044b\u0437."), "error");
-                        else if (result.status === "completed") notify(t("\u0410\u043d\u0430\u043b\u0438\u0437 \u0434\u043b\u044f \u044d\u0442\u043e\u0439 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u0438 \u0443\u0436\u0435 \u0441\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d.", "\u0411\u04b1\u043b \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430\u0493\u044b \u0442\u0430\u043b\u0434\u0430\u0443 \u0431\u04b1\u0440\u044b\u043d \u049b\u0430\u043b\u044b\u043f\u0442\u0430\u0441\u049b\u0430\u043d."));
-                        else if (["pending", "processing"].includes(result.status)) notify(t("\u0410\u043d\u0430\u043b\u0438\u0437 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c.", "\u0422\u0430\u043b\u0434\u0430\u0443 \u043a\u0435\u0437\u0435\u043a\u043a\u0435 \u049b\u043e\u0441\u044b\u043b\u0434\u044b. \u041d\u04d9\u0442\u0438\u0436\u0435 \u043e\u0441\u044b \u0436\u0435\u0440\u0434\u0435 \u043a\u04e9\u0440\u0456\u043d\u0435\u0434\u0456."));
-                        else notify(t("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.", "\u0422\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0456\u0441\u043a\u0435 \u049b\u043e\u0441\u0443 \u043c\u04af\u043c\u043a\u0456\u043d \u0431\u043e\u043b\u043c\u0430\u0434\u044b. \u041a\u0435\u0439\u0456\u043d\u0456\u0440\u0435\u043a \u049b\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u043f \u043a\u04e9\u0440\u0456\u04a3\u0456\u0437."), "error");
-                        await refreshSilently();
-                      } catch (e) { notify((e as Error).message, "error"); }
-                      finally { setAiBusy(false); }
-                    }}>
-                      <Sparkles size={16} />
-                      {latestAi?.status === "failed"
-                        ? t("\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c", "\u049a\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u0443")
-                        : latestAi?.status === "awaiting_configuration"
-                          ? t("\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0430\u043d\u0430\u043b\u0438\u0437 \u043f\u043e \u0442\u0435\u0441\u0442\u0430\u043c", "\u0422\u0435\u0441\u0442\u0442\u0435\u0440 \u0431\u043e\u0439\u044b\u043d\u0448\u0430 \u0442\u0430\u043b\u0434\u0430\u0443 \u0430\u043b\u0443")
-                          : t("\u0421\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u0442\u044c AI-\u0430\u043d\u0430\u043b\u0438\u0437", "AI-\u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0436\u0430\u0441\u0430\u0443")}
-                    </Button>
-                  )}
-                  <p className="text-small text-muted">{t("\u041f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043e\u0434\u0438\u043d \u0440\u0430\u0437 \u0437\u0430 \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044e. \u041f\u0440\u0438 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u0439 \u043e\u0448\u0438\u0431\u043a\u0435 \u043c\u043e\u0436\u043d\u043e \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c.", "\u0410\u043b\u0434\u044b\u043d \u0442\u0430\u043b\u0434\u0430\u0443\u0434\u044b \u0431\u0456\u0440 \u043d\u0430\u0443\u049b\u0430\u043d\u0434\u0430 \u0431\u0456\u0440 \u0440\u0435\u0442 \u0436\u0430\u0441\u0430\u0443\u0493\u0430 \u0431\u043e\u043b\u0430\u0434\u044b. \u0422\u0435\u0445\u043d\u0438\u043a\u0430\u043b\u044b\u049b \u049b\u0430\u0442\u0435 \u043a\u0435\u0437\u0456\u043d\u0434\u0435 \u049b\u0430\u0439\u0442\u0430 \u0441\u044b\u043d\u0430\u0443\u0493\u0430 \u0431\u043e\u043b\u0430\u0434\u044b.")}</p>
-                </div>
-              </Panel>
-            ) : null}
+
           </div>
         )}
       </LoadState>

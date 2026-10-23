@@ -13,7 +13,6 @@ import {
   CalendarDays,
   ChevronRight,
   Search,
-  Upload,
   ClipboardList,
   BookOpen,
   Brain,
@@ -25,6 +24,7 @@ import {
   Info,
   ShieldCheck,
   FileText,
+  Save,
   SlidersHorizontal,
   Copy,
   Check,
@@ -33,6 +33,7 @@ import {
   useApp,
   useData,
   post,
+  patch,
   download,
   PageTitle,
   Panel,
@@ -109,18 +110,10 @@ export function Overview() {
         )}
         actions={
           <>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                download(
-                  `/export/team?campaignId=${campaign}`,
-                  "assessflow-team.pdf",
-                ).catch((e) => notify(e.message, "error"))
-              }
-            >
+            <Link href="/team-reports" className="btn secondary">
               <Download size={15} />
               {t("Сводный отчёт", "Жиынтық есеп")}
-            </Button>
+            </Link>
             {me.role !== "expert" && (
               <Link href="/people?add=1" className="btn primary">
                 <Plus size={16} />
@@ -461,16 +454,10 @@ export function People({ expert = false }: { expert?: boolean }) {
         )}
         actions={
           me.role !== "expert" ? (
-            <>
-              <Button variant="secondary" onClick={() => setModal("import")}>
-                <Upload size={15} />
-                {t("Импорт", "Импорт")}
-              </Button>
-              <Button onClick={() => setModal("add")}>
-                <Plus size={16} />
-                {t("Добавить сотрудника", "Қызметкер қосу")}
-              </Button>
-            </>
+            <Button onClick={() => setModal("add")}>
+              <Plus size={16} />
+              {t("Добавить сотрудника", "Қызметкер қосу")}
+            </Button>
           ) : undefined
         }
       />
@@ -703,9 +690,6 @@ export function People({ expert = false }: { expert?: boolean }) {
             setSelected([]);
           }}
         />
-      )}
-      {modal === "import" && (
-        <ImportModal onClose={() => setModal("")} onSaved={refresh} />
       )}
     </>
   );
@@ -945,106 +929,6 @@ function AssignModal({
     </Modal>
   );
 }
-function ImportModal({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const { t } = useApp();
-  const [file, setFile] = useState<File | null>(null),
-    [busy, setBusy] = useState(false),
-    [result, setResult] = useState<any>(null),
-    [error, setError] = useState("");
-  return (
-    <Modal
-      title={t("Импорт сотрудников", "Қызметкерлер импорты")}
-      onClose={onClose}
-      wide
-    >
-      <div className="modal-body form-stack">
-        <p className="text-small text-muted">
-          {t(
-            "Excel или CSV. Заголовки: name, email, position, unit, category, locale. Обязательные: name, email, unit.",
-            "Excel немесе CSV. Бағандар: name, email, position, unit, category, locale. Міндетті: name, email, unit.",
-          )}
-        </p>
-        <input
-          type="file"
-          accept=".xlsx,.csv"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-        />
-        {error && <div className="notice error">{error}</div>}
-        {result && (
-          <>
-            <div className="notice success">
-              {t(
-                `Создано: ${result.created.length}. Ошибок: ${result.errors.length}.`,
-                `Жасалды: ${result.created.length}. Қателер: ${result.errors.length}.`,
-              )}
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>{t("Временный пароль", "Уақытша құпиясөз")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.created.map((c: any) => (
-                    <tr key={c.id}>
-                      <td>{c.user.email}</td>
-                      <td>
-                        <code>{c.temporaryPassword}</code>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {result.errors.map((e: any, i: number) => (
-              <div className="notice error" key={i}>
-                {e.row}: {e.message}
-              </div>
-            ))}
-          </>
-        )}
-        {!result && (
-          <Button
-            busy={busy}
-            disabled={!file}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                if (!file || file.size > 8 * 1024 * 1024)
-                  throw new Error(t("Максимум 8 МБ", "Ең көбі 8 МБ"));
-                const reader = new FileReader();
-                const base64 = await new Promise<string>((resolve, reject) => {
-                  reader.onload = () =>
-                    resolve(String(reader.result).split(",")[1]);
-                  reader.onerror = reject;
-                  reader.readAsDataURL(file);
-                });
-                setResult(
-                  await post("/import/people", { name: file.name, base64 }),
-                );
-                onSaved();
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {t("Импортировать", "Импорттау")}
-          </Button>
-        )}
-      </div>
-    </Modal>
-  );
-}
 export function Campaigns() {
   const { t, campaigns, reload, setCampaign } = useApp();
   const [open, setOpen] = useState(false),
@@ -1251,13 +1135,18 @@ export function Library() {
   );
 }
 export function Analytics() {
-  const { t, campaign, loc, notify } = useApp();
+  const { t, campaign, loc, locale, notify } = useApp();
   const { data, loading, error } = useData<any[]>(
     campaign ? `/people?campaignId=${campaign}` : null,
   );
-  const [group, setGroup] = useState("unit");
+  const [group, setGroup] = useState<"unit" | "position">("unit");
   const people = (data || []).filter((p) => p.role === "employee");
-  const groups = [...new Set(people.map((p) => p[group]))];
+  const groupName = (person: any) =>
+    String(person[group] || "").trim() ||
+    t("Должность не указана", "Лауазымы көрсетілмеген");
+  const groups = [...new Set(people.map(groupName))].sort((a, b) =>
+    a.localeCompare(b, locale === "ru" ? "ru" : "kk"),
+  );
   const results = people.flatMap((p) => p.results.filter((r: any) => r.score));
   const groupKey = (r: any) =>
     [r.testVersionId, r.scoringKeyId, r.language].join(":");
@@ -1270,19 +1159,7 @@ export function Analytics() {
           "Сопоставимые показатели текущей кампании — без единого рейтинга пригодности.",
           "Ағымдағы науқанның салыстырмалы көрсеткіштері.",
         )}
-        actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              download(`/export/team?campaignId=${campaign}`, "team.pdf").catch(
-                (e) => notify(e.message, "error"),
-              )
-            }
-          >
-            <Download size={15} />
-            {t("Скачать отчёт", "Есепті жүктеу")}
-          </Button>
-        }
+
       />
       <LoadState loading={loading} error={error}>
         <div className="chip-filter">
@@ -1293,13 +1170,13 @@ export function Analytics() {
             {t("По подразделениям", "Бөлімшелер бойынша")}
           </button>
           <button
-            className={group === "category" ? "active" : ""}
-            onClick={() => setGroup("category")}
+            className={group === "position" ? "active" : ""}
+            onClick={() => setGroup("position")}
           >
-            {t("По категориям должностей", "Лауазым санаттары бойынша")}
+            {t("По должностям", "Лауазымдар бойынша")}
           </button>
         </div>
-        <div className="dashboard-grid">
+        <div className="dashboard-grid analytics-summary-grid">
           <Panel
             title={t("Завершение тестирования", "Тестілеуді аяқтау")}
             description={t(
@@ -1309,7 +1186,7 @@ export function Analytics() {
           >
             <div className="bar-chart">
               {groups.map((g) => {
-                const members = people.filter((p) => p[group] === g),
+                const members = people.filter((p) => groupName(p) === g),
                   done = members.filter((p) => p.status === "completed").length;
                 const percent = Math.round((done / members.length) * 100);
                 return (
@@ -1322,25 +1199,6 @@ export function Analytics() {
                   </div>
                 );
               })}
-            </div>
-          </Panel>
-          <Panel title={t("Основания для интерпретации", "Түсіндіруге негіз")}>
-            <div className="panel-body">
-              <div className="notice">
-                <ShieldCheck size={20} />
-                <p>
-                  {t(
-                    "Показатели разных методик не складываются. Для каждой шкалы сохраняются её диапазон, версия и ограничения.",
-                    "Әртүрлі әдістемелердің көрсеткіштері қосылмайды. Әр шкаланың ауқымы, нұсқасы және шектеулері сақталады.",
-                  )}
-                </p>
-              </div>
-              <p className="text-small text-muted mt">
-                {t(
-                  "Расположение в матрице потенциала определяется экспертом с письменным обоснованием.",
-                  "Әлеует матрицасындағы орынды сарапшы жазбаша негіздемемен анықтайды.",
-                )}
-              </p>
             </div>
           </Panel>
         </div>
@@ -1361,7 +1219,7 @@ export function Analytics() {
                   <th>{t("МЕТОДИКА", "ӘДІСТЕМЕ")}</th>
                   <th>N</th>
                   <th>{t("ПОКАЗАТЕЛЬ", "КӨРСЕТКІШ")}</th>
-                  <th>{t("ИНТЕРПРЕТАЦИЯ", "ТҮСІНДІРУ")}</th>
+
                 </tr>
               </thead>
               <tbody>
@@ -1372,9 +1230,7 @@ export function Analytics() {
                     <tr key={id}>
                       <td>
                         {loc(rs[0].name)}
-                        <small className="block text-muted">
-                          v{rs[0].version} · {rs[0].language?.toUpperCase()}
-                        </small>
+
                       </td>
                       <td>{rs.length}</td>
                       <td>
@@ -1385,12 +1241,7 @@ export function Analytics() {
                               `${Object.keys(s.scales).length} шкала`,
                             )}
                       </td>
-                      <td className="text-small text-muted">
-                        {t(
-                          "Первичные баллы, без нормативов",
-                          "Нормаларсыз бастапқы балдар",
-                        )}
-                      </td>
+
                     </tr>
                   );
                 })}
@@ -1403,15 +1254,28 @@ export function Analytics() {
   );
 }
 export function Matrix() {
-  const { t, loc, campaign, me } = useApp();
+  const { t, loc, campaign, me, reload, notify } = useApp();
   const { data, loading, error } = useData<any[]>(
     campaign ? `/people?campaignId=${campaign}` : null,
   );
   const [unit, setUnit] = useState("all");
+  const [matrixConfig, setMatrixConfig] = useState<any>(me.organization.matrixConfig);
+  const [savingConfig, setSavingConfig] = useState(false);
   const people = (data || []).filter(
     (p) => p.role === "employee" && (unit === "all" || p.unit === unit),
   );
-  const config = me.organization.matrixConfig;
+  const saveMatrixConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await patch("/matrix-config", { matrixConfig });
+      await reload();
+      notify(t("Модель матрицы сохранена", "Матрица моделі сақталды"));
+    } catch (e) {
+      notify((e as Error).message, "error");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
   return (
     <>
       <PageTitle
@@ -1421,11 +1285,60 @@ export function Matrix() {
           "9-box · Құзыреттер мен даму әлеуетін сараптамалық бағалау.",
         )}
       />
+      <Panel
+        title={t("Модель матрицы 9-box", "9-box матрицасының моделі")}
+        action={
+          <Button type="button" busy={savingConfig} onClick={saveMatrixConfig}>
+            <Save size={15} />
+            {t("Сохранить модель", "Модельді сақтау")}
+          </Button>
+        }
+      >
+        <div className="panel-body form-stack">
+          <div className="form-grid">
+            {(["x", "y"] as const).flatMap((axis) =>
+              (["ru", "kk"] as const).map((lang) => (
+                <Field
+                  key={axis + lang}
+                  label={`${axis.toUpperCase()} · ${lang.toUpperCase()}`}
+                >
+                  <input
+                    value={matrixConfig[axis][lang]}
+                    onChange={(e) =>
+                      setMatrixConfig({
+                        ...matrixConfig,
+                        [axis]: {
+                          ...matrixConfig[axis],
+                          [lang]: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              )),
+            )}
+          </div>
+          <Field
+            label={t(
+              "Критерии экспертного определения уровней",
+              "Деңгейлерді сараптамалық анықтау критерийлері",
+            )}
+          >
+            <textarea
+              rows={4}
+              value={matrixConfig.criteria}
+              onChange={(e) =>
+                setMatrixConfig({ ...matrixConfig, criteria: e.target.value })
+              }
+            />
+          </Field>
+        </div>
+      </Panel>
       <LoadState loading={loading} error={error}>
         <div className="notice section-gap" style={{ marginBottom: 22 }}>
           <Info size={18} />
           <p>
-            {config.criteria}{" "}
+            {matrixConfig.criteria}{" "}
             {t(
               "Нажмите на сотрудника, чтобы открыть обоснование и отчёт.",
               "Негіздеме мен есепті ашу үшін қызметкерді басыңыз.",
@@ -1433,7 +1346,7 @@ export function Matrix() {
           </p>
         </div>
         <Panel
-          title={loc(config.y)}
+          title={loc(matrixConfig.y)}
           action={
             <select
               style={{ width: "auto", fontSize: 14 }}
@@ -1463,8 +1376,8 @@ export function Matrix() {
                   >
                     <div className="matrix-cell-head">
                       <span>
-                        {loc(config.levels[y - 1])} /{" "}
-                        {loc(config.levels[x - 1])}
+                        {loc(matrixConfig.levels[y - 1])} /{" "}
+                        {loc(matrixConfig.levels[x - 1])}
                       </span>
                       <b>{members.length}</b>
                     </div>
@@ -1484,11 +1397,11 @@ export function Matrix() {
             )}
           </div>
           <div className="matrix-x-labels">
-            {config.levels.map((l: any, i: number) => (
+            {matrixConfig.levels.map((l: any, i: number) => (
               <span key={i}>{loc(l)}</span>
             ))}
           </div>
-          <div className="matrix-axis">{loc(config.x)} →</div>
+          <div className="matrix-axis">{loc(matrixConfig.x)} →</div>
           <div className="matrix-unrated">
             {t("Ожидают экспертной оценки:", "Сараптамалық бағалауды күтуде:")}{" "}
             {people.filter((p) => !p.report?.matrixX).length}

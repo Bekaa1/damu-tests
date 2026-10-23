@@ -1,0 +1,27 @@
+CREATE TABLE "generated_reports" (
+  "id" TEXT NOT NULL,
+  "organizationId" TEXT NOT NULL,
+  "campaignId" TEXT NOT NULL,
+  "membershipId" TEXT,
+  "kind" TEXT NOT NULL,
+  "language" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'pending',
+  "participantIds" JSONB NOT NULL,
+  "snapshot" JSONB NOT NULL,
+  "inputHash" TEXT NOT NULL,
+  "content" JSONB,
+  "model" TEXT NOT NULL,
+  "prompt" TEXT NOT NULL,
+  "promptVersion" TEXT NOT NULL,
+  "providerConfig" JSONB NOT NULL,
+  "error" TEXT,
+  "cost" DOUBLE PRECISION NOT NULL DEFAULT 0,
+  "promptTokens" INTEGER NOT NULL DEFAULT 0,
+  "completionTokens" INTEGER NOT NULL DEFAULT 0,
+  "createdBy" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "generated_reports_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "generated_reports_campaignId_organizationId_fkey" FOREIGN KEY ("campaignId", "organizationId") REFERENCES "campaigns"("id", "organizationId") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX "generated_reports_organizationId_campaignId_kind_idx" ON "generated_reports"("organizationId", "campaignId", "kind");

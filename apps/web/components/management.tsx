@@ -1364,10 +1364,7 @@ export function SettingsPage() {
     <>
       <PageTitle
         title={t("Настройки организации", "Ұйым баптаулары")}
-        description={t(
-          "Брендинг, доступ к результатам и методология оценки.",
-          "Брендинг, нәтижелерге қолжетімділік және бағалау әдістемесі.",
-        )}
+        description={t("\u041e\u0441\u043d\u043e\u0432\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u0430\u0446\u0438\u0438.", "\u04b0\u0439\u044b\u043c\u043d\u044b\u04a3 \u043d\u0435\u0433\u0456\u0437\u0433\u0456 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043b\u0435\u0440\u0456.")}
       />
       <form
         className="stack"
@@ -1377,11 +1374,6 @@ export function SettingsPage() {
           try {
             await patch("/settings", {
               name: org.name,
-              showPreliminary: org.showPreliminary,
-              showApproved: org.showApproved,
-              retentionDays: Number(org.retentionDays),
-              matrixConfig: org.matrixConfig,
-              ...(org.logoUrl ? { logoUrl: org.logoUrl } : {}),
             });
             await reload();
             notify(t("Настройки сохранены", "Баптаулар сақталды"));
@@ -1392,8 +1384,7 @@ export function SettingsPage() {
           }
         }}
       >
-        <div className="settings-grid">
-          <Panel title={t("Организация и брендинг", "Ұйым және брендинг")}>
+          <Panel title={t("Организация", "Ұйым")}>
             <div className="panel-body form-stack">
               <Field label={t("Название организации", "Ұйым атауы")}>
                 <input
@@ -1402,149 +1393,8 @@ export function SettingsPage() {
                   onChange={(e) => setOrg({ ...org, name: e.target.value })}
                 />
               </Field>
-              <Field
-                label={t(
-                  "Логотип для интерфейса и PDF",
-                  "Интерфейс пен PDF үшін логотип",
-                )}
-              >
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    if (f.size > 350000) {
-                      notify("Максимум 350 КБ", "error");
-                      return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () =>
-                      setOrg({ ...org, logoUrl: reader.result });
-                    reader.readAsDataURL(f);
-                  }}
-                />
-              </Field>
-              {org.logoUrl && (
-                <img
-                  src={org.logoUrl}
-                  alt={org.name}
-                  style={{
-                    maxHeight: 60,
-                    maxWidth: 200,
-                    objectFit: "contain",
-                    alignSelf: "flex-start",
-                  }}
-                />
-              )}
-              <Field
-                label={t(
-                  "Срок хранения результатов, дней",
-                  "Нәтижелерді сақтау мерзімі, күн",
-                )}
-              >
-                <input
-                  type="number"
-                  min={30}
-                  max={3650}
-                  value={org.retentionDays}
-                  onChange={(e) =>
-                    setOrg({ ...org, retentionDays: e.target.value })
-                  }
-                />
-              </Field>
             </div>
           </Panel>
-          <Panel
-            title={t(
-              "Доступ сотрудников к результатам",
-              "Қызметкерлердің нәтижелерге қолжетімділігі",
-            )}
-          >
-            <div className="panel-body">
-              {[
-                [
-                  "showPreliminary",
-                  t("Предварительный AI-анализ", "Алдын ала AI-талдау"),
-                  t(
-                    "Показывать после завершения назначенных тестов.",
-                    "Тағайындалған тесттер аяқталғаннан кейін көрсету.",
-                  ),
-                ],
-                [
-                  "showApproved",
-                  t("Утверждённый отчёт", "Бекітілген есеп"),
-                  t(
-                    "Разрешить просмотр и скачивание после проверки экспертом.",
-                    "Сарапшы тексергеннен кейін көруге және жүктеуге рұқсат беру.",
-                  ),
-                ],
-              ].map(([k, label, desc]) => (
-                <label className="switch-row" key={k}>
-                  <div>
-                    <strong>{label}</strong>
-                    <p>{desc}</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={org[k]}
-                    onChange={(e) => setOrg({ ...org, [k]: e.target.checked })}
-                  />
-                </label>
-              ))}
-            </div>
-          </Panel>
-        </div>
-        <Panel title={t("Модель матрицы 9-box", "9-box матрицасының моделі")}>
-          <div className="panel-body form-stack">
-            <div className="form-grid">
-              {["x", "y"].flatMap((axis) =>
-                ["ru", "kk"].map((lang) => (
-                  <Field
-                    key={axis + lang}
-                    label={`${axis.toUpperCase()} · ${lang.toUpperCase()}`}
-                  >
-                    <input
-                      value={org.matrixConfig[axis][lang]}
-                      onChange={(e) =>
-                        setOrg({
-                          ...org,
-                          matrixConfig: {
-                            ...org.matrixConfig,
-                            [axis]: {
-                              ...org.matrixConfig[axis],
-                              [lang]: e.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-                )),
-              )}
-            </div>
-            <Field
-              label={t(
-                "Критерии экспертного определения уровней",
-                "Деңгейлерді сараптамалық анықтау критерийлері",
-              )}
-            >
-              <textarea
-                rows={4}
-                value={org.matrixConfig.criteria}
-                onChange={(e) =>
-                  setOrg({
-                    ...org,
-                    matrixConfig: {
-                      ...org.matrixConfig,
-                      criteria: e.target.value,
-                    },
-                  })
-                }
-              />
-            </Field>
-          </div>
-        </Panel>
         <div className="form-actions">
           <Button busy={busy}>
             <Save size={16} />
@@ -1918,6 +1768,7 @@ export function Platform() {
                     <thead>
                       <tr>
                         <th>{t("ДАТА", "КҮНІ")}</th>
+                        <th>{t("ТИП", "ТҮРІ")}</th>
                         <th>{t("МОДЕЛЬ", "МОДЕЛЬ")}</th>
                         <th>{t("СТАТУС", "МӘРТЕБЕ")}</th>
                         <th>{t("ТОКЕНЫ", "ТОКЕНДЕР")}</th>
@@ -1928,6 +1779,7 @@ export function Platform() {
                       {ai.data.history.map((r: any) => (
                         <tr key={r.id}>
                           <td>{date(r.createdAt)}</td>
+                          <td>{r.kind === "team" ? t("Командный отчёт", "Командалық есеп") : r.kind === "individual" ? t("Индивидуальный отчёт", "Жеке есеп") : t("Анализ участника", "Қатысушыны талдау")}</td>
                           <td>{r.model || "—"}</td>
                           <td>
                             <Badge status={r.status} />

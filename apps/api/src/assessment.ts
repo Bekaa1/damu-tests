@@ -114,7 +114,7 @@ export async function saveExercise(
   id: string | undefined,
   input: unknown,
 ) {
-  requireRole(ctx, "admin");
+  requireRole(ctx, "expert");
   const data = exerciseSchema.parse(input);
   const organizationId = orgId(ctx);
   if (new Set(data.criteria.map((c) => c.id)).size !== data.criteria.length)

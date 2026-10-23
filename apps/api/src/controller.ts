@@ -55,6 +55,7 @@ import {
   getReport,
 } from "./assessment";
 import { queueAi } from "./ai";
+import { listGeneratedReports, createGeneratedReport } from "./generated-reports";
 import {
   defaultMatrix,
   DEFAULT_AI_PROMPT,
@@ -70,8 +71,17 @@ import {
   importPeople,
   exportIndividualPdf,
   exportTeamPdf,
+  exportGeneratedPdf,
 } from "./exports";
 import { uploadAsset, downloadAsset } from "./storage";
+const matrixConfigSchema = z.object({
+  x: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
+  y: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
+  levels: z
+    .array(z.object({ ru: z.string(), kk: z.string() }))
+    .length(3),
+  criteria: z.string().min(10),
+});
 @Controller("api")
 @UseGuards(AccessGuard)
 export class AppController {
@@ -312,6 +322,15 @@ export class AppController {
   @Post("reports") report(@Req() req: AuthRequest, @Body() body: unknown) {
     return saveReport(req.ctx, body);
   }
+  @Get("generated-reports") generatedReports(@Req() req: AuthRequest, @Query("campaignId") campaignId: string, @Query("kind") kind: string) {
+    return listGeneratedReports(req.ctx, campaignId, kind);
+  }
+  @Post("generated-reports") generateReport(@Req() req: AuthRequest, @Body() body: unknown) {
+    return createGeneratedReport(req.ctx, body);
+  }
+  @Get("generated-reports/:id/pdf") async generatedPdf(@Req() req: AuthRequest, @Param("id") id: string, @Res() res: Response) {
+    res.type("application/pdf").attachment("assessflow-report.pdf").send(await exportGeneratedPdf(req.ctx, id));
+  }
   @Get("reports/:id") reportDetails(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -358,29 +377,12 @@ export class AppController {
     const data = z
       .object({
         name: z.string().min(2).max(100).optional(),
-        showPreliminary: z.boolean().optional(),
-        showApproved: z.boolean().optional(),
-        retentionDays: z.number().int().min(30).max(3650).optional(),
         color: z
           .string()
           .regex(/^#[0-9a-fA-F]{6}$/)
           .optional(),
-        matrixConfig: z
-          .object({
-            x: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
-            y: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
-            levels: z
-              .array(z.object({ ru: z.string(), kk: z.string() }))
-              .length(3),
-            criteria: z.string().min(10),
-          })
-          .optional(),
-        logoUrl: z
-          .string()
-          .max(500000)
-          .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/)
-          .optional(),
       })
+      .strict()
       .parse(body);
     const r = await db.organization.update({
       where: { id: orgId(req.ctx) },
@@ -390,6 +392,26 @@ export class AppController {
       orgId(req.ctx),
       req.ctx.user.id,
       "organization.settings_updated",
+    );
+    return r;
+  }
+  @Patch("matrix-config") async matrixConfigSave(
+    @Req() req: AuthRequest,
+    @Body() body: unknown,
+  ) {
+    requireRole(req.ctx, "expert");
+    const { matrixConfig } = z
+      .object({ matrixConfig: matrixConfigSchema })
+      .strict()
+      .parse(body);
+    const r = await db.organization.update({
+      where: { id: orgId(req.ctx) },
+      data: { matrixConfig: json(matrixConfig) },
+    });
+    await audit(
+      orgId(req.ctx),
+      req.ctx.user.id,
+      "organization.matrix_updated",
     );
     return r;
   }
@@ -504,24 +526,19 @@ export class AppController {
       where: { id: "default" },
     });
     const { encryptedApiKey, ...safe } = settings!;
+    const effectiveSettings = /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(safe.aiPrompt || "")
+      ? { ...safe, aiPrompt: DEFAULT_AI_PROMPT, aiPromptVersion: "2.0" }
+      : safe;
+    const usageFields = { id: true, organizationId: true, status: true, model: true, cost: true, promptTokens: true, completionTokens: true, error: true, createdAt: true } as const;
+    const [analyses, reports] = await Promise.all([
+      db.aiReport.findMany({ orderBy: { createdAt: "desc" }, take: 50, select: usageFields }),
+      db.generatedReport.findMany({ orderBy: { createdAt: "desc" }, take: 50, select: { ...usageFields, kind: true } }),
+    ]);
     return {
-      settings: safe,
+      settings: effectiveSettings,
       keyConfigured: Boolean(openRouterKey(settings)),
-      history: await db.aiReport.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        select: {
-          id: true,
-          organizationId: true,
-          status: true,
-          model: true,
-          cost: true,
-          promptTokens: true,
-          completionTokens: true,
-          error: true,
-          createdAt: true,
-        },
-      }),
+      history: [...analyses.map(row => ({ ...row, kind: "analysis" })), ...reports]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 50),
     };
   }
   @Patch("platform/ai") async aiSettingsSave(

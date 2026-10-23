@@ -43,10 +43,10 @@ import {
   Library,
   Analytics,
   Matrix,
-  Reports,
 } from "./organization";
 import { Participant, Criteria, SettingsPage, Platform } from "./management";
 import { EmployeeHome, TestRunner, MyResults } from "./employee";
+import { ReportCenter } from "./report-center";
 export function Application() {
   const router = useRouter(),
     path = usePathname();
@@ -178,11 +178,20 @@ export function Application() {
             label: t("Аналитика", "Талдау"),
             icon: ChartNoAxesCombined,
           },
-          {
-            href: "/matrix",
-            label: t("Матрица потенциала", "Әлеует матрицасы"),
-            icon: Grid2X2,
-          },
+          ...(isExpert
+            ? [
+                {
+                  href: "/matrix",
+                  label: t("Матрица потенциала", "Әлеует матрицасы"),
+                  icon: Grid2X2,
+                },
+                {
+                  href: "/criteria",
+                  label: t("Критерии оценки", "Бағалау критерийлері"),
+                  icon: SlidersHorizontal,
+                },
+              ]
+            : []),
           { href: "/reports", label: t("Отчёты", "Есептер"), icon: FileText },
           ...(isExpert
             ? [
@@ -192,13 +201,7 @@ export function Application() {
                   icon: ClipboardCheck,
                 },
               ]
-            : [
-                {
-                  href: "/criteria",
-                  label: t("Критерии оценки", "Бағалау критерийлері"),
-                  icon: SlidersHorizontal,
-                },
-              ]),
+            : []),
           ...(!isExpert
             ? [
                 {
@@ -255,13 +258,23 @@ export function Application() {
     ) : path === "/analytics" ? (
       <Analytics />
     ) : path === "/matrix" ? (
-      <Matrix />
+      isExpert ? (
+        <Matrix />
+      ) : (
+        <AccessDenied t={t} onHome={() => router.replace("/")} />
+      )
     ) : path === "/reports" ? (
-      <Reports />
+      <ReportCenter key={campaign + locale + "individual"} kind="individual" />
+    ) : path === "/team-reports" ? (
+      <ReportCenter key={campaign + locale + "team"} kind="team" />
     ) : path === "/expert" ? (
       <People expert />
     ) : path === "/criteria" ? (
-      <Criteria />
+      isExpert ? (
+        <Criteria />
+      ) : (
+        <AccessDenied t={t} onHome={() => router.replace("/")} />
+      )
     ) : path === "/settings" ? (
       <SettingsPage />
     ) : path === "/platform" ? (
@@ -326,7 +339,7 @@ export function Application() {
               <Link
                 key={n.href}
                 href={n.href}
-                className={`nav-item ${path === n.href || (n.href === "/people" && path.startsWith("/people/")) ? "active" : ""} ${i === 4 ? "nav-divider" : ""}`}
+                className={`nav-item ${path === n.href || (n.href === "/people" && path.startsWith("/people/")) || (n.href === "/reports" && path === "/team-reports") ? "active" : ""} ${i === 4 ? "nav-divider" : ""}`}
               >
                 <n.icon size={19} />
                 <span>{n.label}</span>
@@ -518,6 +531,27 @@ export function Application() {
         </div>
       )}
     </AppCtx.Provider>
+  );
+}
+
+function AccessDenied({
+  t,
+  onHome,
+}: {
+  t: (ru: string, kk: string) => string;
+  onHome: () => void;
+}) {
+  return (
+    <div className="empty">
+      <h1>{t("Раздел доступен эксперту", "Бұл бөлім сарапшыға қолжетімді")}</h1>
+      <p>
+        {t(
+          "Попросите эксперта организации открыть этот раздел.",
+          "Бұл бөлімді ашу үшін ұйым сарапшысына жүгініңіз.",
+        )}
+      </p>
+      <Button onClick={onHome}>{t("На главную", "Басты бетке")}</Button>
+    </div>
   );
 }
 function Brand() {

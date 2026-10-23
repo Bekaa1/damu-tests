@@ -341,7 +341,8 @@ tbody tr:hover {
   color: #ae813f;
 }
 .badge.failed,
-.badge.blocked {
+.badge.blocked,
+.badge.expired {
   background: #f9eceb;
   color: #b05a55;
 }
@@ -745,6 +746,9 @@ tbody tr:hover {
   grid-template-columns: 1.65fr 1fr;
   gap: 22px;
   margin-bottom: 24px;
+}
+.dashboard-grid.analytics-summary-grid {
+  grid-template-columns: 1fr;
 }
 .completion-layout {
   display: flex;
@@ -1312,6 +1316,9 @@ tbody tr:hover {
   align-items: center;
   gap: 5px;
 }
+.test-meta span:last-child {
+  min-width: 0;
+}
 .test-card .btn {
   margin-top: auto;
 }
@@ -1380,8 +1387,26 @@ tbody tr:hover {
   gap: 20px;
   margin-bottom: 20px;
   font-size: 14px;
-  white-space: nowrap;
+  flex-wrap: wrap;
   color: #8a98a2;
+}
+.test-progress > .progress {
+  flex: 1 1 180px;
+}
+.test-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #526b78;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.test-timer.urgent {
+  color: #a14e36;
+}
+.test-timeout-notice {
+  margin-bottom: 16px;
 }
 .question-panel {
   padding: 36px 40px;
@@ -2728,3 +2753,23 @@ tbody tr:hover {
     transition-duration: 0.01ms !important;
   }
 }
+.report-tabs{display:flex;gap:8px;border-bottom:1px solid var(--border,#dde5e9);margin:0 0 24px}
+.report-tabs a{display:flex;gap:10px;align-items:center;padding:12px 18px;color:var(--muted,#6b808b);border-bottom:3px solid transparent}
+.report-tabs a[aria-current=page]{color:var(--primary,#286b65);border-color:currentColor;font-weight:600}
+.report-intro{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:32px;background:#142735;color:#fff;border-radius:12px;padding:30px 32px;margin-bottom:24px}
+.report-eyebrow{font-size:12px;font-weight:600;letter-spacing:1.5px;color:#9fc4be}
+.report-intro h2{font-size:25px;line-height:1.3;margin:10px 0}
+.report-intro p{max-width:780px;color:#bbccd4;line-height:1.7}
+.report-intro-meta{display:flex;gap:12px 24px;flex-wrap:wrap;margin-top:20px;font-size:13px;color:#a9c4ca}
+.report-intro-count{align-self:center;border-left:1px solid #34505d;padding-left:30px}
+.report-intro-count strong{font-size:42px;display:block;font-weight:600}.report-intro-count small{font-size:24px;color:#8ba7b4}.report-intro-count span{display:block;font-size:14px;color:#b7cbd2;margin-top:8px}
+.report-state{display:inline-flex;gap:7px;align-items:center;font-size:14px;color:#607f91}.report-state.ready{color:#2b7863}.report-state.failed{color:#a75943}
+.report-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.report-row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.report-team-current{display:flex;align-items:center;justify-content:space-between;gap:24px}.report-team-current p{margin-top:8px}
+.report-generation{border:1px solid #cde1df;border-radius:10px;background:#edf6f4;padding:22px 24px;margin:0 0 24px}.report-generation>div:first-child{display:flex;align-items:flex-start;gap:14px}.report-generation strong{font-size:18px}.report-generation p{font-size:15px;margin-top:6px;color:#5b7880}
+.report-indeterminate{height:5px;border-radius:6px;background:#d7e8e4;overflow:hidden;margin-top:18px}.report-indeterminate span{display:block;height:100%;width:32%;background:#347f75;border-radius:6px;animation:report-progress 1.8s ease-in-out infinite}
+@keyframes report-progress{from{transform:translateX(-105%)}to{transform:translateX(420%)}}
+.report-history>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid #e5ecef}.report-history>div:last-child{border:0}.report-history p{margin-top:5px}
+.report-search input{min-width:220px}.report-version-list{margin-top:8px;font-size:13px;color:#607a86}.report-version-list summary{cursor:pointer}.report-version-list button{display:flex;align-items:center;gap:9px;padding:6px 0;border:0;background:none;color:#2c716a;cursor:pointer}
+@media(max-width:700px){.report-intro{grid-template-columns:1fr;padding:23px;gap:20px}.report-intro-count{border-left:0;border-top:1px solid #34505d;padding:18px 0 0}.report-intro-count strong{font-size:34px}.report-team-current,.report-history>div{align-items:flex-start;flex-direction:column}.report-tabs a{padding:11px 9px;font-size:14px}.report-intro h2{font-size:21px}.report-actions .btn{font-size:14px}.report-search input{min-width:0;width:100%}}
+@media(prefers-reduced-motion:reduce){.report-indeterminate span{animation:none;width:100%;opacity:.45}}

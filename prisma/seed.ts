@@ -80,6 +80,7 @@ await db.platformSettings.upsert({
   update: {},
   create: {
     aiPrompt: DEFAULT_AI_PROMPT,
+    aiPromptVersion: "2.0",
     aiProviderAllowlist: [],
     aiModel: process.env.OPENROUTER_MODEL || "",
   },

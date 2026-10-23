@@ -53,8 +53,11 @@ export async function queueAi(
     where: { id: "default" },
   });
   const model = settings?.aiModel || process.env.OPENROUTER_MODEL || "";
-  const promptVersion = settings?.aiPromptVersion || "1.1",
-    prompt = settings?.aiPrompt || DEFAULT_AI_PROMPT;
+  const storedPrompt = settings?.aiPrompt || "";
+  const prompt = !storedPrompt || /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(storedPrompt)
+    ? DEFAULT_AI_PROMPT
+    : storedPrompt;
+  const promptVersion = prompt === DEFAULT_AI_PROMPT ? "2.0" : settings?.aiPromptVersion || "custom";
   const providerConfig = {
     only: (settings?.aiProviderAllowlist ?? []) as string[],
     zdr: settings?.aiZdr ?? true,
@@ -142,6 +145,10 @@ export async function generateAi(
     where: { id: reportId },
   });
   if (report.status === "completed") return;
+  const prompt = /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(report.prompt || "")
+    ? DEFAULT_AI_PROMPT
+    : report.prompt || DEFAULT_AI_PROMPT;
+  const promptVersion = prompt === DEFAULT_AI_PROMPT ? "2.0" : report.promptVersion;
   const settings = await db.platformSettings.findUniqueOrThrow({
     where: { id: "default" },
   });
@@ -187,7 +194,6 @@ export async function generateAi(
         version: v.version,
         scoringKeyId: r.scoringKeyId,
         scores,
-        limitations: v.limitations,
       };
     }),
   };
@@ -212,7 +218,7 @@ export async function generateAi(
       },
     },
     messages: [
-      { role: "system", content: report.prompt || DEFAULT_AI_PROMPT },
+      { role: "system", content: prompt },
       { role: "user", content: JSON.stringify(input) },
     ],
   };
@@ -238,9 +244,13 @@ export async function generateAi(
       where: { organizationId: report.organizationId },
       _sum: { cost: true },
     });
+    const reportSpend = await tx.generatedReport.aggregate({
+      where: { organizationId: report.organizationId },
+      _sum: { cost: true },
+    });
     if (
       organization.status !== "active" ||
-      (spent._sum.cost ?? 0) + 1 > organization.aiBudget
+      (spent._sum.cost ?? 0) + (reportSpend._sum.cost ?? 0) + 1 > organization.aiBudget
     )
       return false;
     await tx.aiReport.update({
@@ -303,6 +313,8 @@ export async function generateAi(
       data: {
         status: "completed",
         content: json(content),
+        prompt,
+        promptVersion,
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
       },

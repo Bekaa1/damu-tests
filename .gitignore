@@ -12,3 +12,5 @@ artifacts/
 .data/
 backups/
 audit-report.json
+tmp/pdfs/
+output/pdf/
