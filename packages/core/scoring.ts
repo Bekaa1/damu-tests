@@ -67,6 +67,20 @@ export type Score = {
   }[];
   interpretation: "raw_only" | "preliminary_matching_index";
 };
+
+/** Compare JSON-shaped scoring values without depending on object key order. */
+export function sameJsonValue(left: unknown, right: unknown): boolean {
+  const canonicalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, entry]) => [key, canonicalize(entry)]),
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+}
 export function numericValue(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") throw new Error("Введите число");

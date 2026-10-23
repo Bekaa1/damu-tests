@@ -63,6 +63,7 @@ import {
 import {
   questionSchema,
   calculateScore,
+  sameJsonValue,
   verifyScoringConfig,
   type ScoringConfig,
 } from "../../../packages/core/scoring";
@@ -624,7 +625,7 @@ export class AppController {
         data.questions,
         ex.answers,
       );
-      if (JSON.stringify(result) !== JSON.stringify(ex.expected))
+      if (!sameJsonValue(result, ex.expected))
         throw new BadRequestException("Контрольный пример не пройден");
     }
     const version = await db.$transaction(async (tx) => {
@@ -709,7 +710,7 @@ export class AppController {
         version.questions.map(questionDTO),
         example.answers,
       );
-      if (JSON.stringify(actual) !== JSON.stringify(example.expected))
+      if (!sameJsonValue(actual, example.expected))
         throw new BadRequestException("Контрольный пример не пройден");
     }
     await db.testVersion.update({
@@ -771,14 +772,15 @@ export class AppController {
     verifyScoringConfig(data.config, v.questions.map(questionDTO));
     for (const e of data.controlExamples)
       if (
-        JSON.stringify(
+        !sameJsonValue(
           calculateScore(
             algorithm,
             data.config,
             v.questions.map(questionDTO),
             e.answers,
           ),
-        ) !== JSON.stringify(e.expected)
+          e.expected,
+        )
       )
         throw new BadRequestException("Контрольный пример не пройден");
     const key = await db.scoringKey.create({

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   calculateScore,
+  sameJsonValue,
   validateAnswer,
   numericValue,
   verifyScoringConfig,
@@ -40,6 +41,16 @@ const correct = Object.fromEntries(
   ]),
 ) as Record<string, any>;
 describe("SJT — независимые контрольные примеры из ТЗ", () => {
+  it("compares control results independent of JSON object key order", () => {
+    expect(
+      sameJsonValue(
+        { algorithm: "scales", scales: { first: { mean: 3, count: 2 } } },
+        { scales: { first: { count: 2, mean: 3 } }, algorithm: "scales" },
+      ),
+    ).toBe(true);
+    expect(sameJsonValue({ score: 2 }, { score: 3 })).toBe(false);
+  });
+
   it("8 ситуаций, 16 баллов, отдельно MOST и LEAST", () => {
     const r = calculateScore("sjt", key, sjt, correct);
     expect(r).toMatchObject({
