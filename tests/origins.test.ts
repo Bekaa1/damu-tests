@@ -16,14 +16,14 @@ describe("trusted application origins", () => {
   it("accepts configured aliases and rejects unrelated or missing origins", () => {
     process.env.APP_URL = "https://edukz.duckdns.org/";
     process.env.TRUSTED_ORIGINS =
-      "https://eduflow.pntr.dev, https://edukz.duckdns.org/extra";
+      "https://secondary.assessflow.test, https://edukz.duckdns.org/extra";
 
     expect(trustedOrigins()).toEqual([
       "https://edukz.duckdns.org",
-      "https://eduflow.pntr.dev",
+      "https://secondary.assessflow.test",
     ]);
     expect(isTrustedOrigin("https://edukz.duckdns.org")).toBe(true);
-    expect(isTrustedOrigin("https://eduflow.pntr.dev")).toBe(true);
+    expect(isTrustedOrigin("https://secondary.assessflow.test")).toBe(true);
     expect(isTrustedOrigin("https://untrusted.example")).toBe(false);
     expect(isTrustedOrigin()).toBe(false);
   });
