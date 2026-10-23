@@ -5,7 +5,6 @@ import {
   Users,
   CheckCircle2,
   Clock3,
-  FileCheck2,
   Plus,
   Download,
   ArrowUpRight,
@@ -56,18 +55,25 @@ const methodIcons: Record<string, typeof Brain> = {
   motivation: Heart,
   situations: Compass,
 };
+function formatPercent(value: number, locale: string) {
+  return `${new Intl.NumberFormat(locale === "kk" ? "kk-KZ" : "ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
+}
 export function Overview() {
-  const { t, me, campaign, campaigns, locale, notify } = useApp();
+  const { t, campaign, campaigns, locale, notify } = useApp();
   const { data, loading, error } = useData<any[]>(
     campaign ? `/people?campaignId=${campaign}` : null,
   );
-  const activity = useData<any[]>(me.role === "expert" ? null : "/activity");
   const people = (data || []).filter((p) => p.role === "employee");
   const done = people.filter((p) => p.status === "completed").length,
     progress = people.filter((p) => p.status === "in_progress").length,
-    waiting = people.length - done - progress,
-    approved = people.filter((p) => p.report?.status === "approved").length;
-  const percent = people.length ? Math.round((done / people.length) * 100) : 0;
+    notStarted = people.filter((p) => p.status === "not_started").length,
+    retryRequired = people.filter((p) => p.status === "retry_required").length,
+    unassigned = people.filter((p) => p.status === "unassigned").length;
+  const percent = people.length ? (done / people.length) * 100 : 0;
+  const attentionCount = notStarted + retryRequired + unassigned;
   const active = campaigns.find((c) => c.id === campaign);
   const units = [...new Set(people.map((p) => p.unit))].map((unit) => {
     const items = people.filter((p) => p.unit === unit);
@@ -78,28 +84,55 @@ export function Overview() {
       inProgress: items.filter((p) => p.status === "in_progress").length,
     };
   });
-  const actionLabels: Record<string, string> = {
-    "employee.created": t("Добавлен сотрудник", "Қызметкер қосылды"),
-    "attempt.completed": t("Завершено тестирование", "Тестілеу аяқталды"),
-    "report.approved": t(
-      "Утверждён экспертный отчёт",
-      "Сараптамалық есеп бекітілді",
-    ),
-    "tests.assigned": t("Назначены тестирования", "Тесттер тағайындалды"),
-    "campaign.created": t("Создана кампания оценки", "Бағалау науқаны құрылды"),
-    "observation.saved": t(
-      "Сохранены наблюдения эксперта",
-      "Сарапшы бақылаулары сақталды",
-    ),
-    "organization.settings_updated": t(
-      "Обновлены настройки",
-      "Баптаулар жаңартылды",
-    ),
-    "demo.initialized": t(
-      "Демонстрационная кампания подготовлена",
-      "Демонстрациялық науқан дайындалды",
-    ),
-  };
+  const completionCategories = [
+    {
+      key: "completed",
+      label: t("Завершено", "Аяқталды"),
+      count: done,
+      color: "#3f7c68",
+    },
+    {
+      key: "in_progress",
+      label: t("В процессе", "Орындалуда"),
+      count: progress,
+      color: "#7f9bad",
+    },
+    {
+      key: "not_started",
+      label: t("Ещё не начали", "Әлі бастамады"),
+      count: notStarted,
+      color: "#dfe6eb",
+    },
+    {
+      key: "retry_required",
+      label: t("Нужно пройти заново", "Қайта өту қажет"),
+      count: retryRequired,
+      color: "#c28c45",
+    },
+    {
+      key: "unassigned",
+      label: t("Тесты не назначены", "Тесттер тағайындалмаған"),
+      count: unassigned,
+      color: "#d6dce2",
+    },
+  ];
+  const circumference = 2 * Math.PI * 70;
+  let segmentOffset = 0;
+  const ringSegments = completionCategories.map((category) => {
+    const length = people.length
+      ? (category.count / people.length) * circumference
+      : 0;
+    const segment = {
+      ...category,
+      percentage: people.length
+        ? (category.count / people.length) * 100
+        : 0,
+      length,
+      offset: segmentOffset,
+    };
+    segmentOffset += length;
+    return segment;
+  });
   return (
     <>
       <PageTitle
@@ -108,20 +141,6 @@ export function Overview() {
           "Всё, что нужно знать о текущей оценке вашей команды.",
           "Командаңыздың ағымдағы бағалауы туралы негізгі ақпарат.",
         )}
-        actions={
-          <>
-            <Link href="/team-reports" className="btn secondary">
-              <Download size={15} />
-              {t("Сводный отчёт", "Жиынтық есеп")}
-            </Link>
-            {me.role !== "expert" && (
-              <Link href="/people?add=1" className="btn primary">
-                <Plus size={16} />
-                {t("Добавить сотрудника", "Қызметкер қосу")}
-              </Link>
-            )}
-          </>
-        }
       />
       <LoadState loading={loading} error={error}>
         <div className="stats-grid">
@@ -138,8 +157,8 @@ export function Overview() {
             label={t("Завершили тестирование", "Тестілеуді аяқтады")}
             value={done}
             detail={t(
-              `${percent}% от всех участников`,
-              `Барлық қатысушылардың ${percent}%-ы`,
+              `${formatPercent(percent, locale)} от всех участников`,
+              `Барлық қатысушылардың ${formatPercent(percent, locale)}`,
             )}
             icon={<CheckCircle2 size={16} />}
             accent
@@ -153,15 +172,6 @@ export function Overview() {
             )}
             icon={<Clock3 size={16} />}
           />
-          <Stat
-            label={t("Утверждённые отчёты", "Бекітілген есептер")}
-            value={approved}
-            detail={t(
-              "Проверены ответственным экспертом",
-              "Жауапты сарапшы тексерген",
-            )}
-            icon={<FileCheck2 size={16} />}
-          />
         </div>
         <div className="dashboard-grid">
           <Panel
@@ -171,7 +181,10 @@ export function Overview() {
           >
             <div className="completion-layout">
               <div className="donut">
-                <svg viewBox="0 0 180 180" aria-label={`${percent}%`}>
+                <svg
+                  viewBox="0 0 180 180"
+                  aria-label={formatPercent(percent, locale)}
+                >
                   <circle
                     cx="90"
                     cy="90"
@@ -180,114 +193,119 @@ export function Overview() {
                     stroke="#edf1f3"
                     strokeWidth="17"
                   />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke="#7f9bad"
-                    strokeWidth="17"
-                    strokeDasharray={`${people.length ? ((done + progress) / people.length) * 440 : 0} 440`}
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke="#3f7c68"
-                    strokeWidth="17"
-                    strokeDasharray={`${(percent / 100) * 440} 440`}
-                  />
+                  {ringSegments.map(
+                    (segment) =>
+                      segment.length > 0 && (
+                        <circle
+                          key={segment.key}
+                          cx="90"
+                          cy="90"
+                          r="70"
+                          fill="none"
+                          stroke={segment.color}
+                          strokeWidth="17"
+                          strokeDasharray={`${segment.length} ${circumference - segment.length}`}
+                          strokeDashoffset={-segment.offset}
+                        />
+                      ),
+                  )}
                 </svg>
                 <div className="donut-center">
-                  <strong>{percent}%</strong>
+                  <strong>{formatPercent(percent, locale)}</strong>
                   <span>{t("завершили оценку", "бағалауды аяқтады")}</span>
                 </div>
               </div>
               <div className="completion-legend">
-                {[
-                  [t("Завершено", "Аяқталды"), done, "#3f7c68"],
-                  [t("В процессе", "Орындалуда"), progress, "#7f9bad"],
-                  [t("Ещё не начали", "Әлі бастамады"), waiting, "#dfe6eb"],
-                ].map(([label, count, color]) => (
-                  <div className="legend-row" key={label}>
+                {ringSegments.map((segment) => (
+                  <div className="legend-row" key={segment.key}>
                     <i
                       className="legend-dot"
-                      style={{ background: String(color) }}
+                      style={{ background: segment.color }}
                     />
-                    <span>{label}</span>
-                    <b>{count}</b>
-                    <small>
-                      {people.length
-                        ? Math.round((Number(count) / people.length) * 100)
-                        : 0}
-                      %
-                    </small>
+                    <span>{segment.label}</span>
+                    <b>{segment.count}</b>
+                    <small>{formatPercent(segment.percentage, locale)}</small>
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="chart-caption">
-              <CalendarDays size={13} />
-              {t("Завершение кампании:", "Науқанның аяқталуы:")}{" "}
-              {active ? date(active.endsAt, locale) : "—"}
-              <Link
-                href="/campaigns"
-                className="text-link"
-                style={{ marginLeft: "auto" }}
-              >
-                {t("Подробнее", "Толығырақ")}
-                <ArrowUpRight size={13} />
-              </Link>
             </div>
           </Panel>
           <Panel
             title={t("Требуют внимания", "Назар аудару қажет")}
             action={
-              <span className="mini-count">{done - approved + waiting}</span>
+              <span className="mini-count">{attentionCount}</span>
             }
           >
             <div className="task-list">
-              <Link href="/reports" className="task-row">
-                <div className="task-icon amber">
-                  <FileCheck2 size={18} />
-                </div>
-                <div>
-                  <strong>
-                    {t(
-                      `${done - approved} отчётов ожидают проверки`,
-                      `${done - approved} есеп тексеруді күтуде`,
-                    )}
-                  </strong>
-                  <p>
-                    {t(
-                      "Передайте результаты эксперту",
-                      "Нәтижелерді сарапшыға жіберіңіз",
-                    )}
-                  </p>
-                </div>
-                <ChevronRight size={16} />
-              </Link>
-              <Link href="/people?status=not_started" className="task-row">
-                <div className="task-icon">
-                  <Clock3 size={18} />
-                </div>
-                <div>
-                  <strong>
-                    {t(
-                      `${waiting} участников ещё не начали`,
-                      `${waiting} қатысушы әлі бастамады`,
-                    )}
-                  </strong>
-                  <p>
-                    {t(
-                      "Проверьте доступ и назначения",
-                      "Қолжетімділік пен тапсырмаларды тексеріңіз",
-                    )}
-                  </p>
-                </div>
-                <ChevronRight size={16} />
-              </Link>
+              {notStarted > 0 && (
+                <Link href="/people?status=not_started" className="task-row">
+                  <div className="task-icon">
+                    <Clock3 size={18} />
+                  </div>
+                  <div>
+                    <strong>
+                      {t(
+                        `${notStarted} участников ещё не начали`,
+                        `${notStarted} қатысушы әлі бастамады`,
+                      )}
+                    </strong>
+                    <p>
+                      {t(
+                        "Проверьте доступ и назначения",
+                        "Қолжетімділік пен тапсырмаларды тексеріңіз",
+                      )}
+                    </p>
+                  </div>
+                  <ChevronRight size={16} />
+                </Link>
+              )}
+              {retryRequired > 0 && (
+                <Link
+                  href="/people?status=retry_required"
+                  className="task-row"
+                >
+                  <div className="task-icon amber">
+                    <Clock3 size={18} />
+                  </div>
+                  <div>
+                    <strong>
+                      {t(
+                        `${retryRequired} участникам нужно пройти тест заново`,
+                        `${retryRequired} қатысушы тестті қайта өтуі керек`,
+                      )}
+                    </strong>
+                    <p>
+                      {t(
+                        "Время на предыдущую попытку истекло",
+                        "Алдыңғы әрекеттің уақыты аяқталды",
+                      )}
+                    </p>
+                  </div>
+                  <ChevronRight size={16} />
+                </Link>
+              )}
+              {unassigned > 0 && (
+                <Link href="/people?status=unassigned" className="task-row">
+                  <div className="task-icon">
+                    <ClipboardList size={18} />
+                  </div>
+                  <div>
+                    <strong>
+                      {t(
+                        `${unassigned} участникам не назначены тесты`,
+                        `${unassigned} қатысушыға тест тағайындалмаған`,
+                      )}
+                    </strong>
+                    <p>
+                      {t(
+                        "Назначьте тесты для текущей кампании",
+                        "Ағымдағы науқанға тесттерді тағайындаңыз",
+                      )}
+                    </p>
+                  </div>
+                  <ChevronRight size={16} />
+                </Link>
+              )}
               <Link href="/library" className="task-row">
                 <div className="task-icon">
                   <BookOpen size={18} />
@@ -315,7 +333,7 @@ export function Overview() {
             </Link>
           </Panel>
         </div>
-        <div className="dashboard-grid">
+        <div className="dashboard-grid overview-units-grid">
           <Panel
             title={t("Оценка по подразделениям", "Бөлімшелер бойынша бағалау")}
             description={t(
@@ -352,49 +370,15 @@ export function Overview() {
                       <td>
                         <div className="department-line">
                           <Progress value={(u.done / u.total) * 100} small />
-                          <span>{Math.round((u.done / u.total) * 100)}%</span>
+                          <span>
+                            {formatPercent((u.done / u.total) * 100, locale)}
+                          </span>
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          </Panel>
-          <Panel
-            title={t("Последние события", "Соңғы оқиғалар")}
-            description={t(
-              "Изменения в рабочем пространстве",
-              "Жұмыс кеңістігіндегі өзгерістер",
-            )}
-          >
-            <div className="activity-list">
-              {(activity.data || [])
-                .filter((a) => actionLabels[a.action])
-                .slice(0, 5)
-                .map((a) => (
-                  <div className="activity-item" key={a.id}>
-                    <i className="activity-node" />
-                    <div>
-                      <p>{actionLabels[a.action]}</p>
-                      <small>
-                        {date(a.createdAt, locale)} ·{" "}
-                        {new Date(a.createdAt).toLocaleTimeString("ru-RU", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </small>
-                    </div>
-                  </div>
-                ))}
-              {!(activity.data || []).length && (
-                <p className="text-muted text-small">
-                  {t(
-                    "Здесь появятся события кампании.",
-                    "Науқан оқиғалары осында көрсетіледі.",
-                  )}
-                </p>
-              )}
             </div>
           </Panel>
         </div>
@@ -497,6 +481,9 @@ export function People({ expert = false }: { expert?: boolean }) {
                 </option>
                 <option value="not_started">
                   {t("Не начали", "Бастамады")}
+                </option>
+                <option value="retry_required">
+                  {t("Нужно пройти заново", "Қайта өту қажет")}
                 </option>
                 <option value="unassigned">
                   {t("Без назначений", "Тапсырмасыз")}

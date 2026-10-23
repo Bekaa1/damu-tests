@@ -234,7 +234,9 @@ export async function listPeople(ctx: Context, campaignId?: string) {
     ? await db.testAssignment.findMany({
         where: { organizationId, campaignId: campaign.id },
         include: {
-          testVersion: { include: { test: true } },
+          testVersion: {
+            include: { test: true, _count: { select: { questions: true } } },
+          },
           attempts: {
             orderBy: { attemptNumber: "desc" },
             take: 1,
@@ -260,7 +262,31 @@ export async function listPeople(ctx: Context, campaignId?: string) {
     const done = tasks.filter(
       (a) => a.attempts[0]?.status === "completed",
     ).length;
-    const started = tasks.some((a) => a.attempts.length);
+    const now = Date.now();
+    const activeAttempt = tasks.some((a) => {
+      const attempt = a.attempts[0];
+      if (!attempt || attempt.status !== "in_progress") return false;
+      const deadline =
+        attempt.expiresAt ??
+        new Date(
+          attempt.startedAt.getTime() +
+            a.testVersion._count.questions * 60_000,
+        );
+      return deadline.getTime() > now;
+    });
+    const expiredAttempt = tasks.some((a) => {
+      const attempt = a.attempts[0];
+      if (!attempt) return false;
+      if (attempt.status === "expired") return true;
+      if (attempt.status !== "in_progress") return false;
+      const deadline =
+        attempt.expiresAt ??
+        new Date(
+          attempt.startedAt.getTime() +
+            a.testVersion._count.questions * 60_000,
+        );
+      return deadline.getTime() <= now;
+    });
     const report = reports.find((r) => r.membershipId === m.id);
     return {
       ...m,
@@ -272,9 +298,11 @@ export async function listPeople(ctx: Context, campaignId?: string) {
           ? "unassigned"
           : done === tasks.length
             ? "completed"
-            : started
-              ? "in_progress"
-              : "not_started",
+            : expiredAttempt
+              ? "retry_required"
+              : done > 0 || activeAttempt
+                ? "in_progress"
+                : "not_started",
       expertId: tasks[0]?.expertId,
       report: report
         ? {

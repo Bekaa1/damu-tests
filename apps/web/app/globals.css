@@ -336,7 +336,8 @@ tbody tr:hover {
 }
 .badge.draft,
 .badge.pending,
-.badge.awaiting_configuration {
+.badge.awaiting_configuration,
+.badge.retry_required {
   background: #fcf3e7;
   color: #ae813f;
 }
@@ -695,7 +696,7 @@ tbody tr:hover {
 }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -747,6 +748,9 @@ tbody tr:hover {
   gap: 22px;
   margin-bottom: 24px;
 }
+.dashboard-grid.overview-units-grid {
+  grid-template-columns: 1fr;
+}
 .dashboard-grid.analytics-summary-grid {
   grid-template-columns: 1fr;
 }
@@ -781,9 +785,13 @@ tbody tr:hover {
   font-weight: 600;
 }
 .donut-center span {
+  width: 90px;
+  max-width: 100%;
   font-size: 13px;
   color: #99a4ac;
   margin-top: 4px;
+  line-height: 1.25;
+  text-align: center;
 }
 .completion-legend {
   flex: 1;
@@ -797,6 +805,10 @@ tbody tr:hover {
   gap: 9px;
   font-size: 14px;
   color: #6e7e8a;
+}
+.legend-row span {
+  flex: 1;
+  min-width: 0;
 }
 .legend-dot {
   width: 7px;
