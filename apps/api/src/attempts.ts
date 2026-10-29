@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
 import { orgId, requireRole, participant, type Context } from "./access";
 import {
@@ -17,6 +18,7 @@ export const questionDTO = (q: any): QuestionInput => ({
   id: q.id,
   type: q.type,
   text: q.text,
+  content: q.content ?? {},
   imageUrl: q.imageUrl ?? undefined,
   options: q.options.map((o: any) => ({
     id: o.id,
@@ -24,6 +26,129 @@ export const questionDTO = (q: any): QuestionInput => ({
     imageUrl: o.imageUrl ?? undefined,
   })),
 });
+const optionOrder = (attempt: string, option: string) =>
+  createHash("sha256")
+    .update(attempt + option)
+    .digest()
+    .readUInt32BE();
+const deliveredQuestions = (v: any, id: string) =>
+  v.questions
+    .map(questionDTO)
+    .map((q: QuestionInput) => ({
+      ...q,
+      options:
+        v.delivery?.shuffleOptions || q.type === "ranking"
+          ? [...q.options].sort(
+              (a, b) => optionOrder(id, a.id) - optionOrder(id, b.id),
+            )
+          : q.options,
+    }));
+// Heartbeats identify a live test page. An explicit leave keeps the clock running.
+// Missing heartbeats while that page is active pause at the last confirmed interval.
+export async function settleClock(id: string) {
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
+    const a = await tx.testAttempt.findUnique({ where: { id } });
+    if (
+      a?.status === "in_progress" &&
+      a.expiresAt &&
+      a.lastHeartbeatAt &&
+      !a.pausedAt &&
+      Date.now() - a.lastHeartbeatAt.getTime() > 15000
+    ) {
+      const pausedAt = new Date(a.lastHeartbeatAt.getTime() + 5000);
+      // A deadline already reached before connection loss must still finish.
+      if (pausedAt < a.expiresAt)
+        return tx.testAttempt.update({ where: { id }, data: { pausedAt } });
+    }
+    return a;
+  });
+}
+export async function presence(ctx: Context, id: string, input: unknown) {
+  const { action } = z
+    .object({ action: z.enum(["begin", "heartbeat", "leave"]) })
+    .parse(input);
+  const owned = await ownedAttempt(ctx, id);
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
+    const a = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
+    const now = new Date();
+    if (a.status !== "in_progress") return { status: a.status };
+    if (action === "begin" && !a.timerStartedAt) {
+      const limit = owned.assignment.testVersion.timeLimitSeconds;
+      return tx.testAttempt.update({
+        where: { id },
+        data: {
+          timerStartedAt: now,
+          expiresAt: limit ? new Date(now.getTime() + limit * 1000) : null,
+          lastHeartbeatAt: limit ? now : null,
+        },
+      });
+    }
+    if (!a.timerStartedAt) return { status: a.status };
+    let pause = a.pausedAt;
+    if (
+      !pause &&
+      a.expiresAt &&
+      a.lastHeartbeatAt &&
+      now.getTime() - a.lastHeartbeatAt.getTime() > 15000 &&
+      a.lastHeartbeatAt.getTime() + 5000 < a.expiresAt.getTime()
+    )
+      pause = new Date(a.lastHeartbeatAt.getTime() + 5000);
+    const expiresAt =
+      a.expiresAt && pause
+        ? new Date(a.expiresAt.getTime() + now.getTime() - pause.getTime())
+        : a.expiresAt;
+    const updated = await tx.testAttempt.update({
+      where: { id },
+      data: {
+        expiresAt,
+        pausedAt: null,
+        lastHeartbeatAt: action === "leave" ? null : expiresAt ? now : null,
+      },
+    });
+    return { ...updated, serverTime: now };
+  });
+}
+export function startAttemptSweeper() {
+  let busy = false;
+  const timer = setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const rows = await db.testAttempt.findMany({
+        where: {
+          status: "in_progress",
+          expiresAt: { lte: new Date(Date.now() + 20000) },
+        },
+        select: {
+          id: true,
+          assignment: {
+            select: {
+              membership: { include: { user: true, organization: true } },
+            },
+          },
+        },
+      });
+      for (const row of rows) {
+        const a = await settleClock(row.id);
+        if (a?.expiresAt && !a.pausedAt && a.expiresAt <= new Date()) {
+          const m = row.assignment.membership;
+          await submitAttempt(
+            { member: m, user: m.user, org: m.organization, role: "employee" },
+            row.id,
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Attempt finalization failed", e);
+    } finally {
+      busy = false;
+    }
+  }, 5000);
+  timer.unref();
+  return timer;
+}
 export async function myAssignments(ctx: Context, campaignId?: string) {
   if (!ctx.member) throw new ForbiddenException();
   const assignments = await db.testAssignment.findMany({
@@ -47,21 +172,18 @@ export async function myAssignments(ctx: Context, campaignId?: string) {
   });
   for (const assignment of assignments) {
     const latest = assignment.attempts[0];
-    if (!latest || latest.status !== "in_progress") continue;
-    const limitSeconds = assignment.testVersion._count.questions * 60;
-    const deadline =
-      latest.expiresAt ??
-      new Date(latest.startedAt.getTime() + limitSeconds * 1000);
-    if (!latest.expiresAt) {
-      await db.testAttempt.update({
+    if (latest?.status === "in_progress") {
+      await settleClock(latest.id);
+      const current = await db.testAttempt.findUniqueOrThrow({
         where: { id: latest.id },
-        data: { expiresAt: deadline },
       });
-      latest.expiresAt = deadline;
-    }
-    if (deadline <= new Date()) {
-      const outcome = await submitAttempt(ctx, latest.id);
-      latest.status = outcome.status;
+      Object.assign(latest, current);
+      if (
+        current.expiresAt &&
+        !current.pausedAt &&
+        current.expiresAt <= new Date()
+      )
+        latest.status = (await submitAttempt(ctx, latest.id)).status;
     }
   }
   return assignments;
@@ -88,14 +210,6 @@ async function ownedAttempt(ctx: Context, id: string) {
   });
   if (!attempt || attempt.assignment.membershipId !== ctx.member?.id)
     throw new NotFoundException("Прохождение не найдено");
-  if (attempt.status === "in_progress" && !attempt.expiresAt) {
-    const expiresAt = new Date(
-      attempt.startedAt.getTime() +
-        attempt.assignment.testVersion.questions.length * 60_000,
-    );
-    await db.testAttempt.update({ where: { id }, data: { expiresAt } });
-    attempt.expiresAt = expiresAt;
-  }
   return attempt;
 }
 export async function startAttempt(ctx: Context, id: string, input: unknown) {
@@ -124,9 +238,15 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
   });
   if (existing?.status === "completed") return { id: existing.id };
   if (existing?.status === "in_progress") {
+    await settleClock(existing.id);
     const current = await ownedAttempt(ctx, existing.id);
-    if (current.expiresAt && current.expiresAt <= new Date()) {
+    if (
+      current.expiresAt &&
+      !current.pausedAt &&
+      current.expiresAt <= new Date()
+    ) {
       await submitAttempt(ctx, existing.id);
+      return { id: existing.id };
     } else {
       return { id: existing.id };
     }
@@ -154,9 +274,7 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
         attemptNumber: (latest?.attemptNumber ?? 0) + 1,
         language,
         scoringKeyId: key.id,
-        expiresAt: new Date(
-          Date.now() + assignment.testVersion._count.questions * 60_000,
-        ),
+        expiresAt: null,
       },
     });
   });
@@ -164,10 +282,13 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
   return { id: attempt.id };
 }
 export async function getAttempt(ctx: Context, id: string) {
+  await ownedAttempt(ctx, id);
+  await settleClock(id);
   let attempt = await ownedAttempt(ctx, id);
   if (
     attempt.status === "in_progress" &&
     attempt.expiresAt &&
+    !attempt.pausedAt &&
     attempt.expiresAt <= new Date()
   ) {
     await submitAttempt(ctx, id);
@@ -187,16 +308,30 @@ export async function getAttempt(ctx: Context, id: string) {
     status: attempt.status,
     startedAt: attempt.startedAt,
     expiresAt: attempt.expiresAt,
+    timerStartedAt: attempt.timerStartedAt,
+    pausedAt: attempt.pausedAt,
+    serverTime: new Date(),
+    delivery: version.delivery,
     campaignId: attempt.assignment.campaignId,
     name: version.test.name,
     instructions: version.instructions,
-    questions: version.questions.map(questionDTO),
+    questions: version.questions.map(questionDTO).map((q) => ({
+      ...q,
+      options:
+        (version.delivery as any)?.shuffleOptions || q.type === "ranking"
+          ? [...q.options].sort(
+              (a, b) => optionOrder(id, a.id) - optionOrder(id, b.id),
+            )
+          : q.options,
+    })),
     answers: answers.map((a) => ({
       questionId: a.questionId,
       value: a.value,
       revision: a.revision,
+      durationMs: a.durationMs,
     })),
-    durationMinutes: version.questions.length,
+    durationMinutes: version.durationMinutes,
+    timeLimitSeconds: version.timeLimitSeconds,
     responseScale: { min: config.min ?? 1, max: config.max ?? 5 },
   };
 }
@@ -206,14 +341,27 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       questionId: z.string(),
       value: z.unknown(),
       revision: z.number().int().min(0),
+      durationMs: z.number().int().min(0).max(86400000).optional(),
     })
     .parse(input);
+  await ownedAttempt(ctx, id);
+  await settleClock(id);
   const attempt = await ownedAttempt(ctx, id);
+  if (!attempt.timerStartedAt)
+    throw new BadRequestException("Сначала начните основной тест");
   if (attempt.status === "expired")
-    throw new ConflictException("Время истекло. Начните тест заново.");
-  if (attempt.expiresAt && attempt.expiresAt <= new Date()) {
+    throw new ConflictException(
+      "Время истекло. Сохранённые ответы будут засчитаны.",
+    );
+  if (
+    attempt.expiresAt &&
+    !attempt.pausedAt &&
+    attempt.expiresAt <= new Date()
+  ) {
     await submitAttempt(ctx, id);
-    throw new ConflictException("Время истекло. Начните тест заново.");
+    throw new ConflictException(
+      "Время истекло. Сохранённые ответы будут засчитаны.",
+    );
   }
   const question = attempt.assignment.testVersion.questions.find(
     (q) => q.id === data.questionId,
@@ -238,7 +386,11 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
     const current = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
     if (current.status !== "in_progress")
       throw new ConflictException("Тест уже завершён");
-    if (current.expiresAt && current.expiresAt <= new Date())
+    if (
+      current.expiresAt &&
+      !current.pausedAt &&
+      current.expiresAt <= new Date()
+    )
       throw new ConflictException("Время прохождения истекло");
     const previous = await tx.userAnswer.findUnique({
       where: {
@@ -259,13 +411,20 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
         questionId: data.questionId,
         value: json(value),
         revision: 1,
+        durationMs: data.durationMs ?? 0,
       },
-      update: { value: json(value), revision: { increment: 1 } },
+      update: {
+        value: json(value),
+        revision: { increment: 1 },
+        durationMs: data.durationMs,
+      },
     });
     return { revision: result.revision, savedAt: result.updatedAt };
   });
 }
 export async function submitAttempt(ctx: Context, id: string) {
+  await ownedAttempt(ctx, id);
+  await settleClock(id);
   const attempt = await ownedAttempt(ctx, id);
   const result = await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
@@ -282,28 +441,21 @@ export async function submitAttempt(ctx: Context, id: string) {
         membershipId: attempt.assignment.membershipId,
       };
     const questions = attempt.assignment.testVersion.questions;
-    const answered = new Set(current.answers.map((answer) => answer.questionId));
-    const allAnswered = questions.every((question) => answered.has(question.id));
+    const answered = new Set(
+      current.answers.map((answer) => answer.questionId),
+    );
+    const allAnswered = questions.every((question) =>
+      answered.has(question.id),
+    );
     const timeExpired = Boolean(
       current.expiresAt && current.expiresAt <= new Date(),
     );
-    if (timeExpired && !allAnswered) {
-      await tx.testAttempt.update({
-        where: { id },
-        data: { status: "expired" },
-      });
-      await tx.auditLog.create({
-        data: {
-          organizationId: orgId(ctx),
-          actorId: ctx.user.id,
-          action: "attempt.expired",
-          entityId: id,
-        },
-      });
-      return { status: "expired" as const };
-    }
-    if (!allAnswered)
-      throw new BadRequestException("Ответьте на все вопросы перед завершением");
+    if (!current.timerStartedAt)
+      throw new BadRequestException("Сначала начните основной тест");
+    if (!allAnswered && !attempt.assignment.testVersion.timeLimitSeconds)
+      throw new BadRequestException(
+        "Ответьте на все вопросы перед завершением",
+      );
     const key = await tx.scoringKey.findUniqueOrThrow({
       where: { id: current.scoringKeyId },
     });
@@ -312,8 +464,24 @@ export async function submitAttempt(ctx: Context, id: string) {
       score = calculateScore(
         key.algorithm,
         key.config as ScoringConfig,
-        attempt.assignment.testVersion.questions.map(questionDTO),
+        deliveredQuestions(attempt.assignment.testVersion, id),
         Object.fromEntries(current.answers.map((a) => [a.questionId, a.value])),
+        {
+          allowMissing: Boolean(
+            attempt.assignment.testVersion.timeLimitSeconds,
+          ),
+          durations: Object.fromEntries(
+            current.answers.map((a) => [a.questionId, a.durationMs]),
+          ),
+          elapsedMs:
+            attempt.assignment.testVersion.timeLimitSeconds && current.expiresAt
+              ? Math.max(
+                  0,
+                  attempt.assignment.testVersion.timeLimitSeconds * 1000 -
+                    (current.expiresAt.getTime() - Date.now()),
+                )
+              : undefined,
+        },
       );
     } catch (e) {
       throw new BadRequestException((e as Error).message);
@@ -372,6 +540,12 @@ export async function recalculate(ctx: Context, id: string, keyId: string) {
     key.config as ScoringConfig,
     attempt.assignment.testVersion.questions.map(questionDTO),
     Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.value])),
+    {
+      allowMissing: Boolean(attempt.assignment.testVersion.timeLimitSeconds),
+      durations: Object.fromEntries(
+        attempt.answers.map((a) => [a.questionId, a.durationMs]),
+      ),
+    },
   );
   const created = await db.testResult.upsert({
     where: { attemptId_scoringKeyId: { attemptId: id, scoringKeyId: keyId } },
@@ -387,4 +561,57 @@ export async function recalculate(ctx: Context, id: string, keyId: string) {
   });
   await audit(orgId(ctx), ctx.user.id, "result.recalculated", created.id);
   return created;
+}
+export async function reviewResult(ctx: Context, id: string, input: unknown) {
+  requireRole(ctx, "expert");
+  const data = z
+    .object({
+      action: z.enum(["accept", "repeat"]),
+      reason: z.string().trim().min(5).max(2000),
+    })
+    .parse(input);
+  const r = await db.testResult.findFirst({
+    where: { id, organizationId: orgId(ctx) },
+    include: { attempt: { include: { assignment: true } } },
+  });
+  if (!r) throw new NotFoundException();
+  await participant(
+    ctx,
+    r.attempt.assignment.membershipId,
+    r.attempt.assignment.campaignId,
+  );
+  if (!(r.result as any).reviewRequired)
+    throw new BadRequestException("Результат не ожидает проверки");
+  await db.$transaction(async (tx) => {
+    if (data.action === "accept")
+      await tx.testResult.update({
+        where: { id },
+        data: {
+          result: json({
+            ...(r.result as object),
+            reviewRequired: false,
+            qualityReview: {
+              by: ctx.user.id,
+              at: new Date().toISOString(),
+              reason: data.reason,
+            },
+          }),
+        },
+      });
+    else
+      await tx.testAttempt.update({
+        where: { id: r.attemptId },
+        data: { status: "expired" },
+      });
+    await tx.auditLog.create({
+      data: {
+        organizationId: orgId(ctx),
+        actorId: ctx.user.id,
+        action: "result.quality_" + data.action,
+        entityId: id,
+        detail: json(data),
+      },
+    });
+  });
+  return { ok: true };
 }

@@ -6,6 +6,7 @@ import { db, audit, json } from "./db";
 import { orgId, participant, requireRole, type Context } from "./access";
 import { getCampaign, listPeople } from "./people";
 import { openRouterKey } from "./secrets";
+import {campaignRanks} from './cohort';
 import { REPORT_PROMPT, REPORT_PROMPT_VERSION, generatedContentSchema, reportAiInput, reportMetrics, validateReportEvidence, type ReportSnapshot } from "../../../packages/core/reporting";
 
 const redis = new URL(process.env.REDIS_URL || "redis://localhost:56379");
@@ -17,39 +18,15 @@ export const reportsQueue = new Queue("assessflow-reports", {
 reportsQueue.on("error", () => {});
 
 async function captureReport(ctx: Context, campaignId: string, membershipId?: string): Promise<ReportSnapshot> {
+  requireRole(ctx, "admin", "expert");
   const campaign = await getCampaign(ctx, campaignId);
   if (!campaign) throw new NotFoundException("Кампания не найдена");
   if (membershipId) await participant(ctx, membershipId, campaignId);
-  let people: any[];
-  if (ctx.role === "employee") {
-    if (!ctx.member || membershipId !== ctx.member.id) throw new ForbiddenException("Можно сформировать только собственный индивидуальный отчёт");
-    const member = await db.membership.findFirstOrThrow({
-      where: { id: ctx.member.id, organizationId: orgId(ctx) },
-      include: { user: { select: { name: true } } },
-    });
-    const assignments = await db.testAssignment.findMany({
-      where: { organizationId: orgId(ctx), campaignId, membershipId: member.id },
-      include: {
-        testVersion: { include: { test: true } },
-        attempts: { orderBy: { attemptNumber: "desc" }, take: 1, include: { results: { orderBy: { createdAt: "desc" } } } },
-      },
-    });
-    const completed = assignments.filter(a => a.attempts[0]?.status === "completed").length;
-    people = [{
-      id: member.id, role: member.role, user: member.user, position: member.position, unit: member.unit, category: member.category,
-      total: assignments.length, completed,
-      status: assignments.length > 0 && completed === assignments.length ? "completed" : completed ? "in_progress" : "not_started",
-      results: assignments.flatMap(a => a.attempts[0]?.results.map(r => ({
-        testId: a.testVersion.testId, testVersionId: a.testVersionId, version: a.testVersion.version,
-        scoringKeyId: r.scoringKeyId, language: a.attempts[0].language, name: a.testVersion.test.name, score: r.result,
-      })) ?? []),
-    }];
-  } else {
-    people = (await listPeople(ctx, campaignId)).filter(p => p.role === "employee" && p.total > 0 && (!membershipId || p.id === membershipId));
-  }
+  const people = (await listPeople(ctx, campaignId)).filter(p => p.role === "employee" && p.total > 0 && (!membershipId || p.id === membershipId));
   if (!people.length) throw new BadRequestException("В кампании пока нет назначенных участников");
   if (membershipId && people[0].status !== "completed") throw new BadRequestException("Сначала необходимо завершить назначенные тесты");
   const ids = people.map(p => p.id);
+  const ranks=await campaignRanks(orgId(ctx),campaignId);
   const [observations, conclusions] = await Promise.all([
     db.expertObservation.findMany({ where: { organizationId: orgId(ctx), campaignId, membershipId: { in: ids } }, orderBy: { createdAt: "desc" } }),
     db.finalReport.findMany({ where: { organizationId: orgId(ctx), campaignId, membershipId: { in: ids } }, orderBy: { version: "desc" } }),
@@ -71,7 +48,7 @@ async function captureReport(ctx: Context, campaignId: string, membershipId?: st
         id: p.id, name: p.user.name, position: p.position, unit: p.unit, category: p.category,
         status: p.status, completed: p.completed, total: p.total,
         results: p.results.map((r: any) => {
-          const { details, ...score } = (r.score || {}) as Record<string, unknown>;
+          const { details, ...score } = (ranks.get(r.resultId) || r.score || {}) as Record<string, unknown>;
           return { ...r, score: r.score ? score : null };
         }),
         observations: latest.map(o => ({ id: o.id, criteriaSnapshot: o.criteriaSnapshot, scores: o.scores, notes: o.notes, createdAt: o.createdAt.toISOString() })),
@@ -97,15 +74,12 @@ async function expertCanRead(ctx: Context, ids: string[], campaignId: string) {
 }
 
 export async function listGeneratedReports(ctx: Context, campaignId: string, kind?: string) {
-  const employee = ctx.role === "employee";
-  if (!employee) requireRole(ctx, "admin", "expert");
-  else if (kind && kind !== "individual") throw new ForbiddenException("Сотрудникам доступны только их индивидуальные отчёты");
+  requireRole(ctx, "admin", "expert");
   await getCampaign(ctx, campaignId);
   if (!campaignId) throw new BadRequestException("Выберите кампанию");
   const rows = await db.generatedReport.findMany({
     where: {
       organizationId: orgId(ctx), campaignId,
-      ...(employee ? { membershipId: ctx.member!.id, kind: "individual" } : {}),
       ...(kind ? { kind: z.enum(["individual", "team"]).parse(kind) } : {}),
     },
     select: metadata, orderBy: { createdAt: "desc" }, take: 150,
@@ -118,28 +92,21 @@ export async function listGeneratedReports(ctx: Context, campaignId: string, kin
 }
 
 export async function getGeneratedReport(ctx: Context, id: string) {
+  requireRole(ctx, "admin", "expert");
   const report = await db.generatedReport.findFirst({ where: { id, organizationId: orgId(ctx) } });
   if (!report) throw new NotFoundException("Отчёт не найден");
-  if (ctx.role === "employee") {
-    if (report.kind !== "individual" || report.membershipId !== ctx.member?.id)
-      throw new ForbiddenException("Отчёт недоступен");
-  } else requireRole(ctx, "admin", "expert");
   if (!await expertCanRead(ctx, report.participantIds as string[], report.campaignId)) throw new ForbiddenException("Отчёт содержит участников, которые не назначены вам");
   await audit(orgId(ctx), ctx.user.id, "generated_report.viewed", id);
   return report;
 }
 
 export async function createGeneratedReport(ctx: Context, body: unknown) {
+  requireRole(ctx, "admin");
   const data = z.object({
     campaignId: z.string().min(1), membershipId: z.string().optional(),
     kind: z.enum(["individual", "team"]), language: z.enum(["ru", "kk"]),
     regenerate: z.boolean().default(false),
   }).strict().refine(d => d.kind === "individual" ? Boolean(d.membershipId) : !d.membershipId, "Выберите участника для индивидуального отчёта").parse(body);
-  const employee = ctx.role === "employee";
-  if (employee) {
-    if (data.kind !== "individual" || data.membershipId !== ctx.member?.id)
-      throw new ForbiddenException("Можно сформировать только собственный индивидуальный отчёт");
-  } else requireRole(ctx, "admin");
   const snapshot = await captureReport(ctx, data.campaignId, data.membershipId);
   if (!reportMetrics(snapshot, data.language).length) throw new BadRequestException("Нет рассчитанных результатов для анализа");
   const settings = await db.platformSettings.findUnique({ where: { id: "default" } });
@@ -214,7 +181,12 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
       method: "POST", signal: AbortSignal.timeout(180000),
       headers: { Authorization: "Bearer " + key, "Content-Type": "application/json", "X-Title": "AssessFlow reports" }, body,
     });
-    if (!response.ok) { refund = true; throw new Error("OpenRouter HTTP " + response.status); }
+    if (!response.ok) {
+      refund = true;
+      const upstream=await response.json().catch(()=>({}));
+      await audit(report.organizationId,null,'generated_report.upstream_error',id,{httpStatus:response.status,message:String(upstream?.error?.message||'').replace(/sk-or-\S+/g,'[redacted]').slice(0,1000),code:upstream?.error?.code});
+      throw new Error("OpenRouter HTTP " + response.status);
+    }
     const answer = await response.json() as any;
     const cost = answer.usage?.cost;
     const tokenCount = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;

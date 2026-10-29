@@ -319,16 +319,10 @@ try {
     `/people?campaignId=${campaign.id}`,
   );
   assert(matrixParticipants.some((person: any) => person.id === emp.id));
-  const employeeResultsBeforeEnable = await employee.get(
-    `/people/${emp.id}?campaignId=${campaign.id}`,
-  );
-  assert.equal(employeeResultsBeforeEnable.canSelfGenerateAi, true);
+  await employee.get(`/people/${emp.id}?campaignId=${campaign.id}`, 403);
   await admin.request("/settings", "PATCH", { showPreliminary: false }, 400);
   await admin.request("/settings", "PATCH", { showApproved: false }, 400);
-  const employeeResults = await employee.get(
-    `/people/${emp.id}?campaignId=${campaign.id}`,
-  );
-  assert.equal(employeeResults.canSelfGenerateAi, true);
+  await employee.get(`/people/${emp.id}?campaignId=${campaign.id}`, 403);
   assert.equal(
     await db.aiReport.count({
       where: { organizationId: orgId, campaignId: campaign.id, membershipId: emp.id },
@@ -347,13 +341,13 @@ try {
       status: "pending",
     },
   });
-  const selfAi = await employee.post("/ai/generate", {
+  const selfAi = await admin.post("/ai/generate", {
     membershipId: emp.id,
     campaignId: campaign.id,
   });
   assert.equal(selfAi.id, seededAi.id);
   assert.equal(selfAi.status, "pending");
-  const repeatSelfAi = await employee.post("/ai/generate", {
+  const repeatSelfAi = await admin.post("/ai/generate", {
     membershipId: emp.id,
     campaignId: campaign.id,
   });
@@ -374,8 +368,8 @@ try {
     }),
     1,
   );
-  pass("Employee AI generation is enabled by default, self-only and idempotent per campaign");
-  pass("AI analysis starts only when requested, and employee generation is limited to one report per campaign");
+  pass("Admin AI generation reuses pending jobs; employees cannot generate analysis");
+  pass("Employee result and report access remains denied regardless of legacy visibility settings");
   const exerciseInput = {
     type: "interview",
     name: { ru: "Структурированное интервью", kk: "Құрылымдалған сұхбат" },
@@ -457,10 +451,8 @@ try {
     approve: true,
   });
   assert.equal(approved.version, 2);
-  assert.equal(
-    (await employee.get("/reports/" + approved.id)).report.status,
-    "approved",
-  );
+  await employee.get("/reports/" + approved.id, 403);
+  await employee.get("/reports/" + approved.id + "/pdf", 403);
   assert.deepEqual(
     (await expert.get("/reports/" + draft.id)).report.content,
     content,
@@ -508,11 +500,10 @@ try {
   assert((await expert.get("/generated-reports?campaignId=" + campaign.id)).some((r: any) => r.id === generated.id));
   assert.equal((await other.get("/generated-reports?campaignId=" + campaign.id)).length, 0);
   await other.get("/generated-reports/" + generated.id + "/pdf", 403);
-  const employeeGenerated = await employee.get("/generated-reports?campaignId=" + campaign.id + "&kind=individual");
-  assert(employeeGenerated.some((r: any) => r.id === generated.id));
-  const employeeVisibleReport = employeeGenerated.find((r: any) => r.id === generated.id);
-  assert.equal(employeeVisibleReport.snapshot, undefined);
-  assert.equal(employeeVisibleReport.createdByName, emp.user.name);
+  await employee.get("/generated-reports?campaignId=" + campaign.id + "&kind=individual", 403);
+  await employee.get("/generated-reports/" + generated.id + "/pdf", 403);
+  await employee.post("/generated-reports", { campaignId: campaign.id, membershipId: emp.id, kind: "individual", language: "ru" }, 403);
+  await employee.post("/ai/generate", { campaignId: campaign.id, membershipId: emp.id }, 403);
   await employee.get("/generated-reports?campaignId=" + campaign.id + "&kind=team", 403);
   await employee.post("/generated-reports", { campaignId: campaign.id, kind: "team", language: "ru" }, 403);
   await expert.post("/generated-reports", { campaignId: campaign.id, kind: "team", language: "ru" }, 403);

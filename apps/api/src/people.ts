@@ -263,30 +263,8 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       (a) => a.attempts[0]?.status === "completed",
     ).length;
     const now = Date.now();
-    const activeAttempt = tasks.some((a) => {
-      const attempt = a.attempts[0];
-      if (!attempt || attempt.status !== "in_progress") return false;
-      const deadline =
-        attempt.expiresAt ??
-        new Date(
-          attempt.startedAt.getTime() +
-            a.testVersion._count.questions * 60_000,
-        );
-      return deadline.getTime() > now;
-    });
-    const expiredAttempt = tasks.some((a) => {
-      const attempt = a.attempts[0];
-      if (!attempt) return false;
-      if (attempt.status === "expired") return true;
-      if (attempt.status !== "in_progress") return false;
-      const deadline =
-        attempt.expiresAt ??
-        new Date(
-          attempt.startedAt.getTime() +
-            a.testVersion._count.questions * 60_000,
-        );
-      return deadline.getTime() <= now;
-    });
+    const activeAttempt = tasks.some(a=>a.attempts[0]?.status==='in_progress');
+    const expiredAttempt = tasks.some(a=>a.attempts[0]?.status==='expired');
     const report = reports.find((r) => r.membershipId === m.id);
     return {
       ...m,
@@ -316,6 +294,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       aiStatus:
         ai.find((r) => r.membershipId === m.id)?.status ?? "not_started",
       results: tasks.map((a) => ({
+        resultId:a.attempts[0]?.results[0]?.id,
         testId: a.testVersion.testId,
         testVersionId: a.testVersionId,
         version: a.testVersion.version,

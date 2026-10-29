@@ -185,7 +185,7 @@ export async function generateAi(
       .slice(0, 24),
     category: member.category,
     language: results[0]?.attempt.language ?? "ru",
-    results: results.map((r) => {
+    results: results.filter(r=>!(r.result as any).reviewRequired).map((r) => {
       const v = r.attempt.assignment.testVersion;
       const { details, ...scores } = r.result as Record<string, unknown>;
       return {

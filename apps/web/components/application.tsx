@@ -45,7 +45,7 @@ import {
   Matrix,
 } from "./organization";
 import { Participant, Criteria, SettingsPage, Platform } from "./management";
-import { EmployeeHome, TestRunner, MyResults } from "./employee";
+import { EmployeeHome, TestRunner } from "./employee";
 import { ReportCenter } from "./report-center";
 export function Application() {
   const router = useRouter(),
@@ -94,7 +94,8 @@ export function Application() {
     setMobile(false);
   }, [path]);
   useEffect(() => {
-    if (me?.role === "employee" && path === "/") router.replace("/cabinet");
+    if (me?.role === "employee" && path !== "/cabinet" && !path.startsWith("/test/"))
+      router.replace("/cabinet");
   }, [me, path, router]);
   useEffect(() => {
     if (toast) {
@@ -143,13 +144,7 @@ export function Application() {
       icon: LayoutDashboard,
     },
     ...(isEmployee
-      ? [
-          {
-            href: "/my-results",
-            label: t("Мои результаты", "Менің нәтижелерім"),
-            icon: ChartNoAxesCombined,
-          },
-        ]
+      ? []
       : [
           {
             href: "/people",
@@ -239,7 +234,9 @@ export function Application() {
           : "Әкімші",
   );
   let page =
-    path === "/cabinet" ? (
+    isEmployee && !path.startsWith("/test/") ? (
+      <EmployeeHome />
+    ) : path === "/cabinet" ? (
       isEmployee ? <EmployeeHome /> : <Overview />
     ) : path === "/" ? (
       !me.organization && me.role === "superadmin" ? (
@@ -281,12 +278,10 @@ export function Application() {
       <Platform />
     ) : path === "/my-tests" ? (
       <EmployeeHome catalog />
-    ) : path === "/my-results" ? (
-      <MyResults />
     ) : path.startsWith("/people/") ? (
       <Participant id={path.split("/")[2]} />
     ) : path.startsWith("/test/") ? (
-      <TestRunner id={path.split("/")[2]} />
+      <TestRunner key={path} id={path.split("/")[2]} />
     ) : (
       <div className="empty">
         <h1>{t("Страница не найдена", "Бет табылмады")}</h1>
@@ -380,17 +375,6 @@ export function Application() {
                   {[me.member?.position, me.organization?.name]
                     .filter(Boolean)
                     .join(" · ")}
-                </small>
-              </div>
-            )}
-            {isEmployee && path === "/my-results" && (
-              <div className="header-greeting">
-                <strong>{t("Мои результаты", "Менің нәтижелерім")}</strong>
-                <small>
-                  {t(
-                    "Результаты тестирования и экспертное заключение.",
-                    "Тестілеу нәтижелері мен сараптамалық қорытынды.",
-                  )}
                 </small>
               </div>
             )}

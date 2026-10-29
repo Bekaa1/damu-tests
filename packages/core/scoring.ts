@@ -6,7 +6,8 @@ export const localized = z.object({
 });
 export const questionSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(["single", "number", "scale", "sjt", "image"]),
+  type: z.enum(["single", "number", "scale", "sjt", "image", "ranking"]),
+  content: z.record(z.string(), z.any()).optional(),
   text: localized,
   imageUrl: z.string().optional(),
   options: z
@@ -20,7 +21,11 @@ export const questionSchema = z.object({
     .default([]),
 });
 export type QuestionInput = z.infer<typeof questionSchema>;
-export type Answer = string | number | { most: string; least: string };
+export type Answer =
+  | string
+  | number
+  | { most: string; least: string }
+  | { top: string[]; bottom: string[] };
 export type ScoringConfig = {
   items: Record<
     string,
@@ -31,6 +36,9 @@ export type ScoringConfig = {
       least?: string;
       reverse?: boolean;
       scales?: string[];
+      control?: string;
+      ranking?: boolean;
+      competency?: { ru: string; kk: string };
     }
   >;
   scales?: Record<
@@ -39,6 +47,9 @@ export type ScoringConfig = {
   >;
   min?: number;
   max?: number;
+  bands?: number[];
+  invertScales?: string[];
+  quality?: string;
 };
 export type Score = {
   algorithm: string;
@@ -66,6 +77,26 @@ export type Score = {
     leastMatch?: boolean;
   }[];
   interpretation: "raw_only" | "preliminary_matching_index";
+  answered?: number;
+  accuracy?: number;
+  level?: number;
+  elapsedSeconds?: number;
+  qualityFlags?: string[];
+  reviewRequired?: boolean;
+  motivation?: {
+    baseline: number;
+    profile: Record<
+      string,
+      { relative: number; priority: number; adjusted: number }
+    >;
+    top: string[];
+    demotivators: string[];
+    demotivatorTexts?: { ru: string; kk: string }[];
+  };
+  competencies?: Record<
+    string,
+    { name: { ru: string; kk: string }; total: number; maximum: number }
+  >;
 };
 
 /** Compare JSON-shaped scoring values without depending on object key order. */
@@ -74,12 +105,16 @@ export function sameJsonValue(left: unknown, right: unknown): boolean {
     if (Array.isArray(value)) return value.map(canonicalize);
     if (value && typeof value === "object") {
       return Object.fromEntries(
-        Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, entry]) => [key, canonicalize(entry)]),
+        Object.entries(value)
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([key, entry]) => [key, canonicalize(entry)]),
       );
     }
     return value;
   };
-  return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+  return (
+    JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right))
+  );
 }
 export function numericValue(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -96,16 +131,32 @@ export function validateAnswer(
   value: unknown,
   config: ScoringConfig,
 ): Answer {
-  if (question.type === "sjt") {
-    const pair = z
-      .object({ most: z.string(), least: z.string() })
+  if (question.type === "ranking") {
+    const a = z
+      .object({
+        top: z.array(z.string()).max(3),
+        bottom: z.array(z.string()).max(3),
+      })
       .strict()
       .parse(value);
-    if (pair.most === pair.least)
+    const ids = [...a.top, ...a.bottom];
+    if (
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => !question.options.some((o) => o.id === id))
+    )
+      throw Error("Выберите разные факторы в каждой группе");
+    return a;
+  }
+  if (question.type === "sjt") {
+    const pair = z
+      .object({ most: z.string().default(""), least: z.string().default("") })
+      .strict()
+      .parse(value);
+    if (pair.most && pair.most === pair.least)
       throw new Error("MOST и LEAST должны отличаться");
     if (
-      ![pair.most, pair.least].every((id) =>
-        question.options.some((o) => o.id === id),
+      ![pair.most, pair.least].every(
+        (id) => !id || question.options.some((o) => o.id === id),
       )
     )
       throw new Error("Неизвестный вариант ответа");
@@ -125,28 +176,37 @@ export function validateAnswer(
     throw new Error("Выберите вариант ответа");
   return value;
 }
-export function calculateScore(
+function baseScore(
   algorithm: string,
   config: ScoringConfig,
   questions: QuestionInput[],
   answers: Record<string, unknown>,
+  allowMissing = false,
 ): Score {
   if (!questions.length) throw new Error("В методике отсутствуют вопросы");
   if (Object.keys(config.items).length !== questions.length)
     throw new Error("Ключ не соответствует составу вопросов");
   const details = questions.map((q) => {
-    if (!(q.id in answers))
+    if (!(q.id in answers) && !allowMissing)
       throw new Error("Необходимо ответить на все вопросы");
     if (!config.items[q.id]) throw new Error("Для вопроса отсутствует ключ");
     return {
       questionId: q.id,
-      value: validateAnswer(q, answers[q.id], config),
+      value:
+        q.id in answers
+          ? validateAnswer(q, answers[q.id], config)
+          : (null as any),
     };
   });
   if (algorithm === "sjt") {
     const scored = details.map((d) => {
       const key = config.items[d.questionId];
-      const a = d.value as { most: string; least: string };
+      const a = (d.value || { most: "", least: "" }) as {
+        most: string;
+        least: string;
+      };
+      if (!allowMissing && (!a.most || !a.least))
+        throw Error("Ответьте на все вопросы");
       if (!key.most || !key.least || key.most === key.least)
         throw new Error("Некорректный ключ SJT");
       return {
@@ -175,7 +235,7 @@ export function calculateScore(
       if (key.correct === undefined)
         throw new Error("Отсутствует правильный ответ");
       const correct =
-        typeof key.correct === "number"
+        d.value !== null && typeof key.correct === "number"
           ? Math.abs(numericValue(d.value) - key.correct) <=
             (key.tolerance ?? 0)
           : d.value === key.correct;
@@ -213,6 +273,221 @@ export function calculateScore(
     return { algorithm, scales, details, interpretation: "raw_only" };
   }
   throw new Error("Неизвестный алгоритм");
+}
+export function calculateScore(
+  algorithm: string,
+  config: ScoringConfig,
+  questions: QuestionInput[],
+  answers: Record<string, unknown>,
+  options: {
+    allowMissing?: boolean;
+    durations?: Record<string, number>;
+    elapsedMs?: number;
+  } = {},
+): Score {
+  // Controls and the priority task are required, but never enter scale sums.
+  for (const q of questions)
+    if (config.items[q.id]?.control || config.items[q.id]?.ranking) {
+      if (!(q.id in answers)) throw Error("Необходимо ответить на все вопросы");
+      const a = validateAnswer(q, answers[q.id], config) as any;
+      if (q.type === "ranking" && (a.top.length !== 3 || a.bottom.length !== 3))
+        throw Error("Выберите три наиболее и три наименее важных фактора");
+    }
+  const scored = questions.filter(
+    (q) => !config.items[q.id]?.control && !config.items[q.id]?.ranking,
+  );
+  const result = baseScore(
+    algorithm,
+    {
+      ...config,
+      items: Object.fromEntries(scored.map((q) => [q.id, config.items[q.id]])),
+    },
+    scored,
+    answers,
+    options.allowMissing,
+  );
+  if (options.elapsedMs !== undefined)
+    result.elapsedSeconds = Math.max(0, options.elapsedMs / 1000);
+  if (algorithm !== "scales" && options.durations) {
+    const times = Object.values(options.durations);
+    const flags: string[] = [];
+    const id = questions[0].id;
+    if (id.startsWith("numerical-v2") && times.some((n) => n < 10000))
+      flags.push("fast_answers");
+    if (id.startsWith("verbal-v2")) {
+      const answered = result.details.filter((d) => d.value !== null).length;
+      if (
+        answered < 20 &&
+        answered > 0 &&
+        (100 * result.total!) / answered > 80
+      )
+        flags.push("slow_precise");
+      if (
+        times.length &&
+        times.reduce((a, b) => a + b, 0) / times.length < 10000
+      )
+        flags.push("fast_answers");
+      if (
+        result.details.filter(
+          (d) =>
+            config.items[d.questionId].correct?.toString().endsWith("-C") &&
+            d.value?.toString().endsWith("-A"),
+        ).length > 5
+      )
+        flags.push("unsupported_inferences");
+    }
+    if (id.startsWith("logical-v2")) {
+      if (times.filter((n) => n < 5000).length > 5) flags.push("fast_answers");
+      const positions = questions
+        .filter((q) => answers[q.id] !== undefined)
+        .map((q) => q.options.findIndex((o) => o.id === answers[q.id]));
+      if (
+        positions.length === questions.length &&
+        new Set(positions).size === 1
+      )
+        flags.push("same_position");
+    }
+    if (
+      algorithm === "sjt" &&
+      ((options.elapsedMs !== undefined && options.elapsedMs < 360000) ||
+        times.filter((n) => n < 20000).length > 4)
+    )
+      flags.push("fast_answers");
+    result.qualityFlags = flags;
+  }
+  result.answered = scored.filter(
+    (q) =>
+      answers[q.id] !== undefined &&
+      (q.type !== "sjt" ||
+        ((answers[q.id] as any).most && (answers[q.id] as any).least)),
+  ).length;
+  if (result.total !== undefined) {
+    result.accuracy = result.answered
+      ? (100 * result.total) / result.answered
+      : 0;
+    if (config.bands)
+      result.level = config.bands.findIndex((x) => result.total! <= x) + 1;
+  }
+  if (algorithm === "sjt") {
+    result.competencies = {};
+    for (const d of result.details) {
+      const name = config.items[d.questionId].competency;
+      if (name) {
+        const c = (result.competencies[name.ru] ??= {
+          name,
+          total: 0,
+          maximum: 0,
+        });
+        c.total += d.score!;
+        c.maximum += 2;
+      }
+    }
+  }
+  if (result.scales) {
+    for (const id of config.invertScales ?? []) {
+      const s = result.scales[id];
+      if (s) {
+        s.sum = s.count * ((config.min ?? 1) + (config.max ?? 5)) - s.sum;
+        s.mean = s.sum / s.count;
+      }
+    }
+    const flags: string[] = [];
+    const vals = questions
+      .filter((q) => q.type === "scale")
+      .map((q) => Number(answers[q.id]));
+    let maxRun = 0,
+      run = 0,
+      prev: number | undefined;
+    for (const n of vals) {
+      run = n === prev ? run + 1 : 1;
+      maxRun = Math.max(maxRun, run);
+      prev = n;
+    }
+    if (maxRun >= 10) flags.push("straightlining");
+    if (
+      options.durations &&
+      Object.values(options.durations).reduce((a, b) => a + b, 0) /
+        vals.length <
+        2000
+    )
+      flags.push("too_fast");
+    if (config.quality === "personality") {
+      const a = (n: string | number) => Number(answers["personality-v2-" + n]);
+      if (a("К1") !== 2 || a("К2") !== 4) flags.push("attention");
+      if (["К3", "К4", "К5", "К6"].filter((n) => a(n) >= 4).length >= 3)
+        flags.push("social_desirability");
+      if (
+        [
+          [15, 105],
+          [4, 94],
+          [6, 96],
+          [2, 62],
+          [12, 102],
+        ].filter(([x, y]) => a(x) >= 4 && a(y) >= 4).length >= 3
+      )
+        flags.push("contradictions");
+      result.reviewRequired = flags.length >= 2;
+    }
+    if (config.quality === "motivation") {
+      const scales = result.scales;
+      const baseline =
+        Object.values(scales).reduce((s, x) => s + x.mean, 0) / 12;
+      const rank = answers[questions.find((q) => q.type === "ranking")!.id] as {
+        top: string[];
+        bottom: string[];
+      };
+      const profile = Object.fromEntries(
+        Object.entries(scales).map(([id, s]) => {
+          const priority = rank.top.includes(id)
+            ? 1
+            : rank.bottom.includes(id)
+              ? -1
+              : 0;
+          return [
+            id,
+            {
+              relative: s.mean - baseline,
+              priority,
+              adjusted: s.mean - baseline + 0.5 * priority,
+            },
+          ];
+        }),
+      );
+      const sorted = Object.keys(scales).sort(
+        (a, b) =>
+          profile[b].adjusted - profile[a].adjusted ||
+          profile[b].priority - profile[a].priority ||
+          a.localeCompare(b),
+      );
+      const cutoff = profile[sorted[2]].adjusted;
+      result.motivation = {
+        baseline,
+        profile,
+        top: sorted.filter((id) => profile[id].adjusted >= cutoff),
+        demotivators: scored
+          .filter((q) => config.items[q.id].reverse && answers[q.id] === 1)
+          .map((q) => q.id),
+        demotivatorTexts: scored
+          .filter((q) => config.items[q.id].reverse && answers[q.id] === 1)
+          .map((q) => q.text),
+      };
+      const means = Object.values(scales).map((s) => s.mean);
+      if (Math.max(...means) - Math.min(...means) < 1 || baseline > 4.5)
+        flags.push("flat_profile");
+      if (rank.top.some((id) => scales[id].mean < 3))
+        flags.push("ranking_mismatch");
+      if (
+        Object.keys(scales).filter((id) =>
+          scored
+            .filter((q) => config.items[q.id].scales?.includes(id))
+            .every((q) => Number(answers[q.id]) >= 4),
+        ).length >= 3
+      )
+        flags.push("contradictions");
+    }
+    result.qualityFlags = flags;
+  }
+  return result;
 }
 export function verifyScoringConfig(
   config: ScoringConfig,

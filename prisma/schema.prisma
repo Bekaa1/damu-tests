@@ -160,6 +160,7 @@ model TestVersion {
   status String @default("draft")
   durationMinutes Int
   timeLimitSeconds Int?
+  delivery Json @default("{}")
   instructions Json
   limitations Json
   translationStatus String @default("draft")
@@ -180,6 +181,7 @@ model Question {
   type String
   text Json
   imageUrl String?
+  content Json @default("{}")
   options AnswerOption[]
   @@unique([testVersionId,position])
   @@map("questions")
@@ -239,6 +241,9 @@ model TestAttempt {
   startedAt DateTime @default(now())
   submittedAt DateTime?
   expiresAt DateTime?
+  timerStartedAt DateTime?
+  lastHeartbeatAt DateTime?
+  pausedAt DateTime?
   answers UserAnswer[]
   results TestResult[]
   @@unique([assignmentId,attemptNumber])
@@ -253,6 +258,7 @@ model UserAnswer {
   questionId String
   value Json
   revision Int @default(1)
+  durationMs Int @default(0)
   updatedAt DateTime @updatedAt
   @@unique([attemptId,questionId])
   @@map("user_answers")

@@ -41,6 +41,8 @@ import {
 import {
   myAssignments,
   startAttempt,
+  presence,
+  reviewResult,
   getAttempt,
   saveAnswer,
   submitAttempt,
@@ -262,6 +264,7 @@ export class AppController {
   ) {
     return getAttempt(req.ctx, id);
   }
+  @Post("attempts/:id/presence") presence(@Req() req:AuthRequest,@Param('id') id:string,@Body() body:unknown){return presence(req.ctx,id,body)}
   @Post("attempts/:id/answers") answer(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -275,6 +278,7 @@ export class AppController {
   ) {
     return submitAttempt(req.ctx, id);
   }
+  @Post('results/:id/quality-review') qualityReview(@Req() req:AuthRequest,@Param('id') id:string,@Body() body:unknown){return reviewResult(req.ctx,id,body)}
   @Post("attempts/:id/recalculate") recalc(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -342,20 +346,17 @@ export class AppController {
     @Req() req: AuthRequest,
     @Body() body: unknown,
   ) {
-    const employee = req.ctx.role === "employee";
-    if (!employee) requireRole(req.ctx, "admin", "expert");
+    requireRole(req.ctx, "admin", "expert");
     const d = z
       .object({ campaignId: z.string(), membershipId: z.string() })
       .parse(body);
     await participant(req.ctx, d.membershipId, d.campaignId);
-    if (employee && !req.ctx.org?.showPreliminary)
-      throw new ForbiddenException("Предварительный AI-анализ отключён организацией");
     return queueAi(
       orgId(req.ctx),
       d.campaignId,
       d.membershipId,
-      !employee,
-      employee,
+      true,
+      false,
     );
   }
   @Get("activity") async activity(@Req() req: AuthRequest) {
@@ -469,7 +470,7 @@ export class AppController {
     @Param("name") name: string,
     @Res() res: Response,
   ) {
-    if (!/^item-\d+(-option-\d+)?\.svg$/.test(name))
+    if (!/^(?:item-\d+(?:-option-\d+)?|v2-item-\d+(?:-option-[a-f0-9]{16})?)\.svg$/.test(name))
       throw new NotFoundException();
     if (req.ctx.role === "employee") {
       const allowed = await db.testAssignment.count({
@@ -603,6 +604,8 @@ export class AppController {
         licenseStatus: z.string(),
         scientificBasis: z.string(),
         durationMinutes: z.number().int().min(1),
+        timeLimitSeconds: z.number().int().positive().nullable().optional(),
+        delivery: z.record(z.string(),z.any()).optional(),
         questions: z.array(questionSchema).min(1).max(500),
         algorithm: z.enum(["cognitive", "scales", "sjt"]),
         config: z.custom<ScoringConfig>(),
@@ -647,6 +650,8 @@ export class AppController {
           testId: data.testId,
           version: data.version,
           durationMinutes: data.durationMinutes,
+          timeLimitSeconds: data.timeLimitSeconds,
+          delivery: json(data.delivery||{}),
           instructions: json({
             ru: "Следуйте инструкции методики.",
             kk: "Әдістеме нұсқаулығын орындаңыз.",
@@ -661,6 +666,7 @@ export class AppController {
               position: i,
               type: q.type,
               text: q.text,
+              content: json(q.content||{}),
               imageUrl: q.imageUrl,
               options: {
                 create: q.options.map((o, j) => ({ ...o, position: j })),

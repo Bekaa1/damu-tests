@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
 import { z } from "zod";
@@ -15,6 +14,7 @@ export async function participantDetails(
   id: string,
   campaignId: string,
 ) {
+  requireRole(ctx, "admin", "expert");
   const member = await participant(ctx, id, campaignId);
   const organizationId = orgId(ctx);
   const user = await db.user.findUniqueOrThrow({
@@ -39,72 +39,42 @@ export async function participantDetails(
   const allDone =
     assignments.length > 0 &&
     assignments.every((a) => a.attempts[0]?.status === "completed");
-  const employee = ctx.role === "employee";
-  if (employee && !allDone)
-    return {
-      member: { ...member, user },
-      assignments: [],
-      reports: [],
-      ai: [],
-      observations: [],
-      files: [],
-      allDone: false,
-      canSelfGenerateAi: false,
-    };
-  const ai =
-    !employee || ctx.org!.showPreliminary
-      ? await db.aiReport.findMany({
-          where: { organizationId, campaignId, membershipId: id },
-          orderBy: { createdAt: "desc" },
-        })
-      : [];
-  const observations = !employee
-    ? await db.expertObservation.findMany({
-        where: { organizationId, campaignId, membershipId: id },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
-  const files = !employee
-    ? await db.fileAsset.findMany({
-        where: { organizationId, campaignId, membershipId: id },
-        select: {
-          id: true,
-          name: true,
-          size: true,
-          createdAt: true,
-          uploadedBy: true,
-        },
-      })
-    : [];
+  const [ai, observations, files] = await Promise.all([
+    db.aiReport.findMany({
+      where: { organizationId, campaignId, membershipId: id },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.expertObservation.findMany({
+      where: { organizationId, campaignId, membershipId: id },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.fileAsset.findMany({
+      where: { organizationId, campaignId, membershipId: id },
+      select: { id: true, name: true, size: true, createdAt: true, uploadedBy: true },
+    }),
+  ]);
   await audit(organizationId, ctx.user.id, "results.viewed", id, {
     campaignId,
   });
   return {
     member: { ...member, user },
     allDone,
-    canSelfGenerateAi: employee && ctx.org!.showPreliminary,
-    assignments:
-      employee && !ctx.org!.showPreliminary
-        ? []
-        : assignments.map((a) => ({
-            ...a,
-            attempts: a.attempts.map((t) => ({
-              ...t,
-              scoringKeyId: undefined,
-              results: t.results.map((r) => ({
-                ...r,
-                result: employee
-                  ? { ...(r.result as object), details: undefined }
-                  : r.result,
-              })),
-            })),
-          })),
-    reports: employee
-      ? ctx.org!.showApproved
-        ? reports.filter((r) => r.status === "approved")
-        : []
-      : reports,
-    ai: ai.map((r) => ({ ...r, error: employee ? undefined : r.error })),
+    canSelfGenerateAi: false,
+    assignments: assignments.map((a) => ({
+      ...a,
+      attempts: a.attempts.map((t) => ({
+        ...t,
+        scoringKeyId: undefined,
+        results: t.results.map((r) => ({
+          ...r,
+          result: ctx.role === "expert" || ctx.role === "superadmin"
+            ? r.result
+            : { ...r.result as object, qualityFlags: undefined },
+        })),
+      })),
+    })),
+    reports,
+    ai,
     observations,
     files,
   };
@@ -313,16 +283,12 @@ export async function saveReport(ctx: Context, input: unknown) {
   return report;
 }
 export async function getReport(ctx: Context, id: string) {
+  requireRole(ctx, "admin", "expert");
   const report = await db.finalReport.findFirst({
     where: { id, organizationId: orgId(ctx) },
   });
   if (!report) throw new NotFoundException();
   await participant(ctx, report.membershipId, report.campaignId);
-  if (
-    ctx.role === "employee" &&
-    (report.status !== "approved" || !ctx.org!.showApproved)
-  )
-    throw new ForbiddenException("Отчёт пока недоступен");
   const member = await db.membership.findUniqueOrThrow({
     where: { id: report.membershipId },
     include: { user: { select: { name: true, email: true, locale: true } } },

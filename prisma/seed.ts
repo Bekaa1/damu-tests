@@ -22,15 +22,17 @@ for (const item of catalog) {
       scientificBasis: item.scientificBasis,
     },
   });
-  const id = `${item.id}-v1`;
+  const id = `${item.id}-v2`;
   if (!(await db.testVersion.findUnique({ where: { id } }))) {
     await db.testVersion.create({
       data: {
         id,
         testId: item.id,
-        version: "1.0-draft",
+        version: item.version || "2.0-2026-10-26",
         status: demo ? "published" : "draft",
         durationMinutes: item.durationMinutes,
+        timeLimitSeconds: item.timeLimitSeconds,
+        delivery: item.delivery || {},
         instructions: item.instructions,
         limitations: item.limitations,
         approvedBy: demo ? "DEMO_ONLY" : null,
@@ -41,6 +43,7 @@ for (const item of catalog) {
             position: i,
             type: q.type,
             text: q.text,
+            content: q.content || {},
             imageUrl: q.imageUrl,
             options: {
               create: q.options.map((o, j) => ({ ...o, position: j })),
@@ -49,14 +52,11 @@ for (const item of catalog) {
         },
         keys: {
           create: {
-            id: `${item.id}-key-v1`,
-            version: "1.0-preliminary",
+            id: `${item.id}-key-v2`,
+            version: "2.0-preliminary",
             algorithm: item.algorithm,
             config: item.config,
-            source:
-              item.id === "situations"
-                ? "ТЗ 2.0, предварительный разбор Jobzilla; порядок 123test сохранён"
-                : item.source,
+            source: item.source,
             controlExamples: item.controlExamples,
           },
         },
@@ -292,12 +292,12 @@ for (let n = 0; n < 65; n++) {
         organizationId: org.id,
         campaignId: campaign.id,
         membershipId: member.id,
-        testVersionId: `${method.id}-v1`,
+        testVersionId: `${method.id}-v2`,
         expertId: expert.id,
       },
     });
-    const completed = n < 28 || (n < 50 && t < (n % 4) + 1);
-    const started = completed || (n < 50 && t === (n % 4) + 1);
+    const completed = false;
+    const started = false;
     if (!started) continue;
     const answers: Record<string, unknown> = {};
     method.questions.forEach((q: QuestionInput, i: number) => {
@@ -329,7 +329,7 @@ for (let n = 0; n < 65; n++) {
         organizationId: org.id,
         assignmentId: a.id,
         language: "ru",
-        scoringKeyId: `${method.id}-key-v1`,
+        scoringKeyId: `${method.id}-key-v2`,
         status: completed ? "completed" : "in_progress",
         startedAt: time,
         submittedAt: completed ? time : null,
@@ -358,7 +358,7 @@ for (let n = 0; n < 65; n++) {
         data: {
           organizationId: org.id,
           attemptId: attempt.id,
-          scoringKeyId: `${method.id}-key-v1`,
+          scoringKeyId: `${method.id}-key-v2`,
           result: J(score),
           createdAt: time,
         },
@@ -366,7 +366,7 @@ for (let n = 0; n < 65; n++) {
       resultIds.push(r.id);
     }
   }
-  if (n < 28) {
+  if (n < 0) {
     await db.aiReport.create({
       data: {
         organizationId: org.id,

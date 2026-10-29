@@ -4,7 +4,7 @@ export type ReportLanguage = "ru" | "kk";
 export type ReportPerson = {
   id: string; name: string; position: string; unit: string; category: string;
   status: string; completed: number; total: number;
-  results: { testId: string; testVersionId: string; version: string; scoringKeyId?: string; language?: string; name: any; score: any }[];
+  results: { resultId?:string; testId: string; testVersionId: string; version: string; scoringKeyId?: string; language?: string; name: any; score: any }[];
   observations: { id: string; criteriaSnapshot: any; scores: any; notes: string; createdAt: string }[];
   expert: { status: string; matrixX: number | null; matrixY: number | null; matrixReason: string | null; content: any } | null;
 };
@@ -35,7 +35,7 @@ export function reportMetrics(snapshot: ReportSnapshot, language: ReportLanguage
   for (const person of snapshot.people) {
     for (const result of person.results) {
       const score = result.score;
-      if (!score) continue;
+      if (!score || score.reviewRequired) continue;
       const base = [result.testVersionId, result.scoringKeyId, result.language];
       const method = reportLoc(result.name, language);
       const meta = { method, testId: score.algorithm === "sjt" ? "sjt" : result.testId, version: result.version, language: result.language || "ru" };
@@ -139,11 +139,12 @@ export function reportAiInput(snapshot: ReportSnapshot, kind: "individual" | "te
     categories: [...new Set(snapshot.people.map(p => p.category))],
     metrics: metrics.map(({ key, ...m }) => m),
     observations, expertAssessments,
-    scaleRules: "Cognitive metrics are recorded correct answers / maximum. Personality and WMPS metrics are recorded scale means. SJT metrics are recorded matches to the platform key. Analyze the supplied values directly and compare only metrics sharing the same method, scoring configuration and scale.",
+    profiles: snapshot.people.map((p,i)=>({id:`profile-${i+1}`,participantId:p.id,results:p.results.filter(r=>r.score&&!r.score.reviewRequired).map(r=>({testId:r.testId,level:r.score.level,answered:r.score.answered,cohortPercentile:r.score.cohortPercentile,scaleRanks:r.score.scales?Object.fromEntries(Object.entries(r.score.scales).map(([id,s]:[string,any])=>[id,s.cohortPercentile])):undefined,motivation:r.score.motivation,competencies:r.score.competencies}))})),
+    scaleRules: "Cognitive metrics are correct answers / maximum; missing answers score zero. Personality uses 1–5 means, emotional stability N and mood stability N3 have already been reversed. Motivation has twelve 1–5 scales plus relative priorities and explicit top/bottom selections. Equal priority scores are ties. Levels are preliminary score bands, not population norms. Omit interpretation of any instrument awaiting expert quality review. Describe behavioral risks only when supported by supplied observations. Never invent group percentiles.",
   };
   return {
     input,
-    evidence: new Set(["coverage", ...metrics.map(m => m.id), ...observations.map(o => o.id), ...expertAssessments.map(e => e.id)]),
+    evidence: new Set(["coverage", ...snapshot.people.map((_,i)=>`profile-${i+1}`), ...metrics.map(m => m.id), ...observations.map(o => o.id), ...expertAssessments.map(e => e.id)]),
   };
 }
 

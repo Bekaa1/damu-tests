@@ -1,0 +1,4 @@
+ALTER TABLE test_versions ADD COLUMN delivery JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE questions ADD COLUMN content JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE test_attempts ADD COLUMN "timerStartedAt" TIMESTAMP(3), ADD COLUMN "lastHeartbeatAt" TIMESTAMP(3), ADD COLUMN "pausedAt" TIMESTAMP(3);
+ALTER TABLE user_answers ADD COLUMN "durationMs" INTEGER NOT NULL DEFAULT 0;

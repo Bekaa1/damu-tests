@@ -42,6 +42,7 @@ import {
   date,
 } from "./ui";
 import { AddPerson } from "./organization";
+import { QualityReview } from './quality-review';
 export function Participant({ id }: { id: string }) {
   const router = useRouter();
   const [removeOpen, setRemoveOpen] = useState(false),
@@ -230,6 +231,7 @@ export function Participant({ id }: { id: string }) {
                       }
                     >
                       <div className="panel-body">
+                        <QualityReview result={r} editable={editable} onChange={()=>void refresh()}/>
                         {!s ? (
                           <p className="text-muted text-small">
                             {t(
