@@ -1,3 +1,4 @@
+import {CONSENT_VERSION} from "../packages/core/assessment-policy";
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -57,7 +58,7 @@ try {
           id: fixture,
           organizationId: template.organizationId,
           role: "employee",
-          consentAt: new Date(),
+          consentAt: new Date(),consentVersion:CONSENT_VERSION,
         },
       },
     },
@@ -239,16 +240,16 @@ try {
     data: { lastHeartbeatAt: past },
   });
   let paused = await req("/attempts/" + id);
-  assert(paused.pausedAt);
+  assert.equal(paused.pausedAt,null);
   const before = new Date(paused.expiresAt).getTime();
   await req("/attempts/" + id + "/presence", { action: "heartbeat" });
   paused = await req("/attempts/" + id);
   assert.equal(paused.pausedAt, null);
-  assert(new Date(paused.expiresAt).getTime() > before + 20000);
+  assert.equal(new Date(paused.expiresAt).getTime(),before);
   await req("/attempts/" + id + "/presence", { action: "leave" });
   assert.equal(
-    (await db.testAttempt.findUniqueOrThrow({ where: { id } })).lastHeartbeatAt,
-    null,
+    (await db.testAttempt.findUniqueOrThrow({ where: { id } })).departures,
+    1,
   );
   await req("/attempts/" + id + "/answers", {
     questionId: "verbal-v2-1",
@@ -268,7 +269,7 @@ try {
   assert.equal((result.result as any).total, 1);
   assert.equal((result.result as any).maximum, 30);
   calls.push(
-    "Timeout scores saved answers; offline pause/resume and voluntary leave OK",
+    "Timeout scores saved answers; continuous server deadline and voluntary leave OK",
   );
   console.log(calls.join("\n"));
 } finally {

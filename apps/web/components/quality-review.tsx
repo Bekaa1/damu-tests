@@ -14,7 +14,12 @@ export function QualityReview({
   const [reason, setReason] = useState(""),
     [busy, setBusy] = useState(false);
   const score = result?.result;
-  if (!score?.qualityFlags?.length && !score?.reviewRequired) return null;
+  if (
+    !score?.qualityFlags?.length &&
+    !score?.reviewRequired &&
+    !score?.sessionQuality?.departures
+  )
+    return null;
   const flags: Record<string, string> = {
     fast_answers: t("Очень быстрые ответы", "Өте жылдам жауаптар"),
     slow_precise: t(
@@ -64,6 +69,14 @@ export function QualityReview({
             )
           : t("Качество заполнения", "Толтыру сапасы")}
       </strong>
+      {score.sessionQuality?.departures > 0 && (
+        <p>
+          {t("Уходов со страницы", "Беттен кету саны")}:{" "}
+          {score.sessionQuality.departures} ·{" "}
+          {t("Время отсутствия", "Болмаған уақыт")}:{" "}
+          {Math.round(score.sessionQuality.awayMs / 1000)} {t("сек", "сек")}
+        </p>
+      )}
       {editable && (
         <p>
           {score.qualityFlags?.map((x: string) => flags[x] || x).join(" · ")}

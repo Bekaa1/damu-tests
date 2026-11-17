@@ -124,9 +124,7 @@ export function Overview() {
       : 0;
     const segment = {
       ...category,
-      percentage: people.length
-        ? (category.count / people.length) * 100
-        : 0,
+      percentage: people.length ? (category.count / people.length) * 100 : 0,
       length,
       offset: segmentOffset,
     };
@@ -232,9 +230,7 @@ export function Overview() {
           </Panel>
           <Panel
             title={t("Требуют внимания", "Назар аудару қажет")}
-            action={
-              <span className="mini-count">{attentionCount}</span>
-            }
+            action={<span className="mini-count">{attentionCount}</span>}
           >
             <div className="task-list">
               {notStarted > 0 && (
@@ -260,10 +256,7 @@ export function Overview() {
                 </Link>
               )}
               {retryRequired > 0 && (
-                <Link
-                  href="/people?status=retry_required"
-                  className="task-row"
-                >
+                <Link href="/people?status=retry_required" className="task-row">
                   <div className="task-icon amber">
                     <Clock3 size={18} />
                   </div>
@@ -276,8 +269,8 @@ export function Overview() {
                     </strong>
                     <p>
                       {t(
-                        "Время на предыдущую попытку истекло",
-                        "Алдыңғы әрекеттің уақыты аяқталды",
+                        "Повторное прохождение назначено экспертом",
+                        "Қайта тапсыруды сарапшы тағайындады",
                       )}
                     </p>
                   </div>
@@ -1059,7 +1052,10 @@ export function Library() {
                   </span>
                   <span>
                     <Clock3 size={13} />
-                    {v?.durationMinutes || 0} {t("мин", "мин")}
+                    {v?.timeLimitSeconds
+                      ? v.timeLimitSeconds / 60
+                      : v?.durationMinutes || 0}{" "}
+                    {t("мин", "мин")}
                   </span>
                 </div>
                 <div className="method-note">
@@ -1146,7 +1142,6 @@ export function Analytics() {
           "Сопоставимые показатели текущей кампании — без единого рейтинга пригодности.",
           "Ағымдағы науқанның салыстырмалы көрсеткіштері.",
         )}
-
       />
       <LoadState loading={loading} error={error}>
         <div className="chip-filter">
@@ -1206,7 +1201,6 @@ export function Analytics() {
                   <th>{t("МЕТОДИКА", "ӘДІСТЕМЕ")}</th>
                   <th>N</th>
                   <th>{t("ПОКАЗАТЕЛЬ", "КӨРСЕТКІШ")}</th>
-
                 </tr>
               </thead>
               <tbody>
@@ -1215,10 +1209,7 @@ export function Analytics() {
                   const s = rs[0].score;
                   return (
                     <tr key={id}>
-                      <td>
-                        {loc(rs[0].name)}
-
-                      </td>
+                      <td>{loc(rs[0].name)}</td>
                       <td>{rs.length}</td>
                       <td>
                         {s.total !== undefined
@@ -1228,7 +1219,6 @@ export function Analytics() {
                               `${Object.keys(s.scales).length} шкала`,
                             )}
                       </td>
-
                     </tr>
                   );
                 })}
@@ -1246,7 +1236,9 @@ export function Matrix() {
     campaign ? `/people?campaignId=${campaign}` : null,
   );
   const [unit, setUnit] = useState("all");
-  const [matrixConfig, setMatrixConfig] = useState<any>(me.organization.matrixConfig);
+  const [matrixConfig, setMatrixConfig] = useState<any>(
+    me.organization.matrixConfig,
+  );
   const [savingConfig, setSavingConfig] = useState(false);
   const people = (data || []).filter(
     (p) => p.role === "employee" && (unit === "all" || p.unit === unit),

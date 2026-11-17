@@ -1,7 +1,5 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from "@nestjs/common";
+import { latestAssessorObservations } from "../../../packages/core/competencies";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { z } from "zod";
 import { db, audit, json } from "./db";
 import { orgId, participant, requireRole, type Context } from "./access";
@@ -28,7 +26,10 @@ export async function participantDetails(
       attempts: {
         orderBy: { attemptNumber: "desc" },
         take: 1,
-        include: { results: { orderBy: { createdAt: "desc" } } },
+        include: {
+          results: { orderBy: { createdAt: "desc" } },
+          _count: { select: { answers: true } },
+        },
       },
     },
   });
@@ -50,7 +51,13 @@ export async function participantDetails(
     }),
     db.fileAsset.findMany({
       where: { organizationId, campaignId, membershipId: id },
-      select: { id: true, name: true, size: true, createdAt: true, uploadedBy: true },
+      select: {
+        id: true,
+        name: true,
+        size: true,
+        createdAt: true,
+        uploadedBy: true,
+      },
     }),
   ]);
   await audit(organizationId, ctx.user.id, "results.viewed", id, {
@@ -67,9 +74,10 @@ export async function participantDetails(
         scoringKeyId: undefined,
         results: t.results.map((r) => ({
           ...r,
-          result: ctx.role === "expert" || ctx.role === "superadmin"
-            ? r.result
-            : { ...r.result as object, qualityFlags: undefined },
+          result: {
+            ...(r.result as object),
+            sessionQuality: { departures: t.departures, awayMs: t.awayMs },
+          },
         })),
       })),
     })),
@@ -77,6 +85,16 @@ export async function participantDetails(
     ai,
     observations,
     files,
+    incidents: await db.auditLog.findMany({
+      where: {
+        organizationId,
+        entityId: {
+          in: assignments.flatMap((a) => a.attempts.map((t) => t.id)),
+        },
+        action: "incident.time_added",
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   };
 }
 export async function saveExercise(
@@ -121,6 +139,9 @@ export async function saveObservation(ctx: Context, input: unknown) {
       membershipId: z.string(),
       exerciseId: z.string(),
       scores: z.record(z.string(), z.number().int().nullable()),
+      indicatorExamples: z
+        .record(z.string(), z.string().trim().max(3000))
+        .default({}),
       notes: z.string().min(10).max(12000),
     })
     .parse(input);
@@ -138,33 +159,46 @@ export async function saveObservation(ctx: Context, input: unknown) {
   for (const c of criteria) {
     const value = data.scores[c.id];
     if (
+      (c as any).competencyId &&
+      value !== null &&
+      (data.indicatorExamples[c.id] || "").length < 5
+    )
+      throw new BadRequestException(
+        "Добавьте пример поведения для каждого оценённого индикатора",
+      );
+    if (
       value === undefined ||
       (value === null && !c.allowNotObserved) ||
       (value !== null && !c.scale.some((s) => s.value === value))
     )
       throw new BadRequestException("Недопустимый балл");
   }
-  const previous = await db.expertObservation.count({
-    where: {
-      organizationId,
-      campaignId: data.campaignId,
-      membershipId: data.membershipId,
-      exerciseId: exercise.id,
-    },
-  });
-  const result = await db.expertObservation.create({
-    data: {
-      ...data,
-      organizationId,
-      expertId: ctx.member?.id ?? ctx.user.id,
-      criteriaSnapshot: json({
-        name: exercise.name,
-        type: exercise.type,
-        criteria,
-      }),
-      scores: json(data.scores),
-      version: previous + 1,
-    },
+  const result = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM memberships WHERE id = ${data.membershipId} FOR UPDATE`;
+    const previous = await tx.expertObservation.count({
+      where: {
+        organizationId,
+        campaignId: data.campaignId,
+        membershipId: data.membershipId,
+        exerciseId: exercise.id,
+        expertId: ctx.member?.id ?? ctx.user.id,
+      },
+    });
+    return tx.expertObservation.create({
+      data: {
+        ...data,
+        organizationId,
+        expertId: ctx.member?.id ?? ctx.user.id,
+        criteriaSnapshot: json({
+          name: exercise.name,
+          type: exercise.type,
+          criteria,
+          exerciseId: exercise.id,
+        }),
+        scores: json(data.scores),
+        version: previous + 1,
+      },
+    });
   });
   await audit(organizationId, ctx.user.id, "observation.saved", result.id);
   return result;
@@ -228,10 +262,7 @@ export async function saveReport(ctx: Context, input: unknown) {
     },
     orderBy: { createdAt: "desc" },
   });
-  const latestObservations = observations.filter(
-    (o, i) =>
-      observations.findIndex((x) => x.exerciseId === o.exerciseId) === i,
-  );
+  const latestObservations = latestAssessorObservations(observations);
   const ai = await db.aiReport.findFirst({
     where: {
       organizationId,

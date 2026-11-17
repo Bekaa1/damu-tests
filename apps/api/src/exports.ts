@@ -5,12 +5,19 @@ import { BadRequestException } from "@nestjs/common";
 import { createPerson, listPeople } from "./people";
 import { getReport } from "./assessment";
 import { orgId, requireRole, type Context } from "./access";
-import { audit } from "./db";
+import { db, audit } from "./db";
 import { individualTemplate } from "./report-template";
 import { getGeneratedReport } from "./generated-reports";
-import { professionalReportTemplate, reportCss, sanitizePdfText } from "./report-layout";
+import {
+  professionalReportTemplate,
+  reportCss,
+  sanitizePdfText,
+} from "./report-layout";
 import { paginateProfessionalReport } from "./report-pagination";
-import { generatedContentSchema, type ReportSnapshot } from "../../../packages/core/reporting";
+import {
+  generatedContentSchema,
+  type ReportSnapshot,
+} from "../../../packages/core/reporting";
 const esc = (v: unknown) =>
   sanitizePdfText(v)
     .replaceAll("&", "&amp;")
@@ -186,7 +193,12 @@ export async function importPeople(ctx: Context, input: unknown) {
   return { created, errors };
 }
 const pdfCss = `*{box-sizing:border-box}body{font-family:Arial,'DejaVu Sans',sans-serif;color:#243746;font-size:10px;margin:0}h1{font-size:25px;line-height:1.3;margin:12px 0 8px;font-weight:600}h2{font-size:16px;margin:23px 0 14px}h3{font-size:12px;margin:17px 0 9px}p{line-height:1.75;margin:7px 0;white-space:pre-wrap}table{border-collapse:collapse;width:100%;font-size:9px}th{text-align:left;background:#edf2f4;color:#627683;padding:10px}td{padding:10px;border-bottom:1px solid #e2e8eb;vertical-align:top;line-height:1.6}tr{break-inside:avoid}.page{break-after:page}.page:last-child{break-after:auto}.brand{font-size:14px;color:#326a5b;font-weight:bold;display:flex;justify-content:space-between;border-bottom:2px solid #253e4d;padding-bottom:14px}.brand img{height:35px;max-width:130px;object-fit:contain}.eyebrow{color:#74918d;font-size:9px;letter-spacing:1.7px;margin-top:20px}.sub{color:#8b9ba4;font-size:9px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}.box{padding:15px;background:#f5f8f9;border:1px solid #e0e8eb;border-radius:5px;margin:15px 0}.bar{height:7px;background:#ecf1f3;border-radius:3px;margin:7px 0 13px}.bar span{display:block;height:100%;background:#6b9988;border-radius:3px}.row{display:flex;justify-content:space-between;font-size:10px}.muted{color:#81909a}.limit{font-size:8px;line-height:1.7;color:#89949d;margin-bottom:8px}.label{font-size:8px;color:#91a0a9}.matrix{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.matrix>div{border:1px solid #dce7e2;padding:10px;min-height:80px;background:#f4f8f5}.keep{break-inside:avoid}`;
-export async function renderPdf(html: string, label: string, language = "ru", css = pdfCss) {
+export async function renderPdf(
+  html: string,
+  label: string,
+  language = "ru",
+  css = pdfCss,
+) {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -244,16 +256,28 @@ export async function exportTeamPdf(ctx: Context, campaignId: string) {
         ds = ps.filter((p) => p.status === "completed").length;
       return `<tr><td>${esc(u)}</td><td>${ps.length}</td><td>${ds}</td><td>${Math.round((ds / ps.length) * 100)}%</td></tr>`;
     })
-    .join("")}</table></section><section class="page">${header}<h1>Реестр участников</h1><table><tr><th>Участник</th><th>Подразделение</th><th>Прогресс</th><th>Заключение</th></tr>${people.map((p) => `<tr><td>${esc(p.user.name)}</td><td>${esc(p.unit)}</td><td>${p.completed} / ${p.total}</td><td>${p.report?.status === "approved" ? "Утверждено" : p.report ? "Черновик" : "Ожидается"}</td></tr>`).join("")}</table></section>`;
+    .join(
+      "",
+    )}</table></section><section class="page">${header}<h1>Реестр участников</h1><table><tr><th>Участник</th><th>Подразделение</th><th>Прогресс</th><th>Заключение</th></tr>${people.map((p) => `<tr><td>${esc(p.user.name)}</td><td>${esc(p.unit)}</td><td>${p.completed} / ${p.total}</td><td>${p.report?.status === "approved" ? "Утверждено" : p.report ? "Черновик" : "Ожидается"}</td></tr>`).join("")}</table></section>`;
   await audit(orgId(ctx), ctx.user.id, "team.pdf_exported", campaignId);
   return renderPdf(content, "Сводный отчёт");
 }
 export async function exportGeneratedPdf(ctx: Context, id: string) {
   const report = await getGeneratedReport(ctx, id);
-  if (report.status !== "completed") throw new BadRequestException("Отчёт ещё не готов");
-  const rendered = professionalReportTemplate(report.snapshot as unknown as ReportSnapshot, generatedContentSchema.parse(report.content), {
-    kind: report.kind as "individual" | "team", language: report.language as "ru" | "kk", createdAt: report.createdAt,
+  if (report.status !== "completed")
+    throw new BadRequestException("Отчёт ещё не готов");
+  const artifact = await db.reportArtifact.findUnique({
+    where: { reportId: id },
+  });
+  if (artifact) {
+    await audit(orgId(ctx), ctx.user.id, "generated_report.pdf_exported", id);
+    return Buffer.from(artifact.bytes);
+  }
+  const { persistReportPdf } = await import("./report-lifecycle");
+  await persistReportPdf(id, generatedContentSchema.parse(report.content));
+  const bytes = await db.reportArtifact.findUniqueOrThrow({
+    where: { reportId: id },
   });
   await audit(orgId(ctx), ctx.user.id, "generated_report.pdf_exported", id);
-  return renderPdf(rendered.html, rendered.label, report.language, reportCss);
+  return Buffer.from(bytes.bytes);
 }

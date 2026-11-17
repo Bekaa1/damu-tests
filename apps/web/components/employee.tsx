@@ -1,5 +1,9 @@
 "use client";
-export {TestRunner} from "./test-runner";
+import {
+  displayAttemptStatus,
+  CONSENT_VERSION,
+} from "../../../packages/core/assessment-policy";
+export { TestRunner } from "./test-runner";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AssessmentComplete } from "./assessment-complete";
@@ -44,16 +48,34 @@ const formatCountdown = (seconds: number) => {
   return `${minutes}:${(seconds % 60).toString().padStart(2, "0")}`;
 };
 export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
-  const { t, loc, locale, me, campaign, campaigns, setCampaign, reload } = useApp(),
+  const { t, loc, locale, me, campaign, campaigns, setCampaign, reload } =
+      useApp(),
     router = useRouter();
   const { data, loading, error, refreshSilently } = useData<any[]>(
     campaign ? `/my/assignments?campaignId=${campaign}` : null,
   );
   const [clockNow, setClockNow] = useState(() => Date.now());
-  const assignmentsRefresh=useRef(refreshSilently);
-  useEffect(()=>{assignmentsRefresh.current=refreshSilently},[refreshSilently]);
-  const hasRunning=Boolean(data?.some(a=>a.attempts[0]?.status==='in_progress'));
-  useEffect(()=>{if(!hasRunning)return;const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void assignmentsRefresh.current()},5000);return()=>window.clearInterval(timer)},[hasRunning]);
+  const serverOffset = useRef(0);
+  useEffect(() => {
+    if (data?.[0]?.serverTime)
+      serverOffset.current =
+        new Date(data[0].serverTime).getTime() - Date.now();
+  }, [data]);
+  const assignmentsRefresh = useRef(refreshSilently);
+  useEffect(() => {
+    assignmentsRefresh.current = refreshSilently;
+  }, [refreshSilently]);
+  const hasRunning = Boolean(
+    data?.some((a) => a.attempts[0]?.status === "in_progress"),
+  );
+  useEffect(() => {
+    if (!hasRunning) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible")
+        void assignmentsRefresh.current();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [hasRunning]);
   const latestAssignments = new Map<string, any>();
   for (const assignment of data || []) {
     const key = `${assignment.campaignId}:${assignment.testVersion.testId}`;
@@ -68,7 +90,11 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
   }
   const visibleAssignments = Array.from(latestAssignments.values());
   useEffect(() => {
-    if (!data?.some((assignment) => assignment.attempts[0]?.status === "in_progress"))
+    if (
+      !data?.some(
+        (assignment) => assignment.attempts[0]?.status === "in_progress",
+      )
+    )
       return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -80,13 +106,17 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
   const completed = visibleAssignments.filter(
     (a) => a.attempts[0]?.status === "completed",
   ).length;
-  const allDone = visibleAssignments.length > 0 && completed === visibleAssignments.length;
+  const allDone =
+    visibleAssignments.length > 0 && completed === visibleAssignments.length;
   const begin = async () => {
     setBusy(true);
     setStartError("");
     try {
       if (!me.member.consentAt) {
-        await post("/me/consent", { accepted: consent });
+        await post("/me/consent", {
+          accepted: consent,
+          version: CONSENT_VERSION,
+        });
         await reload();
       }
       const a = await post(`/assignments/${selected.id}/start`, {
@@ -114,8 +144,8 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           <div>
             <h1>
               {t(
-                `Здравствуйте, ${me.user.name.split(" ")[0]}`,
-                `Сәлеметсіз бе, ${me.user.name.split(" ")[0]}`,
+                `Здравствуйте, ${me.user.name}`,
+                `Сәлеметсіз бе, ${me.user.name}`,
               )}
             </h1>
             <p>{`${me.member.position} · ${me.organization.name}`}</p>
@@ -140,150 +170,161 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
         </div>
       )}
       <LoadState loading={loading} error={error}>
-        {allDone ? <AssessmentComplete /> : <>
-        {!catalog && (
-          <div className="welcome-banner">
-            <div>
-              <div className="eyebrow">
-                {t("ВАШ ПУТЬ РАЗВИТИЯ", "СІЗДІҢ ДАМУ ЖОЛЫҢЫЗ")}
-              </div>
-              <h2>
-                {t(
-                  "Каждый шаг — больше понимания себя",
-                  "Әр қадам — өзіңізді жақсырақ түсіну",
-                )}
-              </h2>
-              <p>
-                {t(
-                  "Ответы сохраняются автоматически. Между тестами можно сделать перерыв.",
-                  "Жауаптар автоматты сақталады. Тесттер арасында үзіліс жасауға болады.",
-                )}
-              </p>
-              <Progress
-                value={
-                  visibleAssignments.length
-                    ? (completed / visibleAssignments.length) * 100
-                    : 0
-                }
-              />
-            </div>
-            <div className="welcome-counter">
-              <strong>
-                {completed}
-                <span style={{ fontSize: 19, color: "#819aa9" }}>
-                  {" "}
-                  / {visibleAssignments.length}
-                </span>
-              </strong>
-              <small>{t("направлений пройдено", "бағыт аяқталды")}</small>
-            </div>
-          </div>
-        )}
-        <div className="test-grid">
-          {visibleAssignments.map((a) => {
-            const v = a.testVersion,
-              attempt = a.attempts[0],
-              questionCount = v.delivery?.questionCount ?? v._count.questions,
-              remainingSeconds =
-                attempt?.status === "in_progress" && attempt.expiresAt
-                  ? Math.max(
-                      0,
-                      Math.ceil(
-                        (new Date(attempt.expiresAt).getTime() - (attempt.pausedAt?new Date(attempt.pausedAt).getTime():clockNow)) /
-                          1000,
-                      ),
-                    )
-                  : null,
-              timedOut =
-                attempt?.status === "expired",
-              status = timedOut
-                ? "expired"
-                : attempt?.status || "not_started",
-              canResume = status === "in_progress",
-              Icon = icons[v.test.direction] || BookOpen;
-            return (
-              <div className="test-card" key={a.id}>
-                <div className="test-card-top">
-                  <div className="test-icon">
-                    <Icon size={22} />
-                  </div>
-                  <Badge status={status}>
-                    {timedOut
-                      ? t("Время вышло", "Уақыт аяқталды")
-                      : undefined}
-                  </Badge>
-                </div>
+        {allDone ? (
+          <AssessmentComplete />
+        ) : (
+          <>
+            {!catalog && (
+              <div className="welcome-banner">
                 <div>
-                  <h3>{loc(v.test.name)}</h3>
-                  <p style={{ marginTop: 9 }}>{loc(v.test.description)}</p>
-                </div>
-                <div className="test-meta">
-                  <span>
-                    <ClipboardList size={13} />
-                    {questionCount} {t("заданий", "тапсырма")}
-                  </span>
-                  <span>
-                    <Clock3 size={13} />
-                    {status === "completed"
-                      ? t("Завершён", "Аяқталды")
-                      : timedOut
-                        ? t("Начните заново", "Қайта бастаңыз")
-                    : canResume && remainingSeconds !== null
-                          ? t(
-                              `${attempt.pausedAt?'Пауза · ':''}Осталось ${formatCountdown(remainingSeconds)}`,
-                              `${attempt.pausedAt?'Үзіліс · ':''}Қалды ${formatCountdown(remainingSeconds)}`,
-                            )
-                          : t(
-                              v.timeLimitSeconds ? `Лимит: ${formatCountdown(v.timeLimitSeconds)}` : `Около ${v.durationMinutes} мин · без таймера`,
-                              v.timeLimitSeconds ? `Уақыт: ${formatCountdown(v.timeLimitSeconds)}` : `Шамамен ${v.durationMinutes} мин · таймерсіз`,
-                            )}
-                  </span>
-                </div>
-                {attempt && !timedOut && (
+                  <div className="eyebrow">
+                    {t("ВАШ ПУТЬ РАЗВИТИЯ", "СІЗДІҢ ДАМУ ЖОЛЫҢЫЗ")}
+                  </div>
+                  <h2>
+                    {t(
+                      "Каждый шаг — больше понимания себя",
+                      "Әр қадам — өзіңізді жақсырақ түсіну",
+                    )}
+                  </h2>
+                  <p>
+                    {t(
+                      "Ответы сохраняются автоматически. Между тестами можно сделать перерыв.",
+                      "Жауаптар автоматты сақталады. Тесттер арасында үзіліс жасауға болады.",
+                    )}
+                  </p>
                   <Progress
                     value={
-                      attempt.status === "completed"
-                        ? 100
-                        : (attempt._count.answers / v._count.questions) * 100
+                      visibleAssignments.length
+                        ? (completed / visibleAssignments.length) * 100
+                        : 0
                     }
-                    small
                   />
-                )}
-                <Button
-                  variant={status === "completed" ? "secondary" : "primary"}
-                  disabled={status === "completed"}
-                  onClick={() => {
-                    setSelected(a);
-                    setStartError("");
-                  }}
-                >
-                  {status === "completed"
-                    ? t("Завершено", "Аяқталды")
-                    : canResume
-                      ? t("Продолжить", "Жалғастыру")
-                      : timedOut
-                        ? t("Начать заново", "Қайта бастау")
-                        : t("Начать тест", "Тестті бастау")}
-                  {status === "completed" ? (
-                    <CheckCircle2 size={15} />
-                  ) : (
-                    <ArrowRight size={15} />
-                  )}
-                </Button>
+                </div>
+                <div className="welcome-counter">
+                  <strong>
+                    {completed}
+                    <span style={{ fontSize: 19, color: "#819aa9" }}>
+                      {" "}
+                      / {visibleAssignments.length}
+                    </span>
+                  </strong>
+                  <small>{t("направлений пройдено", "бағыт аяқталды")}</small>
+                </div>
               </div>
-            );
-          })}
-        </div>
-        {!visibleAssignments.length && (
-          <Empty
-            title={t("Тесты пока не назначены", "Тесттер әлі тағайындалмады")}
-            description={t(
-              "После назначения администратором они появятся здесь.",
-              "Әкімші тағайындағаннан кейін олар осында пайда болады.",
             )}
-          />
+            <div className="test-grid">
+              {visibleAssignments.map((a) => {
+                const v = a.testVersion,
+                  attempt = a.attempts[0],
+                  questionCount =
+                    v.delivery?.questionCount ?? v._count.questions,
+                  remainingSeconds =
+                    attempt?.status === "in_progress" && attempt.expiresAt
+                      ? Math.max(
+                          0,
+                          Math.ceil(
+                            (new Date(attempt.expiresAt).getTime() -
+                              (clockNow + serverOffset.current)) /
+                              1000,
+                          ),
+                        )
+                      : null,
+                  timedOut = attempt?.status === "expired",
+                  status = timedOut ? "expired" : displayAttemptStatus(attempt),
+                  canResume = attempt?.status === "in_progress",
+                  Icon = icons[v.test.direction] || BookOpen;
+                return (
+                  <div className="test-card" key={a.id}>
+                    <div className="test-card-top">
+                      <div className="test-icon">
+                        <Icon size={22} />
+                      </div>
+                      <Badge status={status}>
+                        {timedOut
+                          ? t("Повторное прохождение", "Қайта тапсыру")
+                          : undefined}
+                      </Badge>
+                    </div>
+                    <div>
+                      <h3>{loc(v.test.name)}</h3>
+                      <p style={{ marginTop: 9 }}>{loc(v.test.description)}</p>
+                    </div>
+                    <div className="test-meta">
+                      <span>
+                        <ClipboardList size={13} />
+                        {questionCount} {t("заданий", "тапсырма")}
+                      </span>
+                      <span>
+                        <Clock3 size={13} />
+                        {status === "completed"
+                          ? t("Завершён", "Аяқталды")
+                          : timedOut
+                            ? t("Начните заново", "Қайта бастаңыз")
+                            : canResume && remainingSeconds !== null
+                              ? t(
+                                  `Осталось ${formatCountdown(remainingSeconds)}`,
+                                  `Қалды ${formatCountdown(remainingSeconds)}`,
+                                )
+                              : t(
+                                  v.timeLimitSeconds
+                                    ? `Лимит: ${formatCountdown(v.timeLimitSeconds)}`
+                                    : `Около ${v.durationMinutes} мин · без таймера`,
+                                  v.timeLimitSeconds
+                                    ? `Уақыт: ${formatCountdown(v.timeLimitSeconds)}`
+                                    : `Шамамен ${v.durationMinutes} мин · таймерсіз`,
+                                )}
+                      </span>
+                    </div>
+                    {attempt && !timedOut && (
+                      <Progress
+                        value={
+                          attempt.status === "completed"
+                            ? 100
+                            : (attempt._count.answers / v._count.questions) *
+                              100
+                        }
+                        small
+                      />
+                    )}
+                    <Button
+                      variant={status === "completed" ? "secondary" : "primary"}
+                      disabled={status === "completed"}
+                      onClick={() => {
+                        setSelected(a);
+                        setStartError("");
+                      }}
+                    >
+                      {status === "completed"
+                        ? t("Завершено", "Аяқталды")
+                        : canResume
+                          ? t("Продолжить", "Жалғастыру")
+                          : timedOut
+                            ? t("Начать заново", "Қайта бастау")
+                            : t("Начать тест", "Тестті бастау")}
+                      {status === "completed" ? (
+                        <CheckCircle2 size={15} />
+                      ) : (
+                        <ArrowRight size={15} />
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            {!visibleAssignments.length && (
+              <Empty
+                title={t(
+                  "Тесты пока не назначены",
+                  "Тесттер әлі тағайындалмады",
+                )}
+                description={t(
+                  "После назначения администратором они появятся здесь.",
+                  "Әкімші тағайындағаннан кейін олар осында пайда болады.",
+                )}
+              />
+            )}
+          </>
         )}
-        </>}
       </LoadState>
       {selected && (
         <Modal
@@ -292,10 +333,14 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           className="test-start-modal"
         >
           <div className="modal-body form-stack">
-            <p className="text-small text-muted">
+            <p className="time-limit-before">
               {t(
-                selected.testVersion.timeLimitSeconds ? `На тест отводится ${selected.testVersion.timeLimitSeconds / 60} минут. Сначала — инструкция и тренировка. При выходе время продолжает идти; при потере связи — пауза.` : `Время не ограничено. Обычно требуется ${selected.testVersion.durationMinutes} минут. Можно сделать перерыв и продолжить позже.`,
-                selected.testVersion.timeLimitSeconds ? `Тестке ${selected.testVersion.timeLimitSeconds / 60} минут беріледі. Алдымен нұсқаулық пен жаттығу. Шыққанда уақыт жүреді, байланыс үзілгенде тоқтайды.` : `Уақыт шектелмеген. Әдетте ${selected.testVersion.durationMinutes} минут қажет. Үзіліс жасап, кейін жалғастыруға болады.`,
+                selected.testVersion.timeLimitSeconds
+                  ? `На тест отводится ${selected.testVersion.timeLimitSeconds / 60} минут. Сначала — инструкция и тренировка. При выходе время продолжает идти; при потере связи время также продолжает идти.`
+                  : `Время не ограничено. Обычно требуется ${selected.testVersion.durationMinutes} минут. Можно сделать перерыв и продолжить позже.`,
+                selected.testVersion.timeLimitSeconds
+                  ? `Тестке ${selected.testVersion.timeLimitSeconds / 60} минут беріледі. Алдымен нұсқаулық пен жаттығу. Шыққанда уақыт жүреді, байланыс үзілгенде де уақыт жүре береді.`
+                  : `Уақыт шектелмеген. Әдетте ${selected.testVersion.durationMinutes} минут қажет. Үзіліс жасап, кейін жалғастыруға болады.`,
               )}
             </p>
             {!me.member.consentAt && (

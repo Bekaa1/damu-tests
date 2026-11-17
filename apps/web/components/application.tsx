@@ -1,4 +1,6 @@
 "use client";
+import { Consent, AnswerRecovery } from "./consent";
+import { CONSENT_VERSION } from "../../../packages/core/assessment-policy";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -69,15 +71,39 @@ export function Application() {
           session.user.locale ||
           "ru",
       );
-      if (!session.user.mustChangePassword) {
+      if (
+        !session.user.mustChangePassword &&
+        (session.role !== "employee" ||
+          session.member?.consentVersion === CONSENT_VERSION)
+      ) {
         const cs = session.organization ? await api<any[]>("/campaigns") : [];
         setCampaigns(cs);
+        if (session.role === "employee")
+          localStorage.setItem(
+            "assessflow.offline-session",
+            JSON.stringify({ session, campaigns: cs }),
+          );
+        else localStorage.removeItem("assessflow.offline-session");
         setCampaignState((prev) =>
           cs.some((c) => c.id === prev) ? prev : cs[0]?.id || "",
         );
       }
       setError("");
     } catch (e) {
+      if (!navigator.onLine) {
+        try {
+          const cached = JSON.parse(
+            localStorage.getItem("assessflow.offline-session") || "null",
+          );
+          if (cached?.session.role === "employee") {
+            setMe(cached.session);
+            setLocale(cached.session.user.locale || "ru");
+            setCampaigns(cached.campaigns || []);
+            setCampaignState((prev) => prev || cached.campaigns?.[0]?.id || "");
+            return;
+          }
+        } catch {}
+      }
       setMe(null);
       if (path !== "/login") router.replace("/login");
     } finally {
@@ -94,7 +120,11 @@ export function Application() {
     setMobile(false);
   }, [path]);
   useEffect(() => {
-    if (me?.role === "employee" && path !== "/cabinet" && !path.startsWith("/test/"))
+    if (
+      me?.role === "employee" &&
+      path !== "/cabinet" &&
+      !path.startsWith("/test/")
+    )
       router.replace("/cabinet");
   }, [me, path, router]);
   useEffect(() => {
@@ -132,6 +162,8 @@ export function Application() {
     );
   if (me.user.mustChangePassword)
     return <ChangePassword onDone={reload} locale={locale} />;
+  if (me.role === "employee" && me.member?.consentVersion !== CONSENT_VERSION)
+    return <Consent locale={locale} onDone={reload} />;
   const isEmployee = me.role === "employee",
     isExpert = me.role === "expert";
   const nav = [
@@ -237,7 +269,11 @@ export function Application() {
     isEmployee && !path.startsWith("/test/") ? (
       <EmployeeHome />
     ) : path === "/cabinet" ? (
-      isEmployee ? <EmployeeHome /> : <Overview />
+      isEmployee ? (
+        <EmployeeHome />
+      ) : (
+        <Overview />
+      )
     ) : path === "/" ? (
       !me.organization && me.role === "superadmin" ? (
         <Platform />
@@ -302,6 +338,7 @@ export function Application() {
         reload,
       }}
     >
+      <AnswerRecovery enabled={isEmployee && !path.startsWith("/test/")} />
       <div className="app-shell">
         <a className="skip-link" href="#main">
           {t("Перейти к содержимому", "Мазмұнға өту")}
@@ -363,43 +400,43 @@ export function Application() {
               >
                 <Menu size={22} />
               </button>
-            {isEmployee && path === "/cabinet" && (
-              <div className="header-greeting">
-                <strong>
-                  {t(
-                    `Здравствуйте, ${me.user.name.split(" ")[0]}`,
-                    `Сәлеметсіз бе, ${me.user.name.split(" ")[0]}`,
-                  )}
-                </strong>
-                <small>
-                  {[me.member?.position, me.organization?.name]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </small>
-              </div>
-            )}
+              {isEmployee && path === "/cabinet" && (
+                <div className="header-greeting">
+                  <strong>
+                    {t(
+                      `Здравствуйте, ${me.user.name}`,
+                      `Сәлеметсіз бе, ${me.user.name}`,
+                    )}
+                  </strong>
+                  <small>
+                    {[me.member?.position, me.organization?.name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </small>
+                </div>
+              )}
             </div>
             <div className="top-right">
-            {!path.startsWith("/test/") && (
-              <div className="campaign-switch header-campaign">
-                <CalendarDays size={15} />
-                <select
-                  aria-label={t("Кампания оценки", "Бағалау науқаны")}
-                  value={campaign}
-                  onChange={(e) => setCampaignState(e.target.value)}
-                >
-                  {campaigns.length ? (
-                    campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option>{t("Нет кампаний", "Науқандар жоқ")}</option>
-                  )}
-                </select>
-              </div>
-            )}
+              {!path.startsWith("/test/") && (
+                <div className="campaign-switch header-campaign">
+                  <CalendarDays size={15} />
+                  <select
+                    aria-label={t("Кампания оценки", "Бағалау науқаны")}
+                    value={campaign}
+                    onChange={(e) => setCampaignState(e.target.value)}
+                  >
+                    {campaigns.length ? (
+                      campaigns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option>{t("Нет кампаний", "Науқандар жоқ")}</option>
+                    )}
+                  </select>
+                </div>
+              )}
               <div className="language-toggle">
                 <button
                   aria-pressed={locale === "ru"}
@@ -420,9 +457,7 @@ export function Application() {
               <div className="user-menu">
                 <Avatar name={me.user.name} />
                 <div>
-                  <strong>
-                    {me.user.name.split(" ").slice(0, 2).join(" ")}
-                  </strong>
+                  <strong>{me.user.name}</strong>
                   <small>{roleLabel}</small>
                 </div>
                 <button
@@ -442,8 +477,9 @@ export function Application() {
           </header>
           <main id="main" className="main-content">
             {!path.startsWith("/test/") &&
-              (!isEmployee || (path !== "/cabinet" && path !== "/my-results")) && (
-              <div className="campaign-switch mobile-campaign">
+              (!isEmployee ||
+                (path !== "/cabinet" && path !== "/my-results")) && (
+                <div className="campaign-switch mobile-campaign">
                   <CalendarDays size={15} />
                   <select
                     aria-label={t("Кампания оценки", "Бағалау науқаны")}
@@ -460,8 +496,8 @@ export function Application() {
                       <option>{t("Нет кампаний", "Науқандар жоқ")}</option>
                     )}
                   </select>
-              </div>
-            )}
+                </div>
+              )}
             {page}
             <footer className="footer">
               <span>© {new Date().getFullYear()} AssessFlow</span>
@@ -573,6 +609,7 @@ function Login({
     setError("");
     try {
       localStorage.removeItem("assessflow.org");
+      localStorage.removeItem("assessflow.offline-session");
       await post("/auth/sign-in/email", { email, password });
       await onSuccess();
     } catch (err) {

@@ -1,3 +1,7 @@
+import {
+  DEFAULT_COMPETENCIES,
+  exerciseCriteria,
+} from "../packages/core/competencies";
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "better-auth/crypto";
@@ -200,24 +204,6 @@ const exerciseTypes = [
   ["interview", "Структурированное интервью", "Құрылымдалған сұхбат"],
   ["facts", "Поиск фактов", "Деректерді іздеу"],
 ];
-const criteria = [
-  {
-    id: "criterion-1",
-    name: "Компетенция для настройки",
-    indicators: ["Добавьте наблюдаемый поведенческий индикатор"],
-    scale: [
-      { value: 1, description: "Низкая выраженность индикатора" },
-      { value: 2, description: "Выражен в отдельных случаях" },
-      { value: 3, description: "Проявляется на базовом уровне" },
-      { value: 4, description: "Проявляется устойчиво" },
-      {
-        value: 5,
-        description: "Проявляется последовательно в сложных ситуациях",
-      },
-    ],
-    allowNotObserved: true,
-  },
-];
 for (const [type, ru, kk] of exerciseTypes)
   await db.assessmentExercise.create({
     data: {
@@ -225,7 +211,7 @@ for (const [type, ru, kk] of exerciseTypes)
       organizationId: org.id,
       type,
       name: { ru, kk },
-      criteria: J(criteria),
+      criteria: J(exerciseCriteria(DEFAULT_COMPETENCIES, type)),
     },
   });
 const first = [

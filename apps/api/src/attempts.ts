@@ -7,6 +7,11 @@ import {
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
+import {
+  answerWithinWindow,
+  CONSENT_VERSION,
+} from "../../../packages/core/assessment-policy";
+import { queueCompletedAssessment } from "./report-lifecycle";
 import { orgId, requireRole, participant, type Context } from "./access";
 import {
   calculateScore,
@@ -32,81 +37,110 @@ const optionOrder = (attempt: string, option: string) =>
     .digest()
     .readUInt32BE();
 const deliveredQuestions = (v: any, id: string) =>
-  v.questions
-    .map(questionDTO)
-    .map((q: QuestionInput) => ({
-      ...q,
-      options:
-        v.delivery?.shuffleOptions || q.type === "ranking"
-          ? [...q.options].sort(
-              (a, b) => optionOrder(id, a.id) - optionOrder(id, b.id),
-            )
-          : q.options,
-    }));
-// Heartbeats identify a live test page. An explicit leave keeps the clock running.
-// Missing heartbeats while that page is active pause at the last confirmed interval.
+  v.questions.map(questionDTO).map((q: QuestionInput) => ({
+    ...q,
+    options:
+      v.delivery?.shuffleOptions || q.type === "ranking"
+        ? [...q.options].sort(
+            (a, b) => optionOrder(id, a.id) - optionOrder(id, b.id),
+          )
+        : q.options,
+  }));
+// Heartbeats record presence only. They never extend or pause the server deadline.
 export async function settleClock(id: string) {
-  return db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
-    const a = await tx.testAttempt.findUnique({ where: { id } });
-    if (
-      a?.status === "in_progress" &&
-      a.expiresAt &&
-      a.lastHeartbeatAt &&
-      !a.pausedAt &&
-      Date.now() - a.lastHeartbeatAt.getTime() > 15000
-    ) {
-      const pausedAt = new Date(a.lastHeartbeatAt.getTime() + 5000);
-      // A deadline already reached before connection loss must still finish.
-      if (pausedAt < a.expiresAt)
-        return tx.testAttempt.update({ where: { id }, data: { pausedAt } });
-    }
-    return a;
-  });
+  return db.testAttempt.findUnique({ where: { id } });
 }
 export async function presence(ctx: Context, id: string, input: unknown) {
-  const { action } = z
-    .object({ action: z.enum(["begin", "heartbeat", "leave"]) })
+  const { action, eventId, at } = z
+    .object({
+      action: z.enum(["begin", "heartbeat", "leave", "return"]),
+      eventId: z.string().max(100).optional(),
+      at: z.iso.datetime().optional(),
+    })
     .parse(input);
   const owned = await ownedAttempt(ctx, id);
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
-    const a = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
-    const now = new Date();
-    if (a.status !== "in_progress") return { status: a.status };
-    if (action === "begin" && !a.timerStartedAt) {
+    const a = await tx.testAttempt.findUniqueOrThrow({ where: { id } }),
+      now = new Date();
+    if (action === "begin" && !a.timerStartedAt && a.status === "in_progress") {
       const limit = owned.assignment.testVersion.timeLimitSeconds;
-      return tx.testAttempt.update({
+      if (!limit) throw new BadRequestException("Лимит времени не настроен");
+      const updated = await tx.testAttempt.update({
         where: { id },
         data: {
           timerStartedAt: now,
-          expiresAt: limit ? new Date(now.getTime() + limit * 1000) : null,
-          lastHeartbeatAt: limit ? now : null,
+          expiresAt: new Date(now.getTime() + limit * 1000),
+          lastHeartbeatAt: now,
+          pausedAt: null,
         },
       });
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(ctx),
+          actorId: ctx.user.id,
+          action: "attempt.timer_started",
+          entityId: id,
+          detail: json({ deadline: updated.expiresAt, limitSeconds: limit }),
+        },
+      });
+      return { ...updated, serverTime: now };
     }
-    if (!a.timerStartedAt) return { status: a.status };
-    let pause = a.pausedAt;
-    if (
-      !pause &&
-      a.expiresAt &&
-      a.lastHeartbeatAt &&
-      now.getTime() - a.lastHeartbeatAt.getTime() > 15000 &&
-      a.lastHeartbeatAt.getTime() + 5000 < a.expiresAt.getTime()
-    )
-      pause = new Date(a.lastHeartbeatAt.getTime() + 5000);
-    const expiresAt =
-      a.expiresAt && pause
-        ? new Date(a.expiresAt.getTime() + now.getTime() - pause.getTime())
-        : a.expiresAt;
+    if (!a.timerStartedAt) return { ...a, serverTime: now };
+    // Keep-alive and visibility events can be retried after a network interruption.
+    const duplicate =
+      eventId &&
+      (await tx.auditLog.findFirst({
+        where: {
+          organizationId: orgId(ctx),
+          entityId: id,
+          action: "attempt.presence",
+          detail: { path: ["eventId"], equals: eventId },
+        },
+      }));
+    if (duplicate) return { ...a, serverTime: now };
+    const reported = at ? new Date(at) : now;
+    const eventAt = new Date(
+      Math.max(
+        a.timerStartedAt.getTime(),
+        Math.min(now.getTime(), reported.getTime()),
+      ),
+    );
+    const changes: any = { lastHeartbeatAt: now, pausedAt: null };
+    if (action === "leave" && !a.leftAt && a.status === "in_progress")
+      Object.assign(changes, { leftAt: eventAt, departures: { increment: 1 } });
+    if (action === "return" && a.leftAt) {
+      const end = Math.min(
+        eventAt.getTime(),
+        a.submittedAt?.getTime() ?? a.expiresAt?.getTime() ?? now.getTime(),
+      );
+      Object.assign(changes, {
+        awayMs: { increment: Math.max(0, end - a.leftAt.getTime()) },
+        leftAt: null,
+      });
+    }
     const updated = await tx.testAttempt.update({
       where: { id },
-      data: {
-        expiresAt,
-        pausedAt: null,
-        lastHeartbeatAt: action === "leave" ? null : expiresAt ? now : null,
-      },
+      data: changes,
     });
+    if (
+      action !== "heartbeat" &&
+      (eventId || action === "leave" || (action === "return" && a.leftAt))
+    )
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(ctx),
+          actorId: ctx.user.id,
+          action: "attempt.presence",
+          entityId: id,
+          detail: json({
+            action,
+            eventId: eventId ?? null,
+            at: eventAt,
+            receivedAt: now,
+          }),
+        },
+      });
     return { ...updated, serverTime: now };
   });
 }
@@ -186,7 +220,8 @@ export async function myAssignments(ctx: Context, campaignId?: string) {
         latest.status = (await submitAttempt(ctx, latest.id)).status;
     }
   }
-  return assignments;
+  const serverTime = new Date();
+  return assignments.map((a) => ({ ...a, serverTime }));
 }
 async function ownedAttempt(ctx: Context, id: string) {
   const attempt = await db.testAttempt.findFirst({
@@ -214,7 +249,7 @@ async function ownedAttempt(ctx: Context, id: string) {
 }
 export async function startAttempt(ctx: Context, id: string, input: unknown) {
   requireRole(ctx, "employee");
-  if (!ctx.member?.consentAt)
+  if (!ctx.member?.consentAt || ctx.member.consentVersion !== CONSENT_VERSION)
     throw new ForbiddenException("Подтвердите согласие на обработку данных");
   const { language } = z
     .object({ language: z.enum(["ru", "kk"]) })
@@ -342,27 +377,12 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       value: z.unknown(),
       revision: z.number().int().min(0),
       durationMs: z.number().int().min(0).max(86400000).optional(),
+      answeredAt: z.iso.datetime().optional(),
     })
     .parse(input);
-  await ownedAttempt(ctx, id);
-  await settleClock(id);
   const attempt = await ownedAttempt(ctx, id);
   if (!attempt.timerStartedAt)
     throw new BadRequestException("Сначала начните основной тест");
-  if (attempt.status === "expired")
-    throw new ConflictException(
-      "Время истекло. Сохранённые ответы будут засчитаны.",
-    );
-  if (
-    attempt.expiresAt &&
-    !attempt.pausedAt &&
-    attempt.expiresAt <= new Date()
-  ) {
-    await submitAttempt(ctx, id);
-    throw new ConflictException(
-      "Время истекло. Сохранённые ответы будут засчитаны.",
-    );
-  }
   const question = attempt.assignment.testVersion.questions.find(
     (q) => q.id === data.questionId,
   );
@@ -381,27 +401,50 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
   } catch (e) {
     throw new BadRequestException((e as Error).message);
   }
-  return db.$transaction(async (tx) => {
+  const receivedAt = new Date(),
+    answeredAt = data.answeredAt ? new Date(data.answeredAt) : receivedAt;
+  const saved = await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
-    const current = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
-    if (current.status !== "in_progress")
-      throw new ConflictException("Тест уже завершён");
-    if (
-      current.expiresAt &&
-      !current.pausedAt &&
-      current.expiresAt <= new Date()
-    )
-      throw new ConflictException("Время прохождения истекло");
-    const previous = await tx.userAnswer.findUnique({
-      where: {
-        attemptId_questionId: { attemptId: id, questionId: data.questionId },
-      },
+    const current = await tx.testAttempt.findUniqueOrThrow({
+      where: { id },
+      include: { answers: true },
     });
+    if (current.status === "expired")
+      throw new ConflictException("Попытка заменена новым прохождением");
+    const cutoff = current.manuallySubmittedAt ?? current.expiresAt;
+    if (
+      !answerWithinWindow(
+        answeredAt,
+        current.timerStartedAt!,
+        cutoff,
+        receivedAt,
+      )
+    )
+      throw new ConflictException(
+        "Ответ создан после завершения времени теста",
+      );
+    const previous = current.answers.find(
+      (a) => a.questionId === data.questionId,
+    );
+    // A lost acknowledgement is safe to resend without increasing the revision.
+    if (
+      previous &&
+      JSON.stringify(previous.value) === JSON.stringify(value) &&
+      previous.answeredAt?.getTime() === answeredAt.getTime()
+    )
+      return {
+        revision: previous.revision,
+        savedAt: previous.updatedAt,
+        delayed: previous.delayed,
+      };
     if ((previous?.revision ?? 0) !== data.revision)
       throw new ConflictException(
         "Ответ изменён в другой вкладке. Обновите страницу.",
       );
-    const result = await tx.userAnswer.upsert({
+    const delayed =
+      Boolean(current.expiresAt && receivedAt > current.expiresAt) ||
+      current.status === "completed";
+    const answer = await tx.userAnswer.upsert({
       where: {
         attemptId_questionId: { attemptId: id, questionId: data.questionId },
       },
@@ -410,17 +453,96 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
         attemptId: id,
         questionId: data.questionId,
         value: json(value),
-        revision: 1,
         durationMs: data.durationMs ?? 0,
+        answeredAt,
+        receivedAt,
+        delayed,
       },
       update: {
         value: json(value),
-        revision: { increment: 1 },
         durationMs: data.durationMs,
+        answeredAt,
+        receivedAt,
+        delayed,
+        revision: { increment: 1 },
       },
     });
-    return { revision: result.revision, savedAt: result.updatedAt };
+    if (current.status === "completed") {
+      const all = [
+        ...current.answers.filter((a) => a.questionId !== data.questionId),
+        answer,
+      ];
+      const previousScore = await tx.testResult.findUniqueOrThrow({
+        where: {
+          attemptId_scoringKeyId: { attemptId: id, scoringKeyId: key.id },
+        },
+      });
+      const score = calculateScore(
+        key.algorithm,
+        key.config as ScoringConfig,
+        deliveredQuestions(attempt.assignment.testVersion, id),
+        Object.fromEntries(all.map((a) => [a.questionId, a.value])),
+        {
+          allowMissing: true,
+          durations: Object.fromEntries(
+            all.map((a) => [a.questionId, a.durationMs]),
+          ),
+          elapsedMs: Math.max(
+            0,
+            current.submittedAt!.getTime() - current.timerStartedAt!.getTime(),
+          ),
+        },
+      );
+      await tx.testResult.update({
+        where: { id: previousScore.id },
+        data: {
+          result: json({
+            ...score,
+            sessionQuality: (previousScore.result as any).sessionQuality,
+          }),
+          reason: "delayed_answer_sync",
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(ctx),
+          actorId: ctx.user.id,
+          action: "result.delayed_sync",
+          entityId: previousScore.id,
+          detail: json({
+            questionId: data.questionId,
+            answeredAt,
+            receivedAt,
+            previousScore: previousScore.result,
+            score,
+          }),
+        },
+      });
+    }
+    if (delayed)
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(ctx),
+          actorId: ctx.user.id,
+          action: "answer.delayed_received",
+          entityId: id,
+          detail: json({
+            questionId: data.questionId,
+            answeredAt,
+            receivedAt,
+            clientTimestamp: true,
+          }),
+        },
+      });
+    return { revision: answer.revision, savedAt: answer.updatedAt, delayed };
   });
+  if (attempt.status === "completed")
+    void queueCompletedAssessment(
+      attempt.organizationId,
+      attempt.assignment.campaignId,
+      attempt.assignment.membershipId,
+    ).catch(console.error);
+  return saved;
 }
 export async function submitAttempt(ctx: Context, id: string) {
   await ownedAttempt(ctx, id);
@@ -473,30 +595,51 @@ export async function submitAttempt(ctx: Context, id: string) {
           durations: Object.fromEntries(
             current.answers.map((a) => [a.questionId, a.durationMs]),
           ),
-          elapsedMs:
-            attempt.assignment.testVersion.timeLimitSeconds && current.expiresAt
-              ? Math.max(
-                  0,
-                  attempt.assignment.testVersion.timeLimitSeconds * 1000 -
-                    (current.expiresAt.getTime() - Date.now()),
-                )
-              : undefined,
+          elapsedMs: Math.max(
+            0,
+            Math.min(Date.now(), current.expiresAt?.getTime() ?? Date.now()) -
+              current.timerStartedAt!.getTime(),
+          ),
         },
       );
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
-    const result = await tx.testResult.create({
-      data: {
+    const sessionQuality = {
+      departures: current.departures,
+      awayMs:
+        current.awayMs +
+        (current.leftAt
+          ? Math.max(
+              0,
+              Math.min(Date.now(), current.expiresAt?.getTime() ?? Date.now()) -
+                current.leftAt.getTime(),
+            )
+          : 0),
+    };
+    const result = await tx.testResult.upsert({
+      where: {
+        attemptId_scoringKeyId: { attemptId: id, scoringKeyId: key.id },
+      },
+      update: {
+        result: json({ ...score, sessionQuality }),
+        reason: "completed_after_extension",
+      },
+      create: {
         organizationId: orgId(ctx),
         attemptId: id,
         scoringKeyId: key.id,
-        result: json(score),
+        result: json({ ...score, sessionQuality }),
       },
     });
     await tx.testAttempt.update({
       where: { id },
-      data: { status: "completed", submittedAt: new Date() },
+      data: {
+        status: "completed",
+        submittedAt: timeExpired ? current.expiresAt : new Date(),
+        manuallySubmittedAt: timeExpired ? null : new Date(),
+        pausedAt: null,
+      },
     });
     await tx.auditLog.create({
       data: {
@@ -504,6 +647,12 @@ export async function submitAttempt(ctx: Context, id: string) {
         actorId: ctx.user.id,
         action: "attempt.completed",
         entityId: id,
+        detail: json({
+          completedAt: timeExpired ? current.expiresAt : new Date(),
+          reason: timeExpired ? "deadline" : "submitted",
+          answered: current.answers.length,
+          total: questions.length,
+        }),
       },
     });
     return {
@@ -513,6 +662,12 @@ export async function submitAttempt(ctx: Context, id: string) {
       membershipId: attempt.assignment.membershipId,
     };
   });
+  if (result.status === "completed")
+    void queueCompletedAssessment(
+      attempt.organizationId,
+      attempt.assignment.campaignId,
+      attempt.assignment.membershipId,
+    ).catch(console.error);
   return result;
 }
 export async function recalculate(ctx: Context, id: string, keyId: string) {
@@ -614,4 +769,54 @@ export async function reviewResult(ctx: Context, id: string, input: unknown) {
     });
   });
   return { ok: true };
+}
+
+export async function extendAttempt(ctx: Context, id: string, input: unknown) {
+  requireRole(ctx, "admin");
+  const data = z
+    .object({
+      seconds: z.number().int().min(60).max(86400),
+      reason: z.string().trim().min(10).max(2000),
+    })
+    .parse(input);
+  const a = await db.testAttempt.findFirst({
+    where: { id, organizationId: orgId(ctx) },
+    include: { assignment: true },
+  });
+  if (!a) throw new NotFoundException();
+  const result = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
+    if (!current.timerStartedAt || !current.expiresAt)
+      throw new BadRequestException("Тест ещё не начат");
+    if (current.manuallySubmittedAt || current.status === "expired")
+      throw new BadRequestException("Сотрудник уже завершил эту попытку");
+    const deadline = new Date(
+      Math.max(Date.now(), current.expiresAt.getTime()) + data.seconds * 1000,
+    );
+    const updated = await tx.testAttempt.update({
+      where: { id },
+      data: {
+        expiresAt: deadline,
+        extraSeconds: { increment: data.seconds },
+        status: "in_progress",
+        submittedAt: null,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        organizationId: orgId(ctx),
+        actorId: ctx.user.id,
+        action: "incident.time_added",
+        entityId: id,
+        detail: json({
+          ...data,
+          previousDeadline: current.expiresAt,
+          deadline,
+        }),
+      },
+    });
+    return updated;
+  });
+  return result;
 }

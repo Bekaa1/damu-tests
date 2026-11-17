@@ -1,3 +1,4 @@
+import { CONSENT_VERSION } from "../../../packages/core/assessment-policy";
 import {
   CanActivate,
   ExecutionContext,
@@ -57,6 +58,19 @@ export class AccessGuard implements CanActivate {
       : null;
     if (!user.platformAdmin && org?.status !== "active")
       throw new ForbiddenException("Доступ организации приостановлен");
+    if (
+      member?.role === "employee" &&
+      member.consentVersion !== CONSENT_VERSION &&
+      ![
+        "/api/me",
+        "/api/me/consent",
+        "/api/me/password",
+        "/api/me/locale",
+      ].includes(req.path)
+    )
+      throw new ForbiddenException(
+        "Подтвердите согласие на обработку персональных данных",
+      );
     req.ctx = {
       user,
       member,
@@ -90,7 +104,10 @@ export async function participant(
       where: {
         organizationId: orgId(ctx),
         membershipId: id,
-        expertId: ctx.member!.id,
+        OR: [
+          { expertId: ctx.member!.id },
+          { assessorIds: { has: ctx.member!.id } },
+        ],
         ...(campaignId ? { campaignId } : {}),
       },
     });

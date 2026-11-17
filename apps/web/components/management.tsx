@@ -1,4 +1,10 @@
 "use client";
+import {
+  CompetencyModelEditor,
+  CompetencyConsensus,
+  AttemptIncidents,
+  AssessorAssignment,
+} from "./competencies";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -42,7 +48,7 @@ import {
   date,
 } from "./ui";
 import { AddPerson } from "./organization";
-import { QualityReview } from './quality-review';
+import { QualityReview } from "./quality-review";
 export function Participant({ id }: { id: string }) {
   const router = useRouter();
   const [removeOpen, setRemoveOpen] = useState(false),
@@ -143,6 +149,11 @@ export function Participant({ id }: { id: string }) {
                 ["ai", t("AI-анализ", "AI-талдау")],
                 ["exercises", t("Практическая оценка", "Практикалық бағалау")],
                 [
+                  "competencies",
+                  t("Компетенции и согласование", "Құзыреттерді келісу"),
+                ],
+                ["incidents", t("Время и инциденты", "Уақыт пен оқиғалар")],
+                [
                   "report",
                   t(
                     "Заключение и план развития",
@@ -231,7 +242,11 @@ export function Participant({ id }: { id: string }) {
                       }
                     >
                       <div className="panel-body">
-                        <QualityReview result={r} editable={editable} onChange={()=>void refresh()}/>
+                        <QualityReview
+                          result={r}
+                          editable={editable}
+                          onChange={() => void refresh()}
+                        />
                         {!s ? (
                           <p className="text-muted text-small">
                             {t(
@@ -524,6 +539,15 @@ export function Participant({ id }: { id: string }) {
                 </div>
               </Panel>
             )}
+            {tab === "competencies" && (
+              <CompetencyConsensus id={id} editable={editable} />
+            )}
+            {tab === "incidents" && (
+              <>
+                <AssessorAssignment id={id} data={data} onSaved={refresh} />
+                <AttemptIncidents data={data} onSaved={refresh} />
+              </>
+            )}
             {tab === "exercises" && (
               <ObservationEditor
                 memberId={id}
@@ -645,7 +669,8 @@ function ObservationEditor({
   editable: boolean;
   onSaved: () => void;
 }) {
-  const { t, loc, campaign, notify } = useApp();
+  const { t, loc, campaign, notify, me } = useApp();
+  const [examples, setExamples] = useState<Record<string, string>>({});
   const [exerciseId, setExerciseId] = useState(""),
     [scores, setScores] = useState<Record<string, number | null>>({}),
     [notes, setNotes] = useState(""),
@@ -656,10 +681,11 @@ function ObservationEditor({
   }, [exercises, exerciseId]);
   useEffect(() => {
     const previous = data.observations.find(
-      (o: any) => o.exerciseId === exerciseId,
+      (o: any) => o.exerciseId === exerciseId && o.expertId === me.member?.id,
     );
     setScores(previous?.scores || {});
     setNotes(previous?.notes || "");
+    setExamples(previous?.indicatorExamples || {});
   }, [exerciseId, data.observations]);
   return (
     <div className="detail-grid">
@@ -680,6 +706,7 @@ function ObservationEditor({
                 membershipId: memberId,
                 exerciseId,
                 scores,
+                indicatorExamples: examples,
                 notes,
               });
               notify(t("Наблюдение сохранено", "Бақылау сақталды"));
@@ -705,7 +732,7 @@ function ObservationEditor({
           </Field>
           {exercise?.criteria.map((c: any) => (
             <div className="criterion-block" key={c.id}>
-              <h3>{c.name}</h3>
+              <h3>{loc({ ru: c.name, kk: c.nameKk || c.name })}</h3>
               <ul>
                 {c.indicators.map((i: string, n: number) => (
                   <li key={n}>{i}</li>
@@ -737,6 +764,24 @@ function ObservationEditor({
                   </button>
                 )}
               </div>
+              {c.competencyId && scores[c.id] !== null && (
+                <Field
+                  label={t(
+                    "Пример поведения по индикатору",
+                    "Индикатор бойынша мінез-құлық мысалы",
+                  )}
+                >
+                  <textarea
+                    required
+                    minLength={5}
+                    disabled={!editable}
+                    value={examples[c.id] || ""}
+                    onChange={(e) =>
+                      setExamples({ ...examples, [c.id]: e.target.value })
+                    }
+                  />
+                </Field>
+              )}
               <p className="text-small text-muted mt">
                 {scores[c.id] === null
                   ? t(
@@ -1088,6 +1133,7 @@ export function Criteria() {
           "Бастапқы критерийлер — үлгі. Жұмыс бағалауына дейін мазмұнын әдіскермен келісіңіз.",
         )}
       </div>
+      <CompetencyModelEditor onSaved={refresh} />
       <LoadState loading={loading} error={error}>
         <div className="test-grid">
           {(data || []).map((e) => (
@@ -1366,7 +1412,10 @@ export function SettingsPage() {
     <>
       <PageTitle
         title={t("Настройки организации", "Ұйым баптаулары")}
-        description={t("\u041e\u0441\u043d\u043e\u0432\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u0430\u0446\u0438\u0438.", "\u04b0\u0439\u044b\u043c\u043d\u044b\u04a3 \u043d\u0435\u0433\u0456\u0437\u0433\u0456 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043b\u0435\u0440\u0456.")}
+        description={t(
+          "\u041e\u0441\u043d\u043e\u0432\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u0430\u0446\u0438\u0438.",
+          "\u04b0\u0439\u044b\u043c\u043d\u044b\u04a3 \u043d\u0435\u0433\u0456\u0437\u0433\u0456 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043b\u0435\u0440\u0456.",
+        )}
       />
       <form
         className="stack"
@@ -1386,17 +1435,17 @@ export function SettingsPage() {
           }
         }}
       >
-          <Panel title={t("Организация", "Ұйым")}>
-            <div className="panel-body form-stack">
-              <Field label={t("Название организации", "Ұйым атауы")}>
-                <input
-                  required
-                  value={org.name}
-                  onChange={(e) => setOrg({ ...org, name: e.target.value })}
-                />
-              </Field>
-            </div>
-          </Panel>
+        <Panel title={t("Организация", "Ұйым")}>
+          <div className="panel-body form-stack">
+            <Field label={t("Название организации", "Ұйым атауы")}>
+              <input
+                required
+                value={org.name}
+                onChange={(e) => setOrg({ ...org, name: e.target.value })}
+              />
+            </Field>
+          </div>
+        </Panel>
         <div className="form-actions">
           <Button busy={busy}>
             <Save size={16} />
@@ -1781,7 +1830,13 @@ export function Platform() {
                       {ai.data.history.map((r: any) => (
                         <tr key={r.id}>
                           <td>{date(r.createdAt)}</td>
-                          <td>{r.kind === "team" ? t("Командный отчёт", "Командалық есеп") : r.kind === "individual" ? t("Индивидуальный отчёт", "Жеке есеп") : t("Анализ участника", "Қатысушыны талдау")}</td>
+                          <td>
+                            {r.kind === "team"
+                              ? t("Командный отчёт", "Командалық есеп")
+                              : r.kind === "individual"
+                                ? t("Индивидуальный отчёт", "Жеке есеп")
+                                : t("Анализ участника", "Қатысушыны талдау")}
+                          </td>
                           <td>{r.model || "—"}</td>
                           <td>
                             <Badge status={r.status} />

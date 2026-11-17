@@ -1,7 +1,8 @@
+import { TEST_LIMITS } from "../packages/core/assessment-policy";
 import "dotenv/config";
 import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import ExcelJS from "exceljs";
-import {createHash} from 'node:crypto';
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { openRouterKey } from "../apps/api/src/secrets";
 const catalog = JSON.parse(readFileSync("data/new-forms.json", "utf8")).filter(
@@ -131,9 +132,16 @@ for (const [i, item] of [...ids, 1, 11].entries()) {
     `data/sources/omib/matrices/Item_${item}.svg`,
     `data/assets/omib/${prefix}.svg`,
   );
-  const token=(code:string)=>createHash('sha256').update(prefix+':'+code).digest('hex').slice(0,16);
+  const token = (code: string) =>
+    createHash("sha256")
+      .update(prefix + ":" + code)
+      .digest("hex")
+      .slice(0, 16);
   v.codes.forEach((code) =>
-    writeFileSync(`data/assets/omib/${prefix}-option-${token(code)}.svg`, svg(code)),
+    writeFileSync(
+      `data/assets/omib/${prefix}-option-${token(code)}.svg`,
+      svg(code),
+    ),
   );
   if (i < 24) {
     const id = `logical-v2-${item}`;
@@ -145,7 +153,7 @@ for (const [i, item] of [...ids, 1, 11].entries()) {
       content: { sourceItem: item, b: v.b, a: v.a },
       options: v.codes.map((_, k) => ({
         id: `${id}-${token(v.codes[k])}`,
-        text: L('Вариант ответа'),
+        text: L("Вариант ответа"),
         imageUrl: `/api/assets/omib/${prefix}-option-${token(v.codes[k])}.svg`,
       })),
     });
@@ -168,6 +176,13 @@ for (const [i, item] of [...ids, 1, 11].entries()) {
 }
 catalog.splice(2, 0, o);
 for (const m of catalog) {
+  m.timeLimitSeconds = TEST_LIMITS[m.id];
+  if (["personality", "motivation"].includes(m.id))
+    m.instructions.ru =
+      m.instructions.ru
+        .replace(/Время не ограничено[^.]*\./g, "")
+        .replace("Можно сделать перерыв и вернуться.", "") +
+      ` Лимит основного теста — ${m.timeLimitSeconds / 60} минут.`;
   m.description = L(
     (
       {
@@ -200,7 +215,7 @@ let cache: Record<string, string> = {};
 try {
   cache = JSON.parse(readFileSync(cachePath, "utf8"));
 } catch {}
-cache['Вариант ответа']='Жауап нұсқасы';
+cache["Вариант ответа"] = "Жауап нұсқасы";
 if (process.argv.includes("--translate")) {
   if (!process.env.OPENROUTER_API_KEY) {
     const db = new PrismaClient();

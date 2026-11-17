@@ -257,11 +257,13 @@ function baseScore(
       scales[id] = { ...s, sum: 0, mean: 0, count: 0 };
     for (const d of details) {
       const key = config.items[d.questionId];
-      let n = numericValue(d.value);
-      if (key.reverse) n = (config.min ?? 1) + (config.max ?? 5) - n;
+      let n = d.value === null ? 0 : numericValue(d.value);
+      if (key.reverse && d.value !== null)
+        n = (config.min ?? 1) + (config.max ?? 5) - n;
       if (!key.scales?.length) throw new Error("Не задана шкала вопроса");
       for (const id of key.scales) {
         if (!scales[id]) throw new Error("Неизвестная шкала");
+        if (d.value === null) scales[id].min = 0;
         scales[id].sum += n;
         scales[id].count++;
       }
@@ -288,9 +290,16 @@ export function calculateScore(
   // Controls and the priority task are required, but never enter scale sums.
   for (const q of questions)
     if (config.items[q.id]?.control || config.items[q.id]?.ranking) {
-      if (!(q.id in answers)) throw Error("Необходимо ответить на все вопросы");
+      if (!(q.id in answers)) {
+        if (options.allowMissing) continue;
+        throw Error("Необходимо ответить на все вопросы");
+      }
       const a = validateAnswer(q, answers[q.id], config) as any;
-      if (q.type === "ranking" && (a.top.length !== 3 || a.bottom.length !== 3))
+      if (
+        !options.allowMissing &&
+        q.type === "ranking" &&
+        (a.top.length !== 3 || a.bottom.length !== 3)
+      )
         throw Error("Выберите три наиболее и три наименее важных фактора");
     }
   const scored = questions.filter(
@@ -387,13 +396,18 @@ export function calculateScore(
     for (const id of config.invertScales ?? []) {
       const s = result.scales[id];
       if (s) {
-        s.sum = s.count * ((config.min ?? 1) + (config.max ?? 5)) - s.sum;
+        const missing = result.details.filter(
+          (d) =>
+            d.value === null && config.items[d.questionId].scales?.includes(id),
+        ).length;
+        s.sum =
+          (s.count - missing) * ((config.min ?? 1) + (config.max ?? 5)) - s.sum;
         s.mean = s.sum / s.count;
       }
     }
     const flags: string[] = [];
     const vals = questions
-      .filter((q) => q.type === "scale")
+      .filter((q) => q.type === "scale" && answers[q.id] !== undefined)
       .map((q) => Number(answers[q.id]));
     let maxRun = 0,
       run = 0,
@@ -413,7 +427,11 @@ export function calculateScore(
       flags.push("too_fast");
     if (config.quality === "personality") {
       const a = (n: string | number) => Number(answers["personality-v2-" + n]);
-      if (a("К1") !== 2 || a("К2") !== 4) flags.push("attention");
+      if (
+        (answers["personality-v2-К1"] !== undefined && a("К1") !== 2) ||
+        (answers["personality-v2-К2"] !== undefined && a("К2") !== 4)
+      )
+        flags.push("attention");
       if (["К3", "К4", "К5", "К6"].filter((n) => a(n) >= 4).length >= 3)
         flags.push("social_desirability");
       if (
@@ -432,7 +450,9 @@ export function calculateScore(
       const scales = result.scales;
       const baseline =
         Object.values(scales).reduce((s, x) => s + x.mean, 0) / 12;
-      const rank = answers[questions.find((q) => q.type === "ranking")!.id] as {
+      const rank = (answers[
+        questions.find((q) => q.type === "ranking")!.id
+      ] || { top: [], bottom: [] }) as {
         top: string[];
         bottom: string[];
       };

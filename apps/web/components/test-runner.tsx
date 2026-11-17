@@ -16,13 +16,19 @@ import {
   Empty,
 } from "./ui";
 export function Material({ text }: { text: string }) {
-  const {t}=useApp();
+  const { t } = useApp();
   return (
     <div className="test-material">
       {text.split("\n\n").map((part, i) =>
         part.includes(" | ") ? (
           <div className="material-table" key={i}>
-            <small className="material-scroll-hint">{t('Таблицу можно прокрутить вправо →','Кестені оңға қарай жылжытуға болады →')}</small><table>
+            <small className="material-scroll-hint">
+              {t(
+                "Таблицу можно прокрутить вправо →",
+                "Кестені оңға қарай жылжытуға болады →",
+              )}
+            </small>
+            <table>
               <tbody>
                 {part.split("\n").map((r, j) => (
                   <tr key={j}>
@@ -45,7 +51,9 @@ export function Material({ text }: { text: string }) {
 }
 export function TestRunner({ id }: { id: string }) {
   const { t, loc } = useApp();
-  const { data, loading, error } = useData<any>(`/attempts/${id}`);
+  const { data: remoteData, loading, error } = useData<any>(`/attempts/${id}`);
+  const [cachedData, setCachedData] = useState<any>(null);
+  const data = remoteData || cachedData;
   const [index, setIndex] = useState(0),
     [answers, setAnswers] = useState<Record<string, any>>({}),
     [saved, setSaved] = useState<Record<string, number>>({}),
@@ -63,7 +71,12 @@ export function TestRunner({ id }: { id: string }) {
     [autoNext, setAutoNext] = useState(true);
   const hydrated = useRef(false),
     revisions = useRef<Record<string, number>>({}),
-    queue = useRef<Record<string, { value: any; durationMs: number }>>({}),
+    queue = useRef<
+      Record<
+        string,
+        { value: any; durationMs: number; answeredAt: string; revision: number }
+      >
+    >({}),
     working = useRef(false),
     answersRef = useRef<Record<string, any>>({}),
     opened = useRef(Date.now()),
@@ -75,10 +88,15 @@ export function TestRunner({ id }: { id: string }) {
     flushRef = useRef<() => Promise<void>>(async () => {});
   const storage = `assessflow.answers.${id}`;
   const completion = useData<any[]>(
-    done && data?.campaignId ? `/my/assignments?campaignId=${data.campaignId}` : null,
+    done && data?.campaignId
+      ? `/my/assignments?campaignId=${data.campaignId}`
+      : null,
   );
-  const allDone = Boolean(completion.data?.length) &&
-    completion.data!.every((assignment) => assignment.attempts[0]?.status === "completed");
+  const allDone =
+    Boolean(completion.data?.length) &&
+    completion.data!.every(
+      (assignment) => assignment.attempts[0]?.status === "completed",
+    );
   const complete = (q: any, v: any) =>
     v !== undefined &&
     (q.type !== "sjt" || Boolean(v?.most && v?.least)) &&
@@ -88,10 +106,17 @@ export function TestRunner({ id }: { id: string }) {
       if (Object.keys(queue.current).length)
         localStorage.setItem(storage, JSON.stringify(queue.current));
       else localStorage.removeItem(storage);
-    } catch {}
+    } catch {
+      setMessage(
+        t(
+          "Недостаточно места для сохранения ответов. Не закрывайте страницу.",
+          "Жауаптарды сақтауға орын жеткіліксіз. Бетті жаппаңыз.",
+        ),
+      );
+    }
   };
   async function flush() {
-    if (working.current || finished.current) return;
+    if (working.current) return;
     working.current = true;
     setBusy(true);
     try {
@@ -103,7 +128,8 @@ export function TestRunner({ id }: { id: string }) {
           r = await post(`/attempts/${id}/answers`, {
             questionId: qid,
             value: entry.value,
-            revision: revisions.current[qid] || 0,
+            revision: entry.revision ?? revisions.current[qid] ?? 0,
+            answeredAt: entry.answeredAt,
             durationMs: entry.durationMs,
           });
         } catch (e) {
@@ -123,13 +149,36 @@ export function TestRunner({ id }: { id: string }) {
         }
         revisions.current[qid] = r.revision;
         if (queue.current[qid] === entry) delete queue.current[qid];
+        else if (queue.current[qid]) queue.current[qid].revision = r.revision;
+        try {
+          const cached = JSON.parse(
+            localStorage.getItem(`assessflow.cached.${id}`) || "null",
+          );
+          if (cached) {
+            cached.answers = Object.entries(answersRef.current).map(
+              ([questionId, value]) => ({
+                questionId,
+                value,
+                revision: revisions.current[questionId] || 0,
+                durationMs: spent.current[questionId] || 0,
+              }),
+            );
+            localStorage.setItem(
+              `assessflow.cached.${id}`,
+              JSON.stringify(cached),
+            );
+          }
+        } catch {}
         setSaved({ ...revisions.current });
         recordQueue();
       }
       setMessage("");
     } catch (e) {
       setMessage((e as Error).message);
-      if (!navigator.onLine) {
+      if (
+        !(e as Error).message.includes("другой вкладке") &&
+        !(e as Error).message.includes("после завершения")
+      ) {
         offlineRef.current = true;
         setOffline(true);
       }
@@ -140,13 +189,23 @@ export function TestRunner({ id }: { id: string }) {
   }
   flushRef.current = flush;
   function choose(q: any, value: any) {
+    if (
+      finished.current ||
+      (deadline !== null && Date.now() + timerOffset.current >= deadline)
+    )
+      return;
     answersRef.current = { ...answersRef.current, [q.id]: value };
     setAnswers(answersRef.current);
     const durationMs =
       (spent.current[q.id] || 0) + Math.max(0, Date.now() - opened.current);
     spent.current[q.id] = durationMs;
     opened.current = Date.now();
-    queue.current[q.id] = { value, durationMs };
+    queue.current[q.id] = {
+      value,
+      durationMs,
+      answeredAt: new Date(Date.now() + timerOffset.current).toISOString(),
+      revision: revisions.current[q.id] || 0,
+    };
     recordQueue();
     void flush();
     if (autoNext && q.type === "scale" && data?.questions.length === 126) {
@@ -154,6 +213,22 @@ export function TestRunner({ id }: { id: string }) {
       opened.current = Date.now();
     }
   }
+  useEffect(() => {
+    try {
+      setCachedData(
+        JSON.parse(localStorage.getItem(`assessflow.cached.${id}`) || "null"),
+      );
+    } catch {}
+  }, [id]);
+  useEffect(() => {
+    if (remoteData)
+      try {
+        localStorage.setItem(
+          `assessflow.cached.${id}`,
+          JSON.stringify(remoteData),
+        );
+      } catch {}
+  }, [remoteData, id]);
   useEffect(() => {
     if (!data || hydrated.current) return;
     hydrated.current = true;
@@ -186,16 +261,30 @@ export function TestRunner({ id }: { id: string }) {
     if (data.serverTime)
       timerOffset.current = new Date(data.serverTime).getTime() - Date.now();
     if (data.expiresAt) setDeadline(new Date(data.expiresAt).getTime());
-    if (data.pausedAt) {
-      offlineRef.current = true;
-      setOffline(true);
-    }
-    if (data.timerStartedAt && data.status === "in_progress") void heartbeat();
+
+    if (data.timerStartedAt) void heartbeat();
   }, [data]);
+  useEffect(() => {
+    if (!remoteData || !hydrated.current) return;
+    const fresh = Object.fromEntries(
+      remoteData.answers.map((x: any) => [x.questionId, x.value]),
+    );
+    for (const x of remoteData.answers)
+      revisions.current[x.questionId] = x.revision;
+    for (const [questionId, entry] of Object.entries(queue.current))
+      fresh[questionId] = entry.value;
+    answersRef.current = fresh;
+    setAnswers(fresh);
+    setSaved({ ...revisions.current });
+  }, [remoteData]);
   async function heartbeat() {
-    if (!runningRef.current || finished.current) return;
+    if (!runningRef.current) return;
     try {
-      const a = await post(`/attempts/${id}/presence`, { action: "heartbeat" });
+      await flushRef.current();
+      if (Object.keys(queue.current).length) return;
+      const a = await post(`/attempts/${id}/presence`, {
+        action: document.visibilityState === "visible" ? "return" : "heartbeat",
+      });
       offlineRef.current = false;
       if (offline) opened.current = Date.now();
       setOffline(false);
@@ -205,15 +294,45 @@ export function TestRunner({ id }: { id: string }) {
       if (a.status === "completed") {
         finished.current = true;
         setDone(true);
-      } else await flushRef.current();
+      }
     } catch {
       offlineRef.current = true;
       setOffline(true);
     }
   }
   useEffect(() => {
-    const leave = () => {
+    const eventKey = `assessflow.presence.${id}`;
+    const sendEvents = async () => {
+      let pending: any[] = [];
+      try {
+        pending = JSON.parse(localStorage.getItem(eventKey) || "[]");
+      } catch {}
+      for (const event of pending) {
+        try {
+          await post(`/attempts/${id}/presence`, event);
+          const current = JSON.parse(localStorage.getItem(eventKey) || "[]");
+          localStorage.setItem(
+            eventKey,
+            JSON.stringify(
+              current.filter((e: any) => e.eventId !== event.eventId),
+            ),
+          );
+        } catch {
+          return;
+        }
+      }
+    };
+    const presence = (action: "leave" | "return") => {
       if (!runningRef.current || finished.current) return;
+      const event = {
+        action,
+        eventId: crypto.randomUUID(),
+        at: new Date(Date.now() + timerOffset.current).toISOString(),
+      };
+      try {
+        const pending = JSON.parse(localStorage.getItem(eventKey) || "[]");
+        localStorage.setItem(eventKey, JSON.stringify([...pending, event]));
+      } catch {}
       const org = localStorage.getItem("assessflow.org");
       void fetch(`/api/attempts/${id}/presence`, {
         method: "POST",
@@ -221,15 +340,21 @@ export function TestRunner({ id }: { id: string }) {
           "Content-Type": "application/json",
           ...(org ? { "x-organization-id": org } : {}),
         },
-        body: JSON.stringify({ action: "leave" }),
+        body: JSON.stringify(event),
         keepalive: true,
       }).catch(() => {});
     };
+    const leave = () => presence("leave");
+    const visibility = () =>
+      presence(document.visibilityState === "hidden" ? "leave" : "return");
     const lost = () => {
       offlineRef.current = true;
       setOffline(true);
     };
-    const online = () => void heartbeat();
+    const online = () => {
+      void sendEvents();
+      void heartbeat();
+    };
     const before = (e: BeforeUnloadEvent) => {
       if (Object.keys(queue.current).length) {
         e.preventDefault();
@@ -240,13 +365,19 @@ export function TestRunner({ id }: { id: string }) {
     window.addEventListener("online", online);
     window.addEventListener("pagehide", leave);
     window.addEventListener("beforeunload", before);
-    const timer = setInterval(() => void heartbeat(), 5000);
+    document.addEventListener("visibilitychange", visibility);
+    void sendEvents();
+    const timer = setInterval(() => {
+      void sendEvents();
+      void heartbeat();
+    }, 5000);
     return () => {
       clearInterval(timer);
       window.removeEventListener("offline", lost);
       window.removeEventListener("online", online);
       window.removeEventListener("pagehide", leave);
       window.removeEventListener("beforeunload", before);
+      document.removeEventListener("visibilitychange", visibility);
       leave();
     };
   }, [id]);
@@ -275,7 +406,6 @@ export function TestRunner({ id }: { id: string }) {
     if (!deadline || !running || done) return;
     let sending = false;
     const tick = () => {
-      if (offlineRef.current) return;
       const sec = Math.max(
         0,
         Math.ceil((deadline - Date.now() - timerOffset.current) / 1000),
@@ -296,6 +426,8 @@ export function TestRunner({ id }: { id: string }) {
     setBusy(true);
     try {
       const a = await post(`/attempts/${id}/presence`, { action: "begin" });
+      if (a.serverTime)
+        timerOffset.current = new Date(a.serverTime).getTime() - Date.now();
       setRunning(true);
       runningRef.current = true;
       if (a.expiresAt) setDeadline(new Date(a.expiresAt).getTime());
@@ -308,22 +440,29 @@ export function TestRunner({ id }: { id: string }) {
   }
   if (done)
     return (
-      <LoadState loading={completion.loading || (!completion.data && !completion.error)} error={completion.error}>
-      {allDone ? <AssessmentComplete /> : <Panel>
-        <Empty
-          icon={<CheckCircle2 size={30} />}
-          title={t("Тестирование завершено", "Тестілеу аяқталды")}
-          description={t(
-            "Ответы сохранены, результаты рассчитаны.",
-            "Жауаптар сақталды, нәтижелер есептелді.",
-          )}
-          action={
-            <Link className="button primary" href="/cabinet">
-              {t("Вернуться в кабинет", "Кабинетке оралу")}
-            </Link>
-          }
-        />
-      </Panel>}
+      <LoadState
+        loading={completion.loading || (!completion.data && !completion.error)}
+        error={completion.error}
+      >
+        {allDone ? (
+          <AssessmentComplete />
+        ) : (
+          <Panel>
+            <Empty
+              icon={<CheckCircle2 size={30} />}
+              title={t("Тестирование завершено", "Тестілеу аяқталды")}
+              description={t(
+                "Ответы сохранены, результаты рассчитаны.",
+                "Жауаптар сақталды, нәтижелер есептелді.",
+              )}
+              action={
+                <Link className="button primary" href="/cabinet">
+                  {t("Вернуться в кабинет", "Кабинетке оралу")}
+                </Link>
+              }
+            />
+          </Panel>
+        )}
       </LoadState>
     );
   const training = data?.delivery?.practice || [],
@@ -336,7 +475,7 @@ export function TestRunner({ id }: { id: string }) {
     const v = answers[q.id];
     return (
       <fieldset
-        disabled={offline || remaining === 0}
+        disabled={remaining === 0}
         key={q.id}
         className="question-panel new-question"
       >
@@ -358,7 +497,7 @@ export function TestRunner({ id }: { id: string }) {
                 key={o.id}
                 className={`answer-option ${v === o.id ? "selected" : ""}`}
                 aria-pressed={v === o.id}
-                disabled={remaining === 0 || offline}
+                disabled={remaining === 0}
                 onClick={() => choose(q, o.id)}
               >
                 {o.imageUrl ? (
@@ -366,7 +505,11 @@ export function TestRunner({ id }: { id: string }) {
                 ) : (
                   <span className="option-letter">{"ABCDEH"[i]}</span>
                 )}
-                  <span>{q.type==='image'?t(`Вариант ${i+1}`,`Нұсқа ${i+1}`):loc(o.text)}</span>
+                <span>
+                  {q.type === "image"
+                    ? t(`Вариант ${i + 1}`, `Нұсқа ${i + 1}`)
+                    : loc(o.text)}
+                </span>
               </button>
             ))}
           </div>
@@ -409,8 +552,7 @@ export function TestRunner({ id }: { id: string }) {
                       checked={v?.[kind] === o.id}
                       disabled={
                         v?.[kind === "most" ? "least" : "most"] === o.id ||
-                        remaining === 0 ||
-                        offline
+                        remaining === 0
                       }
                       onChange={() =>
                         choose(q, { most: "", least: "", ...v, [kind]: o.id })
@@ -473,7 +615,7 @@ export function TestRunner({ id }: { id: string }) {
   const start = isBatch ? Math.floor(index / 6) * 6 : index;
   const end = isBatch ? start + 6 : index + 1;
   return (
-    <LoadState loading={loading} error={error}>
+    <LoadState loading={!data && loading} error={data ? "" : error}>
       {data && (
         <div className="test-workspace">
           <div className="test-topline">
@@ -499,7 +641,14 @@ export function TestRunner({ id }: { id: string }) {
                 {practice < 0 ? (
                   <>
                     <Material text={loc(data.instructions)} />
-                    {data.questions.length===49&&<p>{t('Пример: «Комфортный и современный офис». Если это немного повышает желание работать, выберите 4; если не влияет — 3.','Мысал: «Жайлы әрі заманауи кеңсе». Егер бұл жұмыс істеуге деген ынтаны аздап арттырса, 4-ті; әсер етпесе, 3-ті таңдаңыз.')}</p>}
+                    {data.questions.length === 49 && (
+                      <p>
+                        {t(
+                          "Пример: «Комфортный и современный офис». Если это немного повышает желание работать, выберите 4; если не влияет — 3.",
+                          "Мысал: «Жайлы әрі заманауи кеңсе». Егер бұл жұмыс істеуге деген ынтаны аздап арттырса, 4-ті; әсер етпесе, 3-ті таңдаңыз.",
+                        )}
+                      </p>
+                    )}
                     <Button
                       onClick={() =>
                         training.length ? setPractice(0) : void begin()
@@ -651,18 +800,16 @@ export function TestRunner({ id }: { id: string }) {
                 </span>
                 <strong className="test-timer">
                   <Clock3 size={16} />
-                  {offline
-                    ? t("Пауза: нет связи", "Үзіліс: байланыс жоқ")
-                    : remaining === null
-                      ? t("Без ограничения времени", "Уақыт шектелмеген")
-                      : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
+                  {remaining === null
+                    ? t("Без ограничения времени", "Уақыт шектелмеген")
+                    : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
                 </strong>
               </div>
               {offline && (
                 <div className="notice warning">
                   {t(
-                    "Связь потеряна. Таймер на паузе. Сохранение возобновится автоматически после восстановления связи.",
-                    "Байланыс үзілді. Таймер тоқтатылды. Байланыс қалпына келгенде сақтау автоматты түрде жалғасады.",
+                    "Нет связи, не закрывайте страницу. Ответы сохраняются на устройстве и отправятся автоматически. Таймер продолжает идти.",
+                    "Байланыс жоқ, бетті жаппаңыз. Жауаптар құрылғыда сақталып, автоматты жіберіледі. Таймер жүріп жатыр.",
                   )}
                 </div>
               )}
@@ -764,11 +911,10 @@ export function TestRunner({ id }: { id: string }) {
                     <Button
                       busy={busy}
                       disabled={
-                        offline ||
-                        (!data.timeLimitSeconds &&
-                          !data.questions.every((q: any) =>
-                            complete(q, answers[q.id]),
-                          ))
+                        !data.timeLimitSeconds &&
+                        !data.questions.every((q: any) =>
+                          complete(q, answers[q.id]),
+                        )
                       }
                       onClick={() => void submit()}
                     >

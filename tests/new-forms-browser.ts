@@ -1,3 +1,4 @@
+import {CONSENT_VERSION} from "../packages/core/assessment-policy";
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
@@ -38,7 +39,7 @@ try {
           id,
           organizationId: a.organizationId,
           role: "employee",
-          consentAt: new Date(),
+          consentAt: new Date(),consentVersion:CONSENT_VERSION,
         },
       },
     },
@@ -151,7 +152,7 @@ try {
   );
   assert.notEqual(await page.locator(".test-timer").innerText(), "0:00");
   console.log(
-    "Browser: verbal autosave/reload, RU/KK switch and offline pause OK",
+    "Browser: verbal autosave/reload, RU/KK switch and offline saving and a continuous timer OK",
     timer,
   );
   await open("Анализ числовой информации");

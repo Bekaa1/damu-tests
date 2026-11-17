@@ -27,6 +27,8 @@ export const exerciseSchema = z.object({
       z.object({
         id: z.string().min(1),
         name: z.string().min(1),
+        nameKk: z.string().optional(),
+        competencyId: z.string().optional(),
         indicators: z.array(z.string().min(1)).min(1),
         scale: z
           .array(

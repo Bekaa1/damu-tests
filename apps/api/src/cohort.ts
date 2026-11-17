@@ -19,7 +19,12 @@ export async function campaignRanks(
     a.attempts[0]?.status === "completed"
       ? a.attempts[0].results.map((r) => ({
           id: r.id,
-          key: a.testVersionId + ":" + r.scoringKeyId,
+          key:
+            a.testVersionId +
+            ":" +
+            r.scoringKeyId +
+            ":" +
+            a.attempts[0].language,
           score: r.result as any,
         }))
       : [],

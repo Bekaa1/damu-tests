@@ -55,7 +55,14 @@ export async function exportPersonalData(ctx: Context, id: string) {
   });
   const generatedReports = await db.generatedReport.findMany({
     where: { organizationId, membershipId: id },
-    select: { id: true, campaignId: true, status: true, content: true, snapshot: true, createdAt: true },
+    select: {
+      id: true,
+      campaignId: true,
+      status: true,
+      content: true,
+      snapshot: true,
+      createdAt: true,
+    },
   });
   await audit(organizationId, ctx.user.id, "personal_data.exported", id);
   return {
@@ -68,6 +75,9 @@ export async function exportPersonalData(ctx: Context, id: string) {
     ai,
     files,
     generatedReports,
+    competencyConsensus: await db.competencyConsensus.findMany({
+      where: { organizationId, membershipId: id },
+    }),
   };
 }
 export async function erasePersonalData(

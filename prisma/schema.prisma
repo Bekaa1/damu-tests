@@ -222,6 +222,7 @@ model TestAssignment {
   testVersionId String
   testVersion TestVersion @relation(fields:[testVersionId],references:[id])
   expertId String?
+  assessorIds String[] @default([])
   createdAt DateTime @default(now())
   attempts TestAttempt[]
   @@unique([campaignId,membershipId,testVersionId])
@@ -244,6 +245,11 @@ model TestAttempt {
   timerStartedAt DateTime?
   lastHeartbeatAt DateTime?
   pausedAt DateTime?
+  leftAt DateTime?
+  departures Int @default(0)
+  awayMs Int @default(0)
+  extraSeconds Int @default(0)
+  manuallySubmittedAt DateTime?
   answers UserAnswer[]
   results TestResult[]
   @@unique([assignmentId,attemptNumber])
@@ -259,6 +265,9 @@ model UserAnswer {
   value Json
   revision Int @default(1)
   durationMs Int @default(0)
+  answeredAt DateTime?
+  receivedAt DateTime @default(now())
+  delayed Boolean @default(false)
   updatedAt DateTime @updatedAt
   @@unique([attemptId,questionId])
   @@map("user_answers")
@@ -326,6 +335,7 @@ model ExpertObservation {
   expertId String
   exerciseId String
   criteriaSnapshot Json
+  indicatorExamples Json @default("{}")
   scores Json
   notes String
   version Int
@@ -357,6 +367,10 @@ model FinalReport {
   @@map("final_reports")
 }
 model GeneratedReport {
+  artifact ReportArtifact?
+  assessmentCompletedAt DateTime?
+  readyAt DateTime?
+  generationMode String @default("ai")
   id String @id @default(cuid())
   organizationId String
   campaignId String
@@ -382,6 +396,40 @@ model GeneratedReport {
   updatedAt DateTime @updatedAt
   @@index([organizationId,campaignId,kind])
   @@map("generated_reports")
+}
+model ReportArtifact {
+  reportId String @id
+  report GeneratedReport @relation(fields:[reportId],references:[id],onDelete:Cascade)
+  bytes Bytes
+  sha256 String
+  createdAt DateTime @default(now())
+  @@map("report_artifacts")
+}
+model CompetencyModel {
+  id String @id @default(cuid())
+  organizationId String
+  version Int
+  status String @default("draft")
+  content Json
+  authorId String
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([organizationId,version])
+  @@index([organizationId])
+  @@map("competency_models")
+}
+model CompetencyConsensus {
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  membershipId String
+  modelId String
+  version Int
+  scores Json
+  authorId String
+  createdAt DateTime @default(now())
+  @@unique([organizationId,campaignId,membershipId,version])
+  @@map("competency_consensus")
 }
 model LicenseRecord {
   id String @id @default(cuid())

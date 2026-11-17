@@ -1,4 +1,8 @@
 import {
+  DEFAULT_COMPETENCIES,
+  exerciseCriteria,
+} from "../../../packages/core/competencies";
+import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
@@ -66,20 +70,17 @@ export async function createOrganization(ctx: Context, input: unknown) {
           organizationId: organization.id,
           type,
           name: json({ ru, kk }),
-          criteria: json([
-            {
-              id: "criterion-1",
-              name: "Компетенция для настройки",
-              indicators: ["Добавьте наблюдаемый поведенческий индикатор"],
-              scale: [1, 2, 3, 4, 5].map((value) => ({
-                value,
-                description: `Описание уровня ${value} — настройте критерий`,
-              })),
-              allowNotObserved: true,
-            },
-          ]),
+          criteria: json(exerciseCriteria(DEFAULT_COMPETENCIES, type)),
         },
       });
+    await tx.competencyModel.create({
+      data: {
+        organizationId: organization.id,
+        version: 1,
+        content: json(DEFAULT_COMPETENCIES),
+        authorId: ctx.user.id,
+      },
+    });
     return {
       organization,
       admin: {
@@ -206,7 +207,10 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       ? await db.testAssignment.findMany({
           where: {
             organizationId,
-            expertId: ctx.member!.id,
+            OR: [
+              { expertId: ctx.member!.id },
+              { assessorIds: { has: ctx.member!.id } },
+            ],
             ...(campaign ? { campaignId: campaign.id } : {}),
           },
           select: { membershipId: true },
@@ -240,7 +244,10 @@ export async function listPeople(ctx: Context, campaignId?: string) {
           attempts: {
             orderBy: { attemptNumber: "desc" },
             take: 1,
-            include: { results: { orderBy: { createdAt: "desc" }, take: 1 } },
+            include: {
+              results: { orderBy: { createdAt: "desc" }, take: 1 },
+              _count: { select: { answers: true } },
+            },
           },
         },
       })
@@ -263,8 +270,14 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       (a) => a.attempts[0]?.status === "completed",
     ).length;
     const now = Date.now();
-    const activeAttempt = tasks.some(a=>a.attempts[0]?.status==='in_progress');
-    const expiredAttempt = tasks.some(a=>a.attempts[0]?.status==='expired');
+    const activeAttempt = tasks.some(
+      (a) =>
+        a.attempts[0]?.status === "in_progress" &&
+        (a.attempts[0]?._count.answers ?? 0) > 0,
+    );
+    const expiredAttempt = tasks.some(
+      (a) => a.attempts[0]?.status === "expired",
+    );
     const report = reports.find((r) => r.membershipId === m.id);
     return {
       ...m,
@@ -294,7 +307,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       aiStatus:
         ai.find((r) => r.membershipId === m.id)?.status ?? "not_started",
       results: tasks.map((a) => ({
-        resultId:a.attempts[0]?.results[0]?.id,
+        resultId: a.attempts[0]?.results[0]?.id,
         testId: a.testVersion.testId,
         testVersionId: a.testVersionId,
         version: a.testVersion.version,

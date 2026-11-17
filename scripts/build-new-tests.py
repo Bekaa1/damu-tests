@@ -72,8 +72,8 @@ for i,x in enumerate(training):
         opts=re.split(r'\s*[A-E]\)\s*',training[i+1])[1:];ans=training[i+2];practice(o,x,opts,ord(re.search(r'Верный ответ: ([A-E])',ans)[1])-65,ans,mat)
 o['config']['bands']=[5,8,12,15,18]
 # Personality: original scoring key, revised wording, six controls outside scoring.
-b=blocks(4);o=base('personality','Личностные характеристики',25,None,'scales')
-o['instructions']=loc('Оцените, насколько каждое утверждение описывает вас в обычной жизни и работе. 1 — совсем не про меня; 2 — скорее не про меня; 3 — отчасти про меня; 4 — скорее про меня; 5 — точно про меня. Правильных и неправильных ответов нет. Время не ограничено, ответы сохраняются.')
+b=blocks(4);o=base('personality','Личностные характеристики',25,1500,'scales')
+o['instructions']=loc('Оцените, насколько каждое утверждение описывает вас в обычной жизни и работе. 1 — совсем не про меня; 2 — скорее не про меня; 3 — отчасти про меня; 4 — скорее про меня; 5 — точно про меня. Правильных и неправильных ответов нет. Лимит — 25 минут. Ответы сохраняются автоматически.')
 o['delivery']['scaleLabels']=[loc(x) for x in ['Совсем не про меня','Скорее не про меня','Отчасти про меня','Скорее про меня','Точно про меня']]
 source=next(x for x in old if x['id']=='personality');o['config']={'min':1,'max':5,'scales':source['config']['scales'],'items':{},'quality':'personality'}
 original_ipip=json.loads((ROOT/'data/sources/ipip/en.json').read_text('utf-8-sig'))
@@ -87,7 +87,7 @@ for row in items[1:]:
 o['config']['invertScales']=['N','N3']
 o['config']['scales']['N']['name']=loc('Эмоциональная устойчивость');o['config']['scales']['N3']['name']=loc('Устойчивость настроения')
 # Motivation: twelve four-item scales and a separate top/bottom card selection.
-b=blocks(5);o=base('motivation','Мотивационный профиль',12,None,'scales');instruction(o,b)
+b=blocks(5);o=base('motivation','Мотивационный профиль',12,720,'scales');instruction(o,b)
 o['config']={'min':1,'max':5,'scales':{},'items':{},'quality':'motivation'}
 o['delivery']['scaleLabels']=[loc(x) for x in ['Заметно снижает','Немного снижает','Не влияет','Немного повышает','Заметно повышает']]
 items=next(x for x in section(b,'5. Пункты','6. Часть') if isinstance(x,list))

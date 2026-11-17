@@ -30,8 +30,8 @@ describe("Новые формы заказчика 26.10.2026", () => {
       ["verbal", 30, 1320, 2],
       ["numerical", 18, 1500, 2],
       ["logical", 24, 1200, 2],
-      ["personality", 126, null, 0],
-      ["motivation", 49, null, 0],
+      ["personality", 126, 1500, 0],
+      ["motivation", 49, 720, 0],
       ["situations", 14, 1800, 1],
     ] as const) {
       const m = form(id);
@@ -200,8 +200,12 @@ describe("Новые формы заказчика 26.10.2026", () => {
     ).toBe(24);
     m.questions.forEach((q: any, i: number) => {
       expect(q.options).toHaveLength(6);
-      expect(q.options.every((o:any)=>/-option-[a-f0-9]{16}\.svg$/.test(o.imageUrl))).toBe(true);
-      expect(new Set(q.options.map((o:any)=>o.text.ru)).size).toBe(1);
+      expect(
+        q.options.every((o: any) =>
+          /-option-[a-f0-9]{16}\.svg$/.test(o.imageUrl),
+        ),
+      ).toBe(true);
+      expect(new Set(q.options.map((o: any) => o.text.ru)).size).toBe(1);
       expect(q.content.a).toBeGreaterThanOrEqual(0.8);
       if (i)
         expect(q.content.b).toBeGreaterThanOrEqual(

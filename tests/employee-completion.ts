@@ -1,3 +1,4 @@
+import {CONSENT_VERSION} from "../packages/core/assessment-policy";
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -34,7 +35,7 @@ try {
       id: userId, name: role === "employee" ? "Проверка завершения" : "Администратор проверки",
       email: userId + "@assessflow.local", emailVerified: true, mustChangePassword: false,
       accounts: { create: { accountId: userId, providerId: "credential", password: await hashPassword(password) } },
-      memberships: { create: { id: userId, organizationId: template.organizationId, role, consentAt: new Date() } },
+      memberships: { create: { id: userId, organizationId: template.organizationId, role, consentAt: new Date(),consentVersion:CONSENT_VERSION } },
     } });
   }
   await db.campaign.create({ data: { id, organizationId: template.organizationId, name: "Проверка завершения тестов", endsAt: new Date(Date.now() + 86400000) } });

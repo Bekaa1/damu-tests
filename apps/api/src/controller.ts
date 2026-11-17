@@ -1,4 +1,17 @@
 import {
+  CONSENT_TEXT,
+  CONSENT_VERSION,
+} from "../../../packages/core/assessment-policy";
+import { createHash } from "node:crypto";
+import { extendAttempt } from "./attempts";
+import {
+  getCompetencyModel,
+  saveCompetencyModel,
+  competencyEvidence,
+  saveConsensus,
+  assignAssessors,
+} from "./competencies";
+import {
   Controller,
   Get,
   Post,
@@ -57,7 +70,10 @@ import {
   getReport,
 } from "./assessment";
 import { queueAi } from "./ai";
-import { listGeneratedReports, createGeneratedReport } from "./generated-reports";
+import {
+  listGeneratedReports,
+  createGeneratedReport,
+} from "./generated-reports";
 import {
   defaultMatrix,
   DEFAULT_AI_PROMPT,
@@ -80,14 +96,49 @@ import { uploadAsset, downloadAsset } from "./storage";
 const matrixConfigSchema = z.object({
   x: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
   y: z.object({ ru: z.string().min(1), kk: z.string().min(1) }),
-  levels: z
-    .array(z.object({ ru: z.string(), kk: z.string() }))
-    .length(3),
+  levels: z.array(z.object({ ru: z.string(), kk: z.string() })).length(3),
   criteria: z.string().min(10),
 });
 @Controller("api")
 @UseGuards(AccessGuard)
 export class AppController {
+  @Get("competency-model") model(@Req() req: AuthRequest) {
+    return getCompetencyModel(req.ctx);
+  }
+  @Post("competency-model") saveModel(
+    @Req() req: AuthRequest,
+    @Body() body: unknown,
+  ) {
+    return saveCompetencyModel(req.ctx, body);
+  }
+  @Get("participants/:id/competencies") evidence(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Query("campaignId") campaignId: string,
+  ) {
+    return competencyEvidence(req.ctx, id, campaignId);
+  }
+  @Post("participants/:id/consensus") consensus(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return saveConsensus(req.ctx, id, body);
+  }
+  @Post("people/:id/assessors") assessors(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return assignAssessors(req.ctx, id, body);
+  }
+  @Post("attempts/:id/extend") extend(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return extendAttempt(req.ctx, id, body);
+  }
   @Get("me") async me(@Req() req: AuthRequest) {
     return {
       user: {
@@ -111,6 +162,7 @@ export class AppController {
               },
         select: { id: true, name: true, slug: true },
       }),
+      consent: { version: CONSENT_VERSION, text: CONSENT_TEXT },
       demo: process.env.DEMO_MODE === "true",
     };
   }
@@ -143,18 +195,27 @@ export class AppController {
     @Req() req: AuthRequest,
     @Body() body: unknown,
   ) {
-    z.object({ accepted: z.literal(true) }).parse(body);
+    z.object({
+      accepted: z.literal(true),
+      version: z.literal(CONSENT_VERSION),
+    }).parse(body);
     if (!req.ctx.member) throw new BadRequestException();
     await db.membership.update({
       where: { id: req.ctx.member.id },
-      data: { consentAt: new Date(), consentVersion: "1.0" },
+      data: { consentAt: new Date(), consentVersion: CONSENT_VERSION },
     });
     await audit(
       orgId(req.ctx),
       req.ctx.user.id,
       "consent.accepted",
       req.ctx.member.id,
-      { version: "1.0" },
+      {
+        version: CONSENT_VERSION,
+        textHash: createHash("sha256")
+          .update(JSON.stringify(CONSENT_TEXT))
+          .digest("hex"),
+        locale: req.ctx.user.locale,
+      },
     );
     return { ok: true };
   }
@@ -264,7 +325,13 @@ export class AppController {
   ) {
     return getAttempt(req.ctx, id);
   }
-  @Post("attempts/:id/presence") presence(@Req() req:AuthRequest,@Param('id') id:string,@Body() body:unknown){return presence(req.ctx,id,body)}
+  @Post("attempts/:id/presence") presence(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return presence(req.ctx, id, body);
+  }
   @Post("attempts/:id/answers") answer(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -278,7 +345,13 @@ export class AppController {
   ) {
     return submitAttempt(req.ctx, id);
   }
-  @Post('results/:id/quality-review') qualityReview(@Req() req:AuthRequest,@Param('id') id:string,@Body() body:unknown){return reviewResult(req.ctx,id,body)}
+  @Post("results/:id/quality-review") qualityReview(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return reviewResult(req.ctx, id, body);
+  }
   @Post("attempts/:id/recalculate") recalc(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -327,14 +400,28 @@ export class AppController {
   @Post("reports") report(@Req() req: AuthRequest, @Body() body: unknown) {
     return saveReport(req.ctx, body);
   }
-  @Get("generated-reports") generatedReports(@Req() req: AuthRequest, @Query("campaignId") campaignId: string, @Query("kind") kind: string) {
+  @Get("generated-reports") generatedReports(
+    @Req() req: AuthRequest,
+    @Query("campaignId") campaignId: string,
+    @Query("kind") kind: string,
+  ) {
     return listGeneratedReports(req.ctx, campaignId, kind);
   }
-  @Post("generated-reports") generateReport(@Req() req: AuthRequest, @Body() body: unknown) {
+  @Post("generated-reports") generateReport(
+    @Req() req: AuthRequest,
+    @Body() body: unknown,
+  ) {
     return createGeneratedReport(req.ctx, body);
   }
-  @Get("generated-reports/:id/pdf") async generatedPdf(@Req() req: AuthRequest, @Param("id") id: string, @Res() res: Response) {
-    res.type("application/pdf").attachment("assessflow-report.pdf").send(await exportGeneratedPdf(req.ctx, id));
+  @Get("generated-reports/:id/pdf") async generatedPdf(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Res() res: Response,
+  ) {
+    res
+      .type("application/pdf")
+      .attachment("assessflow-report.pdf")
+      .send(await exportGeneratedPdf(req.ctx, id));
   }
   @Get("reports/:id") reportDetails(
     @Req() req: AuthRequest,
@@ -351,13 +438,7 @@ export class AppController {
       .object({ campaignId: z.string(), membershipId: z.string() })
       .parse(body);
     await participant(req.ctx, d.membershipId, d.campaignId);
-    return queueAi(
-      orgId(req.ctx),
-      d.campaignId,
-      d.membershipId,
-      true,
-      false,
-    );
+    return queueAi(orgId(req.ctx), d.campaignId, d.membershipId, true, false);
   }
   @Get("activity") async activity(@Req() req: AuthRequest) {
     requireRole(req.ctx, "admin");
@@ -410,11 +491,7 @@ export class AppController {
       where: { id: orgId(req.ctx) },
       data: { matrixConfig: json(matrixConfig) },
     });
-    await audit(
-      orgId(req.ctx),
-      req.ctx.user.id,
-      "organization.matrix_updated",
-    );
+    await audit(orgId(req.ctx), req.ctx.user.id, "organization.matrix_updated");
     return r;
   }
   @Get("export/people") async excel(
@@ -470,7 +547,11 @@ export class AppController {
     @Param("name") name: string,
     @Res() res: Response,
   ) {
-    if (!/^(?:item-\d+(?:-option-\d+)?|v2-item-\d+(?:-option-[a-f0-9]{16})?)\.svg$/.test(name))
+    if (
+      !/^(?:item-\d+(?:-option-\d+)?|v2-item-\d+(?:-option-[a-f0-9]{16})?)\.svg$/.test(
+        name,
+      )
+    )
       throw new NotFoundException();
     if (req.ctx.role === "employee") {
       const allowed = await db.testAssignment.count({
@@ -528,19 +609,44 @@ export class AppController {
       where: { id: "default" },
     });
     const { encryptedApiKey, ...safe } = settings!;
-    const effectiveSettings = /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(safe.aiPrompt || "")
-      ? { ...safe, aiPrompt: DEFAULT_AI_PROMPT, aiPromptVersion: "2.0" }
-      : safe;
-    const usageFields = { id: true, organizationId: true, status: true, model: true, cost: true, promptTokens: true, completionTokens: true, error: true, createdAt: true } as const;
+    const effectiveSettings =
+      /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(
+        safe.aiPrompt || "",
+      )
+        ? { ...safe, aiPrompt: DEFAULT_AI_PROMPT, aiPromptVersion: "2.0" }
+        : safe;
+    const usageFields = {
+      id: true,
+      organizationId: true,
+      status: true,
+      model: true,
+      cost: true,
+      promptTokens: true,
+      completionTokens: true,
+      error: true,
+      createdAt: true,
+    } as const;
     const [analyses, reports] = await Promise.all([
-      db.aiReport.findMany({ orderBy: { createdAt: "desc" }, take: 50, select: usageFields }),
-      db.generatedReport.findMany({ orderBy: { createdAt: "desc" }, take: 50, select: { ...usageFields, kind: true } }),
+      db.aiReport.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: usageFields,
+      }),
+      db.generatedReport.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { ...usageFields, kind: true },
+      }),
     ]);
     return {
       settings: effectiveSettings,
       keyConfigured: Boolean(openRouterKey(settings)),
-      history: [...analyses.map(row => ({ ...row, kind: "analysis" })), ...reports]
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 50),
+      history: [
+        ...analyses.map((row) => ({ ...row, kind: "analysis" })),
+        ...reports,
+      ]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 50),
     };
   }
   @Patch("platform/ai") async aiSettingsSave(
@@ -605,7 +711,7 @@ export class AppController {
         scientificBasis: z.string(),
         durationMinutes: z.number().int().min(1),
         timeLimitSeconds: z.number().int().positive().nullable().optional(),
-        delivery: z.record(z.string(),z.any()).optional(),
+        delivery: z.record(z.string(), z.any()).optional(),
         questions: z.array(questionSchema).min(1).max(500),
         algorithm: z.enum(["cognitive", "scales", "sjt"]),
         config: z.custom<ScoringConfig>(),
@@ -651,7 +757,7 @@ export class AppController {
           version: data.version,
           durationMinutes: data.durationMinutes,
           timeLimitSeconds: data.timeLimitSeconds,
-          delivery: json(data.delivery||{}),
+          delivery: json(data.delivery || {}),
           instructions: json({
             ru: "Следуйте инструкции методики.",
             kk: "Әдістеме нұсқаулығын орындаңыз.",
@@ -666,7 +772,7 @@ export class AppController {
               position: i,
               type: q.type,
               text: q.text,
-              content: json(q.content||{}),
+              content: json(q.content || {}),
               imageUrl: q.imageUrl,
               options: {
                 create: q.options.map((o, j) => ({ ...o, position: j })),
