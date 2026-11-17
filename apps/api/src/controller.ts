@@ -3,6 +3,7 @@ import {
   CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
 import { createHash } from "node:crypto";
+import { verifyEffectivenessCalibration } from "../../../packages/core/sjt-calibration";
 import { extendAttempt } from "./attempts";
 import {
   getCompetencyModel,
@@ -73,6 +74,8 @@ import { queueAi } from "./ai";
 import {
   listGeneratedReports,
   createGeneratedReport,
+  reportReview,
+  saveReportReview,
 } from "./generated-reports";
 import {
   defaultMatrix,
@@ -413,6 +416,19 @@ export class AppController {
   ) {
     return createGeneratedReport(req.ctx, body);
   }
+  @Get("generated-reports/:id/review") reviewGenerated(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+  ) {
+    return reportReview(req.ctx, id);
+  }
+  @Post("generated-reports/:id/review") editGenerated(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return saveReportReview(req.ctx, id, body);
+  }
   @Get("generated-reports/:id/pdf") async generatedPdf(
     @Req() req: AuthRequest,
     @Param("id") id: string,
@@ -710,6 +726,8 @@ export class AppController {
         licenseStatus: z.string(),
         scientificBasis: z.string(),
         durationMinutes: z.number().int().min(1),
+        instructions: z.object({ ru: z.string(), kk: z.string() }).optional(),
+        limitations: z.object({ ru: z.string(), kk: z.string() }).optional(),
         timeLimitSeconds: z.number().int().positive().nullable().optional(),
         delivery: z.record(z.string(), z.any()).optional(),
         questions: z.array(questionSchema).min(1).max(500),
@@ -727,6 +745,7 @@ export class AppController {
       })
       .parse(body);
     verifyScoringConfig(data.config, data.questions);
+    verifyEffectivenessCalibration(data.questions, data.config);
     for (const ex of data.controlExamples) {
       const result = calculateScore(
         data.algorithm,
@@ -758,14 +777,18 @@ export class AppController {
           durationMinutes: data.durationMinutes,
           timeLimitSeconds: data.timeLimitSeconds,
           delivery: json(data.delivery || {}),
-          instructions: json({
-            ru: "Следуйте инструкции методики.",
-            kk: "Әдістеме нұсқаулығын орындаңыз.",
-          }),
-          limitations: json({
-            ru: "Ожидает методологического утверждения.",
-            kk: "Әдістемелік бекітуді күтуде.",
-          }),
+          instructions: json(
+            data.instructions || {
+              ru: "Следуйте инструкции методики.",
+              kk: "Әдістеме нұсқаулығын орындаңыз.",
+            },
+          ),
+          limitations: json(
+            data.limitations || {
+              ru: "Ожидает методологического утверждения.",
+              kk: "Әдістемелік бекітуді күтуде.",
+            },
+          ),
           questions: {
             create: data.questions.map((q, i) => ({
               id: q.id,
@@ -815,6 +838,10 @@ export class AppController {
     });
     if (!version.keys.length) throw new BadRequestException("Нет ключа");
     const key = version.keys[0];
+    verifyEffectivenessCalibration(
+      version.questions.map(questionDTO),
+      key.config as ScoringConfig,
+    );
     for (const example of key.controlExamples as any[]) {
       const actual = calculateScore(
         key.algorithm,
@@ -882,6 +909,7 @@ export class AppController {
     const algorithm = v.keys[0]?.algorithm;
     if (!algorithm) throw new BadRequestException();
     verifyScoringConfig(data.config, v.questions.map(questionDTO));
+    verifyEffectivenessCalibration(v.questions.map(questionDTO), data.config);
     for (const e of data.controlExamples)
       if (
         !sameJsonValue(

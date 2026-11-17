@@ -1,3 +1,4 @@
+import { projectSourceScore } from "../../../packages/core/competency-source";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { z } from "zod";
 import { db, audit, json } from "./db";
@@ -185,7 +186,7 @@ export async function competencyEvidence(
           kind: "test",
           name: task!.testVersion.test.name,
           scales: mapping.scales,
-          score,
+          score: projectSourceScore(score, mapping.scales),
         });
       } else {
         for (const o of latest) {

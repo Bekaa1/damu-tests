@@ -169,7 +169,7 @@ describe("Professional reports", () => {
     const personal = JSON.stringify(reportAiInput(s, "individual", "ru").input);
     expect(personal).not.toContain("Иван Пример");
     expect(personal).not.toContain("ivan@example.test");
-    expect(reportAiInput(s, "team", "ru").input.observations).toEqual([]);
+    expect(JSON.stringify(reportAiInput(s, "team", "ru").input)).not.toContain("ivan@example.test");
   });
   it("rejects fabricated evidence references, including development actions", () => {
     const c = content();

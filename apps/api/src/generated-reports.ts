@@ -14,6 +14,13 @@ import { getCampaign, listPeople } from "./people";
 import { openRouterKey } from "./secrets";
 import { campaignRanks } from "./cohort";
 import {
+  REPORT_POLICY_VERSION,
+  riskEvidence,
+  reportTextIssues,
+  paragraphIssues,
+} from "../../../packages/core/report-policy";
+import { customerReportTemplate } from "./customer-report";
+import {
   REPORT_PROMPT,
   REPORT_PROMPT_VERSION,
   generatedContentSchema,
@@ -167,6 +174,8 @@ async function captureReport(
 }
 
 const metadata = {
+  policyVersion: true,
+  reviewIssues: true,
   id: true,
   campaignId: true,
   membershipId: true,
@@ -263,6 +272,128 @@ export async function getGeneratedReport(ctx: Context, id: string) {
   await audit(orgId(ctx), ctx.user.id, "generated_report.viewed", id);
   return report;
 }
+function editableEvidenceTexts(snapshot: ReportSnapshot) {
+  const texts = new Set<string>();
+  for (const p of snapshot.people) {
+    for (const o of p.observations) {
+      texts.add(o.notes);
+      for (const v of Object.values(o.indicatorExamples || {}))
+        if (typeof v === "string") texts.add(v);
+    }
+    for (const r of p.competencyProfile?.consensus?.scores?.ratings || [])
+      texts.add(r.reason);
+    for (const card of p.competencyProfile?.cards || [])
+      for (const s of card.sources || [])
+        if (s.kind === "exercise")
+          for (const v of s.scores || []) if (v.example) texts.add(v.example);
+  }
+  return texts;
+}
+
+export async function reportReview(ctx: Context, id: string) {
+  requireRole(ctx, "expert");
+  const report = await getGeneratedReport(ctx, id);
+  const sourceTexts = new Set<string>();
+  const allowedTexts = editableEvidenceTexts(
+    report.snapshot as unknown as ReportSnapshot,
+  );
+  if (report.content)
+    customerReportTemplate(
+      report.snapshot as unknown as ReportSnapshot,
+      report.content as any,
+      {
+        kind: report.kind as "individual" | "team",
+        language: report.language as "ru" | "kk",
+        createdAt: report.createdAt,
+        collectText: (text) => {
+          if (
+            allowedTexts.has(text) &&
+            (reportTextIssues(text).length || paragraphIssues(text).length)
+          )
+            sourceTexts.add(text);
+        },
+      },
+    );
+  return {
+    id: report.id,
+    status: report.status,
+    language: report.language,
+    content: report.content,
+    issues: report.reviewIssues,
+    updatedAt: report.updatedAt,
+    sourceTexts: [...sourceTexts],
+    presentationEdits: report.presentationEdits,
+    interviewQuestions:
+      report.kind === "individual"
+        ? (report.snapshot as unknown as ReportSnapshot).people.flatMap(
+            (p) => riskEvidence(p, report.language as "ru" | "kk").interview,
+          )
+        : [],
+  };
+}
+export async function saveReportReview(
+  ctx: Context,
+  id: string,
+  body: unknown,
+) {
+  requireRole(ctx, "expert");
+  const data = z
+    .object({
+      content: generatedContentSchema,
+      updatedAt: z.string().datetime(),
+      presentationEdits: z
+        .record(z.string(), z.string().trim().min(1).max(5000))
+        .default({}),
+    })
+    .strict()
+    .parse(body);
+  const report = await getGeneratedReport(ctx, id);
+  if (report.status !== "manual_review")
+    throw new BadRequestException("Отчёт не ожидает проверки");
+  const allowedTexts = editableEvidenceTexts(
+    report.snapshot as unknown as ReportSnapshot,
+  );
+  if (
+    Object.keys(data.presentationEdits).some((text) => !allowedTexts.has(text))
+  )
+    throw new BadRequestException(
+      "Можно редактировать только формулировки наблюдений. Имена и результаты сохраняются без изменений.",
+    );
+  const { evidence } = reportAiInput(
+    report.snapshot as unknown as ReportSnapshot,
+    report.kind as "individual" | "team",
+    report.language as "ru" | "kk",
+  );
+  validateReportEvidence(data.content, evidence);
+  const claimed = await db.generatedReport.updateMany({
+    where: { id, status: "manual_review", updatedAt: new Date(data.updatedAt) },
+    data: {
+      status: "processing",
+      generationMode: "expert",
+      error: null,
+      content: json(data.content),
+      presentationEdits: json(data.presentationEdits),
+    },
+  });
+  if (!claimed.count)
+    throw new BadRequestException("Отчёт уже изменён. Откройте его заново.");
+  try {
+    await persistReportPdf(id, data.content, "expert");
+  } catch (error) {
+    await db.generatedReport.updateMany({
+      where: { id, readyAt: null },
+      data: {
+        status: "manual_review",
+        error: "Не удалось подготовить PDF. Повторите проверку.",
+      },
+    });
+    throw error;
+  }
+  await audit(orgId(ctx), ctx.user.id, "generated_report.reviewed", id, {
+    presentationEdits: data.presentationEdits,
+  });
+  return reportReview(ctx, id);
+}
 
 export async function createGeneratedReport(
   ctx: Context,
@@ -340,7 +471,10 @@ export async function createGeneratedReport(
         membershipId: data.membershipId || null,
         language: data.language,
         OR: [
-          { status: { in: ["pending", "processing"] }, inputHash },
+          {
+            status: { in: ["pending", "processing", "manual_review"] },
+            inputHash,
+          },
           ...(!data.regenerate ? [{ status: "completed", inputHash }] : []),
         ],
       },
@@ -362,6 +496,7 @@ export async function createGeneratedReport(
         model,
         prompt: REPORT_PROMPT,
         promptVersion: REPORT_PROMPT_VERSION,
+        policyVersion: REPORT_POLICY_VERSION,
         providerConfig: json(providerConfig),
         createdBy: automatic ? "system" : ctx.user.id,
       },
@@ -395,7 +530,12 @@ export async function createGeneratedReport(
 
 export async function generateReport(id: string, attempt = 0, attempts = 2) {
   const report = await db.generatedReport.findUnique({ where: { id } });
-  if (!report || report.status === "completed") return;
+  if (
+    !report ||
+    ["completed", "manual_review"].includes(report.status) ||
+    report.generationMode === "expert"
+  )
+    return;
   const settings = await db.platformSettings.findUnique({
     where: { id: "default" },
   });
@@ -553,7 +693,20 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
     );
     validateReportEvidence(content, evidence);
     await persistReportPdf(id, content);
-    await audit(report.organizationId, null, "generated_report.completed", id);
+    if (
+      (
+        await db.generatedReport.findUnique({
+          where: { id },
+          select: { status: true },
+        })
+      )?.status === "completed"
+    )
+      await audit(
+        report.organizationId,
+        null,
+        "generated_report.completed",
+        id,
+      );
   } catch (error) {
     await audit(
       report.organizationId,

@@ -1,0 +1,150 @@
+{
+  "approvedBy": "",
+  "experts": [],
+  "cases": {
+    "situations-v3-1": {
+      "competencyId": "analysis",
+      "options": {
+        "situations-v3-1-A": [],
+        "situations-v3-1-B": [],
+        "situations-v3-1-C": [],
+        "situations-v3-1-D": []
+      }
+    },
+    "situations-v3-2": {
+      "competencyId": "results",
+      "options": {
+        "situations-v3-2-A": [],
+        "situations-v3-2-B": [],
+        "situations-v3-2-C": [],
+        "situations-v3-2-D": []
+      }
+    },
+    "situations-v3-3": {
+      "competencyId": "team",
+      "options": {
+        "situations-v3-3-A": [],
+        "situations-v3-3-B": [],
+        "situations-v3-3-C": [],
+        "situations-v3-3-D": []
+      }
+    },
+    "situations-v3-4": {
+      "competencyId": "people",
+      "options": {
+        "situations-v3-4-A": [],
+        "situations-v3-4-B": [],
+        "situations-v3-4-C": [],
+        "situations-v3-4-D": []
+      }
+    },
+    "situations-v3-5": {
+      "competencyId": "client",
+      "options": {
+        "situations-v3-5-A": [],
+        "situations-v3-5-B": [],
+        "situations-v3-5-C": [],
+        "situations-v3-5-D": []
+      }
+    },
+    "situations-v3-6": {
+      "competencyId": "cooperation",
+      "options": {
+        "situations-v3-6-A": [],
+        "situations-v3-6-B": [],
+        "situations-v3-6-C": [],
+        "situations-v3-6-D": []
+      }
+    },
+    "situations-v3-7": {
+      "competencyId": "risk",
+      "options": {
+        "situations-v3-7-A": [],
+        "situations-v3-7-B": [],
+        "situations-v3-7-C": [],
+        "situations-v3-7-D": []
+      }
+    },
+    "situations-v3-8": {
+      "competencyId": "strategy",
+      "options": {
+        "situations-v3-8-A": [],
+        "situations-v3-8-B": [],
+        "situations-v3-8-C": [],
+        "situations-v3-8-D": []
+      }
+    },
+    "situations-v3-9": {
+      "competencyId": "analysis",
+      "options": {
+        "situations-v3-9-A": [],
+        "situations-v3-9-B": [],
+        "situations-v3-9-C": [],
+        "situations-v3-9-D": []
+      }
+    },
+    "situations-v3-10": {
+      "competencyId": "cooperation",
+      "options": {
+        "situations-v3-10-A": [],
+        "situations-v3-10-B": [],
+        "situations-v3-10-C": [],
+        "situations-v3-10-D": []
+      }
+    },
+    "situations-v3-11": {
+      "competencyId": "risk",
+      "options": {
+        "situations-v3-11-A": [],
+        "situations-v3-11-B": [],
+        "situations-v3-11-C": [],
+        "situations-v3-11-D": []
+      }
+    },
+    "situations-v3-12": {
+      "competencyId": "people",
+      "options": {
+        "situations-v3-12-A": [],
+        "situations-v3-12-B": [],
+        "situations-v3-12-C": [],
+        "situations-v3-12-D": []
+      }
+    },
+    "situations-v3-13": {
+      "competencyId": "client",
+      "options": {
+        "situations-v3-13-A": [],
+        "situations-v3-13-B": [],
+        "situations-v3-13-C": [],
+        "situations-v3-13-D": []
+      }
+    },
+    "situations-v3-14": {
+      "competencyId": "results",
+      "options": {
+        "situations-v3-14-A": [],
+        "situations-v3-14-B": [],
+        "situations-v3-14-C": [],
+        "situations-v3-14-D": []
+      }
+    },
+    "situations-v3-15": {
+      "competencyId": "team",
+      "options": {
+        "situations-v3-15-A": [],
+        "situations-v3-15-B": [],
+        "situations-v3-15-C": [],
+        "situations-v3-15-D": []
+      }
+    },
+    "situations-v3-16": {
+      "competencyId": "strategy",
+      "options": {
+        "situations-v3-16-A": [],
+        "situations-v3-16-B": [],
+        "situations-v3-16-C": [],
+        "situations-v3-16-D": []
+      }
+    }
+  }
+}

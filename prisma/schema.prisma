@@ -367,6 +367,9 @@ model FinalReport {
   @@map("final_reports")
 }
 model GeneratedReport {
+  policyVersion String @default("legacy")
+  reviewIssues Json @default("[]")
+  presentationEdits Json @default("{}")
   artifact ReportArtifact?
   assessmentCompletedAt DateTime?
   readyAt DateTime?

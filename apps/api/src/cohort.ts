@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { invalidProfile } from "../../../packages/core/report-policy";
 // Ranks use only the latest completed attempt and key of this campaign.
 // Strictly lower scores count; ties receive the same percentile.
 export async function campaignRanks(
@@ -8,6 +9,7 @@ export async function campaignRanks(
   const assignments = await db.testAssignment.findMany({
     where: { organizationId, campaignId },
     include: {
+      testVersion: { select: { testId: true } },
       attempts: {
         orderBy: { attemptNumber: "desc" },
         take: 1,
@@ -19,6 +21,7 @@ export async function campaignRanks(
     a.attempts[0]?.status === "completed"
       ? a.attempts[0].results.map((r) => ({
           id: r.id,
+          membershipId: a.membershipId,
           key:
             a.testVersionId +
             ":" +
@@ -30,13 +33,29 @@ export async function campaignRanks(
       : [],
   );
   const out = new Map<string, any>();
+  const excluded = new Set(
+    assignments
+      .filter(
+        (a) =>
+          a.attempts[0]?.status === "completed" &&
+          a.attempts[0]?.results.some((r) =>
+            invalidProfile({
+              results: [{ testId: a.testVersion.testId, score: r.result }],
+            } as any),
+          ),
+      )
+      .map((a) => a.membershipId),
+  );
   for (const r of rows) {
     const score = JSON.parse(JSON.stringify(r.score));
     const comparable = rows.filter(
-      (x) => x.key === r.key && !x.score.reviewRequired,
+      (x) =>
+        x.key === r.key &&
+        !x.score.reviewRequired &&
+        !excluded.has(x.membershipId),
     );
     const rank = (value: number, values: number[]) =>
-      values.length >= 2
+      values.length >= 30
         ? {
             n: values.length,
             value:

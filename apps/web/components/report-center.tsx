@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ReportReviewAction } from "./report-review";
+import { REPORT_POLICY_VERSION } from "../../../packages/core/report-policy";
 import {
   FileText,
   Users,
@@ -25,6 +27,7 @@ import {
 } from "./ui";
 
 type ReportRow = {
+  policyVersion?: string;
   id: string;
   membershipId: string | null;
   kind: string;
@@ -74,6 +77,15 @@ function ReportState({ report }: { report?: ReportRow }) {
     return (
       <span className="text-muted">{t("Не сформирован", "Жасалмаған")}</span>
     );
+  if (
+    report.status === "completed" &&
+    report.policyVersion !== REPORT_POLICY_VERSION
+  )
+    return (
+      <span className="text-muted">
+        {t("Нужна новая версия отчёта", "Есептің жаңа нұсқасы қажет")}
+      </span>
+    );
   if (report.status === "completed")
     return (
       <div>
@@ -110,6 +122,16 @@ function ReportState({ report }: { report?: ReportRow }) {
         )}
       </span>
     );
+  if (report.status === "manual_review")
+    return (
+      <div>
+        <span className="report-state">
+          <AlertCircle size={16} />
+          {t("На проверке у эксперта", "Сарапшы тексеруінде")}
+        </span>
+        <ReportReviewAction id={report.id} />
+      </div>
+    );
   return (
     <span className="report-state failed">
       <AlertCircle size={16} />
@@ -120,6 +142,7 @@ function ReportState({ report }: { report?: ReportRow }) {
 function PdfActions({ report }: { report: ReportRow }) {
   const { t, notify } = useApp();
   const [busy, setBusy] = useState(false);
+  const currentPolicy = report.policyVersion === REPORT_POLICY_VERSION;
   const open = async (preview: boolean) => {
     setBusy(true);
     try {
@@ -137,14 +160,19 @@ function PdfActions({ report }: { report: ReportRow }) {
   };
   return (
     <div className="report-actions">
-      <Button variant="secondary" disabled={busy} onClick={() => open(true)}>
+      <Button
+        variant="secondary"
+        disabled={busy || !currentPolicy}
+        onClick={() => open(true)}
+      >
         <Eye size={15} />
         {t("Просмотр", "Көру")}
       </Button>
-      <Button busy={busy} onClick={() => open(false)}>
+      <Button busy={busy} disabled={!currentPolicy} onClick={() => open(false)}>
         <Download size={15} />
         PDF
       </Button>
+      <ReportReviewAction id={report.id} />
     </div>
   );
 }
@@ -295,8 +323,8 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
               <p>
                 {kind === "team"
                   ? t(
-                      "Профили команды, сравнение головного офиса и филиалов, экспертная матрица потенциала и план развития группы.",
-                      "Команда бейіндері, бас кеңсе мен филиалдарды салыстыру, сараптамалық әлеует матрицасы және топтың даму жоспары.",
+                      "Профили компетенций, распределения результатов по уровням и программа развития группы.",
+                      "Құзыреттер бейіні, нәтижелердің деңгейлер бойынша үлестірімі және топтың даму бағдарламасы.",
                     )
                   : t(
                       "Графики по тестам, сильные стороны, зоны развития и индивидуальный план с конкретными действиями и сроками.",
@@ -362,7 +390,11 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
                             : "primary"
                         }
                         busy={busyId === "team"}
-                        disabled={!withScores || inProgress(current)}
+                        disabled={
+                          !withScores ||
+                          inProgress(current) ||
+                          current?.status === "manual_review"
+                        }
                         onClick={() =>
                           generate(undefined, current?.status === "completed")
                         }
@@ -490,6 +522,10 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
                                     <button
                                       key={r.id}
                                       type="button"
+                                      disabled={
+                                        r.policyVersion !==
+                                        REPORT_POLICY_VERSION
+                                      }
                                       onClick={() =>
                                         download(
                                           "/generated-reports/" + r.id + "/pdf",
@@ -523,7 +559,8 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
                                     busy={busyId === p.id}
                                     disabled={
                                       p.status !== "completed" ||
-                                      inProgress(report)
+                                      inProgress(report) ||
+                                      report?.status === "manual_review"
                                     }
                                     onClick={() =>
                                       generate(

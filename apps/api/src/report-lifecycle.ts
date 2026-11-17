@@ -2,152 +2,20 @@ import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
 import { type Context } from "./access";
 import {
-  generatedContentSchema,
-  reportMetrics,
-  reportLoc,
+  REPORT_POLICY_VERSION,
+  reportContentIssues,
+  reportTextIssues,
+  paragraphIssues,
+  ReportReviewRequired,
+} from "../../../packages/core/report-policy";
+import {
   type GeneratedContent,
   type ReportSnapshot,
 } from "../../../packages/core/reporting";
 // A data-based report remains available if the language-model provider is unavailable.
 // No assessor score or observation is fabricated by this fallback.
-export function fallbackReport(
-  snapshot: ReportSnapshot,
-  language: "ru" | "kk",
-): GeneratedContent {
-  const t = (ru: string, kk: string) => (language === "ru" ? ru : kk);
-  const metrics = reportMetrics(snapshot, language).filter(
-    (m) => m.testId !== "personality" || m.scale.length === 1,
-  );
-  const evidenceIds = metrics.map((m) => m.id).slice(0, 5);
-  if (!evidenceIds.length)
-    evidenceIds.push(
-      ...snapshot.people
-        .flatMap((p) =>
-          p.results
-            .map((r) => r.resultId)
-            .filter((v): v is string => Boolean(v)),
-        )
-        .slice(0, 5),
-    );
-  const statement = (text: string) => ({ text, evidenceIds });
-  const actions = [
-    [
-      t("Анализ решений", "Шешімдерді талдау"),
-      t(
-        "Перед важным решением запишите факты, два варианта действий, риски и критерий выбора. Раз в неделю разберите одно принятое решение с руководителем.",
-        "Маңызды шешім алдында фактілерді, екі әрекет нұсқасын, тәуекелдерді және таңдау критерийін жазыңыз. Аптасына бір рет қабылданған шешімді басшымен талқылаңыз.",
-      ),
-      t("Разбор рабочих задач", "Жұмыс міндеттерін талдау"),
-      t("4 недели", "4 апта"),
-      t(
-        "Четыре решения с письменным обоснованием и оценкой результата",
-        "Жазбаша негіздемесі мен нәтижесі бағаланған төрт шешім",
-      ),
-    ],
-    [
-      t("Управление исполнением", "Орындалуды басқару"),
-      t(
-        "Для одной текущей задачи согласуйте результат, срок, ответственного и промежуточную проверку. На еженедельной встрече фиксируйте факт выполнения и препятствия.",
-        "Бір ағымдағы міндет үшін нәтижені, мерзімді, жауаптыны және аралық тексеруді келісіңіз. Апталық кездесуде орындалу фактісі мен кедергілерді тіркеңіз.",
-      ),
-      t("Практика на рабочем месте", "Жұмыс орнындағы тәжірибе"),
-      t("30 дней", "30 күн"),
-      t(
-        "У каждой задачи есть ответственный, срок и зафиксированный итог",
-        "Әр міндеттің жауаптысы, мерзімі және тіркелген нәтижесі бар",
-      ),
-    ],
-    [
-      t("Обратная связь", "Кері байланыс"),
-      t(
-        "Проведите три беседы с сотрудниками по схеме: конкретное действие, его результат, согласованный следующий шаг. Запишите договорённости и проверьте их выполнение.",
-        "Қызметкерлермен нақты әрекет, оның нәтижесі, келісілген келесі қадам үлгісі бойынша үш әңгіме өткізіңіз. Келісімдерді жазып, орындалуын тексеріңіз.",
-      ),
-      t("Беседы и саморефлексия", "Әңгімелер және өзіндік рефлексия"),
-      t("6 недель", "6 апта"),
-      t(
-        "Три беседы с конкретными договорённостями и проверкой прогресса",
-        "Нақты келісімдер және ілгерілеуді тексеру бар үш әңгіме",
-      ),
-    ],
-  ];
-  const measured = metrics
-    .filter((m) => ["verbal", "numerical", "logical"].includes(m.testId))
-    .sort((a, b) => a.mean / a.max - b.mean / b.max);
-  if (measured[0]) {
-    const m = measured[0];
-    actions[0][0] = m.name;
-    actions[0][1] =
-      `${t("Текущий результат", "Ағымдағы нәтиже")}: ${m.mean.toFixed(2)} / ${m.max}. ` +
-      actions[0][1];
-  }
-  const competencyGaps = snapshot.people.flatMap((p) => {
-    const profile = p.competencyProfile,
-      role = profile?.model.content.roles.find(
-        (r: any) => r.id === profile.consensus?.scores?.roleId,
-      );
-    return (profile?.consensus?.scores?.ratings || [])
-      .filter(
-        (r: any) =>
-          typeof r.value === "number" &&
-          role?.targets[r.competencyId] > r.value,
-      )
-      .map((r: any) => ({
-        name: reportLoc(
-          profile.model.content.competencies.find(
-            (c: any) => c.id === r.competencyId,
-          )?.name,
-          language,
-        ),
-        value: r.value,
-        target: role.targets[r.competencyId],
-      }));
-  });
-  if (competencyGaps[0]) {
-    const gap = competencyGaps[0];
-    actions[1][0] = gap.name;
-    actions[1][1] =
-      `${t("Экспертная оценка", "Сарапшы бағасы")}: ${gap.value}/5; ${t("целевой уровень", "мақсатты деңгей")}: ${gap.target}/5. ` +
-      actions[1][1];
-  }
-  const rows = (ids: string[]) =>
-    metrics
-      .filter((m) => ids.includes(m.testId))
-      .slice(0, 6)
-      .map((m) => ({
-        text: `${m.name}: ${m.mean.toFixed(2)} / ${m.max}. ${t("Диапазон шкалы", "Шкала ауқымы")}: ${m.min}–${m.max}.`,
-        evidenceIds: [m.id],
-      }));
-  return generatedContentSchema.parse({
-    summary: [
-      statement(
-        t(
-          "Отчёт объединяет завершённые результаты участника. Числовые показатели представлены по каждой методике; оценки компетенций и примеры поведения приведены по сохранённым данным экспертов.",
-          "Есеп қатысушының аяқталған нәтижелерін біріктіреді. Сандық көрсеткіштер әр әдістеме бойынша көрсетілген; құзырет бағалары мен мінез-құлық мысалдары сарапшылар сақтаған деректерге негізделген.",
-        ),
-      ),
-    ],
-    analytical: rows(["verbal", "numerical", "logical"]),
-    personality: rows(["personality"]),
-    motivation: rows(["motivation"]),
-    management: rows(["situations", "sjt"]),
-    competencies: [],
-    potential: [],
-    strengths: [],
-    development: [],
-    risks: [],
-    recommendations: actions.map((a) => statement(`${a[0]}. ${a[1]}`)),
-    developmentPlan: actions.map((a) => ({
-      focus: a[0],
-      action: a[1],
-      format: a[2],
-      timeframe: a[3],
-      success: a[4],
-      evidenceIds,
-    })),
-    limitations: [],
-  });
-}
+export { dataReport as fallbackReport } from "../../../packages/core/report-fallback";
+import { dataReport } from "../../../packages/core/report-fallback";
 const rendering = new Map<string, Promise<void>>();
 export async function persistReportPdf(
   id: string,
@@ -159,7 +27,45 @@ export async function persistReportPdf(
     const report = await db.generatedReport.findUniqueOrThrow({
       where: { id },
     });
-    if (report.readyAt) return;
+    if (
+      report.readyAt ||
+      (report.generationMode === "expert" && mode !== "expert")
+    )
+      return;
+    const snapshot = report.snapshot as unknown as ReportSnapshot;
+    const issues = reportContentIssues(
+      content,
+      snapshot,
+      report.kind as "individual" | "team",
+    );
+    const hold = async (error: ReportReviewRequired) => {
+      await db.generatedReport.updateMany({
+        where: {
+          id,
+          readyAt: null,
+          ...(mode === "expert" ? {} : { generationMode: { not: "expert" } }),
+        },
+        data: {
+          status: "manual_review",
+          content: json(content),
+          reviewIssues: json(error.issues),
+          generationMode: mode,
+          policyVersion: REPORT_POLICY_VERSION,
+          error: "Нужна проверка формулировок экспертом. PDF пока недоступен.",
+        },
+      });
+      await audit(
+        report.organizationId,
+        null,
+        "generated_report.review_required",
+        id,
+        { issues: error.issues },
+      );
+    };
+    if (issues.length) {
+      await hold(new ReportReviewRequired(issues));
+      return;
+    }
     const { professionalReportTemplate, reportCss } =
       await import("./report-layout");
     const { renderPdf } = await import("./exports");
@@ -170,21 +76,44 @@ export async function persistReportPdf(
         kind: report.kind as "individual" | "team",
         language: report.language as "ru" | "kk",
         createdAt: report.createdAt,
+        presentationEdits: report.presentationEdits as Record<string, string>,
       },
     );
-    const bytes = await renderPdf(
-      rendered.html,
-      rendered.label,
-      report.language,
-      reportCss,
-    );
+    let bytes: Buffer;
+    try {
+      bytes = await renderPdf(
+        rendered.html,
+        rendered.label,
+        report.language,
+        reportCss,
+        (text, paragraphs) => {
+          const issues = [
+            ...reportTextIssues(text),
+            ...paragraphs.flatMap((p, i) =>
+              paragraphIssues(p, `paragraph.${i}`),
+            ),
+          ];
+          if (issues.length) throw new ReportReviewRequired(issues);
+        },
+      );
+    } catch (error) {
+      if (error instanceof ReportReviewRequired) {
+        await hold(error);
+        return;
+      }
+      throw error;
+    }
     const readyAt = new Date();
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM generated_reports WHERE id = ${id} FOR UPDATE`;
       const current = await tx.generatedReport.findUniqueOrThrow({
         where: { id },
       });
-      if (current.readyAt) return;
+      if (
+        current.readyAt ||
+        (current.generationMode === "expert" && mode !== "expert")
+      )
+        return;
       await tx.reportArtifact.create({
         data: {
           reportId: id,
@@ -199,6 +128,8 @@ export async function persistReportPdf(
           content: json(content),
           readyAt,
           generationMode: mode,
+          policyVersion: REPORT_POLICY_VERSION,
+          reviewIssues: [],
           error: null,
         },
       });
@@ -230,12 +161,19 @@ export async function persistReportPdf(
 }
 export async function makeFallbackAvailable(id: string) {
   const report = await db.generatedReport.findUnique({ where: { id } });
-  if (!report || report.readyAt) return;
+  if (
+    !report ||
+    report.readyAt ||
+    report.status === "manual_review" ||
+    report.generationMode === "expert"
+  )
+    return;
   await persistReportPdf(
     id,
-    fallbackReport(
+    dataReport(
       report.snapshot as unknown as ReportSnapshot,
       report.language as "ru" | "kk",
+      report.kind as "individual" | "team",
     ),
     "data",
   );
@@ -280,10 +218,25 @@ export function startReportWatchdog() {
     if (busy) return;
     busy = true;
     try {
+      await db.generatedReport.updateMany({
+        where: {
+          status: "processing",
+          generationMode: "expert",
+          readyAt: null,
+          updatedAt: { lte: new Date(Date.now() - 120000) },
+        },
+        data: {
+          status: "manual_review",
+          error:
+            "Проверка была прервана. Откройте отчёт и повторите выпуск PDF.",
+        },
+      });
       // Recovery after a process restart or a queue/provider outage. Leave 60s for PDF rendering.
       const stuck = await db.generatedReport.findMany({
         where: {
           readyAt: null,
+          status: { in: ["pending", "processing", "failed"] },
+          generationMode: { not: "expert" },
           createdAt: { lte: new Date(Date.now() - 210000) },
         },
         select: { id: true },

@@ -27,6 +27,8 @@ export type Answer =
   | { most: string; least: string }
   | { top: string[]; bottom: string[] };
 export type ScoringConfig = {
+  mode?: "effectiveness";
+  calibration?: unknown;
   items: Record<
     string,
     {
@@ -39,6 +41,7 @@ export type ScoringConfig = {
       control?: string;
       ranking?: boolean;
       competency?: { ru: string; kk: string };
+      effectiveness?: Record<string, number>;
     }
   >;
   scales?: Record<
@@ -73,10 +76,12 @@ export type Score = {
     questionId: string;
     value: Answer;
     score?: number;
+    maximum?: number;
     mostMatch?: boolean;
     leastMatch?: boolean;
   }[];
-  interpretation: "raw_only" | "preliminary_matching_index";
+  interpretation:
+    "raw_only" | "preliminary_matching_index" | "effectiveness_gap";
   answered?: number;
   accuracy?: number;
   level?: number;
@@ -199,6 +204,43 @@ function baseScore(
     };
   });
   if (algorithm === "sjt") {
+    if (config.mode === "effectiveness") {
+      let maximum = 0;
+      const scored = details.map((d) => {
+        const ratings = config.items[d.questionId].effectiveness;
+        const q = questions.find((q) => q.id === d.questionId)!;
+        if (
+          !ratings ||
+          Object.keys(ratings).length !== q.options.length ||
+          q.options.some(
+            (o) =>
+              !Number.isFinite(ratings[o.id]) ||
+              ratings[o.id] < 1 ||
+              ratings[o.id] > 5,
+          )
+        )
+          throw Error("Не утверждены оценки эффективности всех вариантов");
+        const values = Object.values(ratings),
+          ideal = Math.max(...values) - Math.min(...values);
+        if (ideal <= 0) throw Error("Оценки эффективности не различаются");
+        maximum += ideal;
+        const a = d.value as { most?: string; least?: string } | null;
+        return {
+          ...d,
+          maximum: ideal,
+          score: a?.most && a?.least ? ratings[a.most] - ratings[a.least] : 0,
+        };
+      });
+      const total = scored.reduce((sum, d) => sum + d.score, 0);
+      return {
+        algorithm,
+        total,
+        maximum,
+        percent: (100 * total) / maximum,
+        details: scored,
+        interpretation: "effectiveness_gap",
+      };
+    }
     const scored = details.map((d) => {
       const key = config.items[d.questionId];
       const a = (d.value || { most: "", least: "" }) as {
@@ -374,7 +416,10 @@ export function calculateScore(
     result.accuracy = result.answered
       ? (100 * result.total) / result.answered
       : 0;
-    if (config.bands)
+    if (config.mode === "effectiveness") {
+      const p = result.percent!;
+      result.level = p < 40 ? 1 : p < 55 ? 2 : p < 70 ? 3 : p < 85 ? 4 : 5;
+    } else if (config.bands)
       result.level = config.bands.findIndex((x) => result.total! <= x) + 1;
   }
   if (algorithm === "sjt") {
@@ -388,7 +433,13 @@ export function calculateScore(
           maximum: 0,
         });
         c.total += d.score!;
-        c.maximum += 2;
+        const values = Object.values(
+          config.items[d.questionId].effectiveness || {},
+        );
+        c.maximum +=
+          config.mode === "effectiveness"
+            ? Math.max(...values) - Math.min(...values)
+            : 2;
       }
     }
   }
@@ -518,6 +569,18 @@ export function verifyScoringConfig(
   for (const q of questions) {
     const k = config.items[q.id];
     if (!k) throw new Error(`Отсутствует ключ: ${q.id}`);
+    if (
+      config.mode === "effectiveness" &&
+      (!k.effectiveness ||
+        Object.keys(k.effectiveness).length !== q.options.length ||
+        q.options.some(
+          (o) =>
+            !Number.isFinite(k.effectiveness![o.id]) ||
+            k.effectiveness![o.id] < 1 ||
+            k.effectiveness![o.id] > 5,
+        ))
+    )
+      throw Error("Не заданы экспертные оценки эффективности вариантов");
     if (new Set(q.options.map((o) => o.id)).size !== q.options.length)
       throw new Error("Повторяющиеся ID вариантов");
     for (const optionId of [

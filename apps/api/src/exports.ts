@@ -6,10 +6,9 @@ import { createPerson, listPeople } from "./people";
 import { getReport } from "./assessment";
 import { orgId, requireRole, type Context } from "./access";
 import { db, audit } from "./db";
-import { individualTemplate } from "./report-template";
 import { getGeneratedReport } from "./generated-reports";
+import { REPORT_POLICY_VERSION } from "../../../packages/core/report-policy";
 import {
-  professionalReportTemplate,
   reportCss,
   sanitizePdfText,
 } from "./report-layout";
@@ -198,6 +197,7 @@ export async function renderPdf(
   label: string,
   language = "ru",
   css = pdfCss,
+  validateText?: (text: string, paragraphs: string[]) => void,
 ) {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -212,6 +212,11 @@ export async function renderPdf(
       { waitUntil: "load" },
     );
     if (css === reportCss) await paginateProfessionalReport(page);
+    if (validateText)
+      validateText(
+        await page.locator("body").innerText(),
+        await page.locator("p:not(.note),.quote").allTextContents(),
+      );
     return await page.pdf({
       format: "A4",
       printBackground: true,
@@ -237,35 +242,54 @@ function scoreBars(
     .join("");
 }
 export async function exportIndividualPdf(ctx: Context, id: string) {
-  const data = await getReport(ctx, id),
-    language = ctx.user.locale === "kk" ? "kk" : "ru";
-  const rendered = individualTemplate(data, language);
-  await audit(orgId(ctx), ctx.user.id, "report.pdf_exported", id);
-  return renderPdf(rendered.html, rendered.label, language);
+  const { report } = await getReport(ctx, id);
+  const current = await db.generatedReport.findFirst({
+    where: {
+      organizationId: orgId(ctx),
+      campaignId: report.campaignId,
+      membershipId: report.membershipId,
+      kind: "individual",
+      language: ctx.user.locale === "kk" ? "kk" : "ru",
+      status: "completed",
+      policyVersion: REPORT_POLICY_VERSION,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!current)
+    throw new BadRequestException(
+      "Сформируйте новую версию в разделе «Отчёты».",
+    );
+  return exportGeneratedPdf(ctx, current.id);
 }
 export async function exportTeamPdf(ctx: Context, campaignId: string) {
-  const people = (await listPeople(ctx, campaignId)).filter(
-    (p) => p.role === "employee",
-  );
-  const done = people.filter((p) => p.status === "completed").length;
-  const units = [...new Set(people.map((p) => p.unit))];
-  const header = `<div class="brand"><span>${esc(ctx.org!.name)}</span><span>AssessFlow</span></div>`;
-  const content = `<section class="page">${header}<div class="eyebrow">КОМАНДНАЯ АНАЛИТИКА</div><h1>Сводный отчёт организации</h1><div class="box"><p>Участников: ${people.length} · Завершили тестирование: ${done} · Утверждено отчётов: ${people.filter((p) => p.report?.status === "approved").length}</p></div><h2>Сравнение подразделений</h2><table><tr><th>Подразделение</th><th>Участников</th><th>Завершили</th><th>Доля</th></tr>${units
-    .map((u) => {
-      const ps = people.filter((p) => p.unit === u),
-        ds = ps.filter((p) => p.status === "completed").length;
-      return `<tr><td>${esc(u)}</td><td>${ps.length}</td><td>${ds}</td><td>${Math.round((ds / ps.length) * 100)}%</td></tr>`;
-    })
-    .join(
-      "",
-    )}</table></section><section class="page">${header}<h1>Реестр участников</h1><table><tr><th>Участник</th><th>Подразделение</th><th>Прогресс</th><th>Заключение</th></tr>${people.map((p) => `<tr><td>${esc(p.user.name)}</td><td>${esc(p.unit)}</td><td>${p.completed} / ${p.total}</td><td>${p.report?.status === "approved" ? "Утверждено" : p.report ? "Черновик" : "Ожидается"}</td></tr>`).join("")}</table></section>`;
-  await audit(orgId(ctx), ctx.user.id, "team.pdf_exported", campaignId);
-  return renderPdf(content, "Сводный отчёт");
+  requireRole(ctx, "admin", "expert");
+  const current = await db.generatedReport.findFirst({
+    where: {
+      organizationId: orgId(ctx),
+      campaignId,
+      kind: "team",
+      language: ctx.user.locale === "kk" ? "kk" : "ru",
+      status: "completed",
+      policyVersion: REPORT_POLICY_VERSION,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!current)
+    throw new BadRequestException(
+      "Сформируйте командный отчёт в разделе «Отчёты».",
+    );
+  return exportGeneratedPdf(ctx, current.id);
 }
 export async function exportGeneratedPdf(ctx: Context, id: string) {
   const report = await getGeneratedReport(ctx, id);
   if (report.status !== "completed")
     throw new BadRequestException("Отчёт ещё не готов");
+  if (report.policyVersion !== REPORT_POLICY_VERSION)
+    throw new BadRequestException(
+      "Этот файл создан по прежним правилам. Сформируйте новую версию отчёта.",
+    );
   const artifact = await db.reportArtifact.findUnique({
     where: { reportId: id },
   });
