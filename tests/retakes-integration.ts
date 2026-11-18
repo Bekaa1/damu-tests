@@ -146,11 +146,21 @@ try {
           create: {
             scoringKeyId: v.keys[0].id,
             result: {
-              algorithm: "cognitive",
+              algorithm: v.testId === "situations" ? "sjt" : "cognitive",
               total: 1,
               maximum: 30,
               percent: 100 / 30,
-              details: [],
+              details:
+                v.testId === "situations"
+                  ? [
+                      { questionId: "unanswered", value: null, score: 0 },
+                      {
+                        questionId: "partial",
+                        value: { most: "sample-A", least: null },
+                        score: 1,
+                      },
+                    ]
+                  : [],
             },
           },
         },
@@ -243,6 +253,9 @@ try {
     data: { endsAt: new Date(Date.now() + 86400000) },
   });
   await adminPage.goto(base + `/people/${member}`);
+  await expect(
+    adminPage.getByRole("cell", { name: /Нет ответа/ }),
+  ).toHaveCount(3);
   assert.equal(
     (await api(admin.request, `/people/${member}?campaignId=${id}`)).member
       .role,

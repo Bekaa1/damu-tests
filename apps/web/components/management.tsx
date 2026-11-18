@@ -368,11 +368,15 @@ export function Participant({ id }: { id: string }) {
                                         <td>{i + 1}</td>
                                         <td>
                                           {d.mostMatch ? "✓" : "—"}{" "}
-                                          {d.value.most.split("-").at(-1)}
+                                          {typeof d.value?.most === "string"
+                                            ? d.value.most.split("-").at(-1)
+                                            : t("Нет ответа", "Жауап жоқ")}
                                         </td>
                                         <td>
                                           {d.leastMatch ? "✓" : "—"}{" "}
-                                          {d.value.least.split("-").at(-1)}
+                                          {typeof d.value?.least === "string"
+                                            ? d.value.least.split("-").at(-1)
+                                            : t("Нет ответа", "Жауап жоқ")}
                                         </td>
                                         <td>{d.score} / 2</td>
                                       </tr>
