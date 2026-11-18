@@ -379,7 +379,7 @@ const draft = {
   },
   controlExamples: [],
   review: {
-    status: "awaiting_panel",
+    status: "awaiting_expert_key",
     coverage: Object.fromEntries(
       DEFAULT_COMPETENCIES.competencies.map((c) => [
         c.id,
@@ -392,7 +392,7 @@ const draft = {
       maximumScorePercentAtMost: 10,
     },
     instructions:
-      "Заполнить отдельный шаблон панели. Публиковать только после проверки RU/KK, калибровки и пилота.",
+      "Оценки одного специалиста заполняются в редакторе экспертного ключа SJT. Для панели используется отдельный шаблон. Публиковать только после проверки RU/KK, ключа и пилота.",
   },
 };
 const panel = {

@@ -49,6 +49,7 @@ import {
 import { Participant, Criteria, SettingsPage, Platform } from "./management";
 import { EmployeeHome, TestRunner } from "./employee";
 import { ReportCenter } from "./report-center";
+import { GroupWorkspace } from "./group-workspace";
 export function Application() {
   const router = useRouter(),
     path = usePathname();
@@ -213,6 +214,11 @@ export function Application() {
                   icon: Grid2X2,
                 },
                 {
+                  href: "/groups",
+                  label: t("Группы сотрудников", "Қызметкерлер топтары"),
+                  icon: Users,
+                },
+                {
                   href: "/criteria",
                   label: t("Критерии оценки", "Бағалау критерийлері"),
                   icon: SlidersHorizontal,
@@ -290,6 +296,12 @@ export function Application() {
       <Library />
     ) : path === "/analytics" ? (
       <Analytics />
+    ) : path === "/groups" ? (
+      isExpert ? (
+        <GroupWorkspace key={campaign} />
+      ) : (
+        <AccessDenied t={t} onHome={() => router.replace("/")} />
+      )
     ) : path === "/matrix" ? (
       isExpert ? (
         <Matrix />

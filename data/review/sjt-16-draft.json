@@ -787,7 +787,7 @@
   },
   "status": "draft",
   "review": {
-    "status": "awaiting_panel",
+    "status": "awaiting_expert_key",
     "coverage": {
       "analysis": 2,
       "results": 2,
@@ -803,6 +803,6 @@
       "replaceIfSameMostPercentAbove": 85,
       "maximumScorePercentAtMost": 10
     },
-    "instructions": "Заполнить отдельный шаблон панели. Публиковать только после проверки RU/KK, калибровки и пилота."
+    "instructions": "Оценки одного специалиста заполняются в редакторе экспертного ключа SJT. Для панели используется отдельный шаблон. Публиковать только после проверки RU/KK, ключа и пилота."
   }
 }

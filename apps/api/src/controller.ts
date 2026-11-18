@@ -3,8 +3,16 @@ import {
   CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
 import { createHash } from "node:crypto";
+import { getNormStatus, freezeNorm } from "./norms";
+import { grouping, saveScheme, assignGroup, exportGroups } from "./grouping";
+import {
+  getSjtExpertKey,
+  saveSjtExpertKey,
+  exportSjtExpertKey,
+} from "./sjt-expert";
 import { verifyEffectivenessCalibration } from "../../../packages/core/sjt-calibration";
 import { extendAttempt } from "./attempts";
+import { assignRetakes } from "./retakes";
 import {
   getCompetencyModel,
   saveCompetencyModel,
@@ -105,6 +113,67 @@ const matrixConfigSchema = z.object({
 @Controller("api")
 @UseGuards(AccessGuard)
 export class AppController {
+  @Get("sjt-expert-key") sjtKey(@Req() req: AuthRequest) {
+    return getSjtExpertKey(req.ctx);
+  }
+  @Post("sjt-expert-key") saveSjtKey(
+    @Req() req: AuthRequest,
+    @Body() body: unknown,
+  ) {
+    return saveSjtExpertKey(req.ctx, body);
+  }
+  @Get("sjt-expert-key/export") async sjtKeyFile(
+    @Req() req: AuthRequest,
+    @Res() res: Response,
+  ) {
+    res
+      .type("application/json")
+      .attachment("sjt-expert-import.json")
+      .send(await exportSjtExpertKey(req.ctx));
+  }
+  @Get("campaigns/:id/groups") groups(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+  ) {
+    return grouping(req.ctx, id);
+  }
+  @Post("group-scheme") saveGroups(
+    @Req() req: AuthRequest,
+    @Body() body: unknown,
+  ) {
+    return saveScheme(req.ctx, body);
+  }
+  @Post("campaigns/:id/groups/:member") chooseGroup(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Param("member") member: string,
+    @Body() body: unknown,
+  ) {
+    return assignGroup(req.ctx, id, member, body);
+  }
+  @Get("campaigns/:id/groups-export") async groupFile(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Res() res: Response,
+  ) {
+    res
+      .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      .attachment("assessment-groups.xlsx")
+      .send(await exportGroups(req.ctx, id));
+  }
+  @Get("campaigns/:id/norm") normStatus(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+  ) {
+    return getNormStatus(req.ctx, id);
+  }
+  @Post("campaigns/:id/norm/freeze") fixNorm(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return freezeNorm(req.ctx, id, body);
+  }
   @Get("competency-model") model(@Req() req: AuthRequest) {
     return getCompetencyModel(req.ctx);
   }
@@ -308,6 +377,13 @@ export class AppController {
   ) {
     if (!campaignId) throw new BadRequestException("Выберите кампанию");
     return participantDetails(req.ctx, id, campaignId);
+  }
+  @Post("people/:id/retakes") retakes(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return assignRetakes(req.ctx, id, body);
   }
   @Get("my/assignments") mine(
     @Req() req: AuthRequest,

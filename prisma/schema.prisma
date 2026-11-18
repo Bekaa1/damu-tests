@@ -69,6 +69,8 @@ model RateLimit {
   @@map("rate_limits")
 }
 model Organization {
+  sjtExpertKeys SjtExpertKey[]
+  groupSchemes GroupScheme[]
   exercises AssessmentExercise[]
   id String @id @default(cuid())
   name String
@@ -99,6 +101,7 @@ model OrganizationUnit {
   @@map("organization_units")
 }
 model Membership {
+  groupAssignments ParticipantGroup[]
   assignments TestAssignment[] @relation("AssignedParticipant")
   expertAssignments TestAssignment[] @relation("AssignedExpert")
   aiReports AiReport[]
@@ -123,6 +126,8 @@ model Membership {
   @@map("memberships")
 }
 model Campaign {
+  frozenNorm FrozenNorm?
+  participantGroups ParticipantGroup[]
   generatedReports GeneratedReport[]
   aiReports AiReport[]
   observations ExpertObservation[]
@@ -407,6 +412,63 @@ model ReportArtifact {
   sha256 String
   createdAt DateTime @default(now())
   @@map("report_artifacts")
+}
+model FrozenNorm {
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String @unique
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  expectedCount Int @default(65)
+  excludedCount Int
+  metrics Json
+  sourceHash String
+  createdBy String
+  createdAt DateTime @default(now())
+  @@unique([campaignId,organizationId])
+  @@map("frozen_norms")
+}
+model SjtExpertKey {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  version Int
+  status String @default("draft")
+  payload Json
+  authorId String
+  createdAt DateTime @default(now())
+  @@unique([organizationId,version])
+  @@map("sjt_expert_keys")
+}
+model GroupScheme {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  version Int
+  status String @default("draft")
+  content Json
+  authorId String
+  createdAt DateTime @default(now())
+  assignments ParticipantGroup[]
+  @@unique([organizationId,version])
+  @@unique([id,organizationId])
+  @@map("group_schemes")
+}
+model ParticipantGroup {
+  id String @id @default(cuid())
+  organizationId String
+  campaignId String
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  membershipId String
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  schemeId String
+  scheme GroupScheme @relation(fields:[schemeId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  groupId String
+  reason String
+  consensusId String
+  authorId String
+  createdAt DateTime @default(now())
+  @@index([organizationId,campaignId,membershipId,createdAt])
+  @@map("participant_groups")
 }
 model CompetencyModel {
   id String @id @default(cuid())

@@ -630,6 +630,18 @@ export function AttemptIncidents({
             <Button busy={busy}>{t("Добавить время", "Уақыт қосу")}</Button>
           </form>
         )}
+        {data.retakes?.length > 0 && (
+          <details>
+            <summary>{t("Повторные прохождения", "Қайта тапсырулар")}</summary>
+            {data.retakes.map((event: any) => (
+              <p key={event.id}>
+                {new Date(event.createdAt).toLocaleString()} ·{" "}
+                {t("Тестов", "Тест саны")}: {event.detail.attempts.length} ·{" "}
+                {event.detail.reason}
+              </p>
+            ))}
+          </details>
+        )}
         {data.incidents?.length > 0 && (
           <details>
             <summary>{t("Журнал инцидентов", "Оқиғалар журналы")}</summary>

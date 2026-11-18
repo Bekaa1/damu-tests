@@ -1,4 +1,5 @@
 "use client";
+import { NormSetup, SjtExpertSetup } from "./expert-setup";
 import {
   CompetencyModelEditor,
   CompetencyConsensus,
@@ -49,6 +50,8 @@ import {
 } from "./ui";
 import { AddPerson } from "./organization";
 import { QualityReview } from "./quality-review";
+import { RetakeAction, AttemptHistory } from "./retakes";
+import { displayAttemptStatus } from "../../../packages/core/assessment-policy";
 export function Participant({ id }: { id: string }) {
   const router = useRouter();
   const [removeOpen, setRemoveOpen] = useState(false),
@@ -83,6 +86,13 @@ export function Participant({ id }: { id: string }) {
                 </div>
               </div>
               <div className="page-actions">
+                {(me.role === "admin" || me.role === "superadmin") && (
+                  <RetakeAction
+                    key={`${id}:${campaign}`}
+                    data={data}
+                    onSaved={refresh}
+                  />
+                )}
                 {me.role !== "expert" && (
                   <Button
                     variant="secondary"
@@ -236,9 +246,7 @@ export function Participant({ id }: { id: string }) {
                       title={loc(a.testVersion.test.name)}
                       description={`${t("Версия", "Нұсқа")} ${a.testVersion.version}`}
                       action={
-                        <Badge
-                          status={a.attempts[0]?.status || "not_started"}
-                        />
+                        <Badge status={displayAttemptStatus(a.attempts[0])} />
                       }
                     >
                       <div className="panel-body">
@@ -566,62 +574,65 @@ export function Participant({ id }: { id: string }) {
               />
             )}
             {tab === "history" && (
-              <Panel
-                title={t(
-                  "Версии заключений и наблюдений",
-                  "Қорытындылар мен бақылаулар нұсқалары",
-                )}
-              >
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t("ДОКУМЕНТ", "ҚҰЖАТ")}</th>
-                        <th>{t("ДАТА", "КҮНІ")}</th>
-                        <th>{t("СТАТУС", "МӘРТЕБЕ")}</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.reports.map((r: any) => (
-                        <tr key={r.id}>
-                          <td>
-                            {t("Заключение", "Қорытынды")} v{r.version}
-                          </td>
-                          <td>{date(r.createdAt)}</td>
-                          <td>
-                            <Badge status={r.status} />
-                          </td>
-                          <td>
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                download(
-                                  `/reports/${r.id}/pdf`,
-                                  "report.pdf",
-                                ).catch((e) => notify(e.message, "error"))
-                              }
-                            >
-                              <Download size={14} />
-                              PDF
-                            </Button>
-                          </td>
+              <div className="stack">
+                <AttemptHistory data={data} />
+                <Panel
+                  title={t(
+                    "Версии заключений и наблюдений",
+                    "Қорытындылар мен бақылаулар нұсқалары",
+                  )}
+                >
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>{t("ДОКУМЕНТ", "ҚҰЖАТ")}</th>
+                          <th>{t("ДАТА", "КҮНІ")}</th>
+                          <th>{t("СТАТУС", "МӘРТЕБЕ")}</th>
+                          <th />
                         </tr>
-                      ))}
-                      {data.observations.map((o: any) => (
-                        <tr key={o.id}>
-                          <td>
-                            {loc(o.criteriaSnapshot.name)} · v{o.version}
-                          </td>
-                          <td>{date(o.createdAt)}</td>
-                          <td>{t("Наблюдение", "Бақылау")}</td>
-                          <td />
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Panel>
+                      </thead>
+                      <tbody>
+                        {data.reports.map((r: any) => (
+                          <tr key={r.id}>
+                            <td>
+                              {t("Заключение", "Қорытынды")} v{r.version}
+                            </td>
+                            <td>{date(r.createdAt)}</td>
+                            <td>
+                              <Badge status={r.status} />
+                            </td>
+                            <td>
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  download(
+                                    `/reports/${r.id}/pdf`,
+                                    "report.pdf",
+                                  ).catch((e) => notify(e.message, "error"))
+                                }
+                              >
+                                <Download size={14} />
+                                PDF
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                        {data.observations.map((o: any) => (
+                          <tr key={o.id}>
+                            <td>
+                              {loc(o.criteriaSnapshot.name)} · v{o.version}
+                            </td>
+                            <td>{date(o.createdAt)}</td>
+                            <td>{t("Наблюдение", "Бақылау")}</td>
+                            <td />
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
             )}
           </>
         )}
@@ -1114,7 +1125,7 @@ function ReportEditor({
   );
 }
 export function Criteria() {
-  const { t, loc, notify } = useApp();
+  const { t, loc, notify, campaign } = useApp();
   const { data, loading, error, refresh } = useData<any[]>("/exercises");
   const [selected, setSelected] = useState<any>(null);
   return (
@@ -1133,6 +1144,8 @@ export function Criteria() {
           "Бастапқы критерийлер — үлгі. Жұмыс бағалауына дейін мазмұнын әдіскермен келісіңіз.",
         )}
       </div>
+      <NormSetup key={campaign} />
+      <SjtExpertSetup />
       <CompetencyModelEditor onSaved={refresh} />
       <LoadState loading={loading} error={error}>
         <div className="test-grid">

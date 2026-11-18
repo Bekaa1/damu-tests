@@ -85,6 +85,40 @@ export async function participantDetails(
     ai,
     observations,
     files,
+    attemptHistory: await db.testAttempt.findMany({
+      where: { organizationId, assignment: { membershipId: id, campaignId } },
+      orderBy: { startedAt: "desc" },
+      select: {
+        id: true,
+        assignmentId: true,
+        attemptNumber: true,
+        status: true,
+        startedAt: true,
+        submittedAt: true,
+        timerStartedAt: true,
+        _count: { select: { answers: true } },
+        assignment: {
+          select: {
+            testVersion: { select: { test: { select: { name: true } } } },
+          },
+        },
+        results: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { result: true },
+        },
+      },
+    }),
+    retakes: await db.auditLog.findMany({
+      where: {
+        organizationId,
+        entityId: id,
+        action: "incident.retake_assigned",
+        detail: { path: ["campaignId"], equals: campaignId },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, actorId: true, createdAt: true, detail: true },
+    }),
     incidents: await db.auditLog.findMany({
       where: {
         organizationId,

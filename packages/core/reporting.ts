@@ -41,6 +41,15 @@ export type ReportPerson = {
   } | null;
 };
 export type ReportSnapshot = {
+  norm?: {
+    id: string;
+    createdAt: Date | string;
+    expectedCount: number;
+    excludedCount: number;
+    method: string;
+    languageMode: string;
+    sourceHash: string;
+  } | null;
   organization: { name: string; matrixConfig: any };
   campaign: { id: string; name: string };
   people: ReportPerson[];
@@ -264,7 +273,7 @@ export const generatedContentSchema = z
   })
   .strict();
 export type GeneratedContent = z.infer<typeof generatedContentSchema>;
-export const REPORT_PROMPT_VERSION = "reports-2.0-20261117";
+export const REPORT_PROMPT_VERSION = "reports-2.1-frozen-norms";
 export function validateReportEvidence(
   content: GeneratedContent,
   evidence: Set<string>,

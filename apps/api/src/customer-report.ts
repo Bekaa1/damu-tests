@@ -45,6 +45,9 @@ export function customerReportTemplate(
   const { language: lang, kind } = options,
     team = kind === "team",
     t = (ru: string, kk: string) => (lang === "ru" ? ru : kk);
+  const normInfo = snapshot.norm
+    ? `<div class="callout"><p>${t("Фиксированная внутренняя группа сравнения", "Бекітілген ішкі салыстыру тобы")}: ${snapshot.norm.expectedCount}. ${t("Исключено недостоверных профилей", "Сенімсіз бейіндер алынып тасталды")}: ${snapshot.norm.excludedCount}.</p><p>${t("Норма зафиксирована", "Норма бекітілді")}: ${e(new Date(snapshot.norm.createdAt).toLocaleDateString(lang === "ru" ? "ru-RU" : "kk-KZ"))}.</p></div>`
+    : "";
   const label = team
     ? t("Командный отчёт", "Командалық есеп")
     : t("Индивидуальный отчёт", "Жеке есеп");
@@ -150,7 +153,8 @@ export function customerReportTemplate(
         page(
           t("Паспорт оценки", "Бағалау паспорты"),
           snapshot.campaign.name,
-          passport +
+          normInfo +
+            passport +
             section(
               t("Выводы по группе", "Топ бойынша қорытындылар"),
               content.summary,
@@ -235,8 +239,8 @@ export function customerReportTemplate(
         percentile = r.score.cohortPercentile;
       return (
         bar(reportText(r.name, lang), levelText(level, lang), level || 1) +
-        (percentile?.n >= 30
-          ? `<p>${t("Процентиль внутри сопоставимой группы", "Салыстырмалы топ ішіндегі процентиль")}: ${n(percentile.value, lang)}</p>`
+        (snapshot.norm && percentile?.scope === "frozen" && percentile?.n >= 30
+          ? `<p>${t("Процентиль внутри сопоставимой группы", "Салыстырмалы топ ішіндегі процентиль")}: ${n(percentile.value, lang)}${r.score.reportNorm?.sten != null ? `. ${t("Стен", "Стен")}: ${r.score.reportNorm.sten}` : ""}.</p><p class="note">${t("Сопоставимая выборка", "Салыстырмалы іріктеме")}: ${percentile.n}.</p>`
           : "")
       );
     })
@@ -265,6 +269,9 @@ export function customerReportTemplate(
                 ? "—"
                 : n(neutral?.mean ?? s.mean, lang),
               `${s.min}–${s.max}`,
+              ...(snapshot.norm
+                ? [s.reportNorm?.sten == null ? "—" : String(s.reportNorm.sten)]
+                : []),
             ];
           })
         : [
@@ -275,6 +282,13 @@ export function customerReportTemplate(
                 ? `${n((r.score.total / r.score.maximum) * 100, lang)}%`
                 : n(r.score.total, lang),
               r.score.algorithm === "sjt" ? "%" : `0–${r.score.maximum}`,
+              ...(snapshot.norm
+                ? [
+                    r.score.reportNorm?.sten == null
+                      ? "—"
+                      : String(r.score.reportNorm.sten),
+                  ]
+                : []),
             ],
           ],
     );
@@ -285,16 +299,17 @@ export function customerReportTemplate(
       page(
         t("Профиль компетенций", "Құзыреттер бейіні"),
         person.position,
-        (competencyRows.length
-          ? table(
-              [
-                t("Компетенция", "Құзырет"),
-                t("Оценка", "Баға"),
-                t("Требуемый уровень", "Талап деңгейі"),
-              ],
-              competencyRows,
-            )
-          : noData) +
+        normInfo +
+          (competencyRows.length
+            ? table(
+                [
+                  t("Компетенция", "Құзырет"),
+                  t("Оценка", "Баға"),
+                  t("Требуемый уровень", "Талап деңгейі"),
+                ],
+                competencyRows,
+              )
+            : noData) +
           section(
             t("Интегрированные выводы", "Біріктірілген қорытындылар"),
             content.summary,
@@ -347,7 +362,15 @@ export function customerReportTemplate(
         t("Личностный профиль", "Тұлғалық бейін"),
         t("Самоописание участника", "Қатысушының өзіндік сипаттауы"),
         domains
-          .map((s) => bar(reportText(s.name, lang), s.text, s.mean))
+          .map((s) =>
+            bar(
+              reportText(s.name, lang),
+              s.text,
+              s.reportNorm ? (s.reportNorm.sten ?? 1) : s.mean,
+              1,
+              s.reportNorm ? 10 : 5,
+            ),
+          )
           .join("") +
           section(
             t("Особенности самоописания", "Өзіндік сипаттау ерекшеліктері"),
@@ -359,7 +382,7 @@ export function customerReportTemplate(
                   (s) => `<p>${e(reportText(s.name, lang))}: ${e(s.text)}.</p>`,
                 )
                 .join("")
-            : `<p>${domains.length ? t("Личностный профиль сбалансирован, выраженных перекосов нет", "Тұлғалық бейін теңгерімді, айқын ауытқулар жоқ") : t("Интерпретация опросника ожидает проверки качества.", "Сауалнама түсіндірмесі сапа тексеруін күтуде.")}</p>`),
+            : `<p>${domains.length === 5 && domains.every((s) => !s.reportNorm || s.reportNorm.sten !== null) ? t("Личностный профиль сбалансирован, выраженных перекосов нет", "Тұлғалық бейін теңгерімді, айқын ауытқулар жоқ") : domains.some((s) => s.reportNorm?.sten === null) ? t("Для описания по группе нет сопоставимой нормы.", "Топ бойынша сипаттау үшін салыстырмалы норма жоқ.") : t("Полный личностный профиль ещё не доступен для интерпретации.", "Толық тұлғалық бейін түсіндіруге әлі қолжетімсіз.")}</p>`),
       ) +
       page(
         t(
@@ -389,6 +412,7 @@ export function customerReportTemplate(
             t("Шкала", "Шкала"),
             t("Значение", "Мән"),
             t("Диапазон", "Ауқым"),
+            ...(snapshot.norm ? [t("Стен", "Стен")] : []),
           ],
           raw,
         ),

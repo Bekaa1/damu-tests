@@ -273,6 +273,17 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
   });
   if (existing?.status === "completed") return { id: existing.id };
   if (existing?.status === "in_progress") {
+    if (
+      assignment.campaign.status !== "active" ||
+      assignment.campaign.endsAt < new Date()
+    )
+      throw new BadRequestException("Срок кампании завершён");
+    if (!existing.timerStartedAt) {
+      await db.testAttempt.updateMany({
+        where: { id: existing.id, timerStartedAt: null, status: "in_progress" },
+        data: { language },
+      });
+    }
     await settleClock(existing.id);
     const current = await ownedAttempt(ctx, existing.id);
     if (
@@ -409,7 +420,12 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       where: { id },
       include: { answers: true },
     });
-    if (current.status === "expired")
+    const latest = await tx.testAttempt.findFirst({
+      where: { assignmentId: current.assignmentId },
+      orderBy: { attemptNumber: "desc" },
+      select: { id: true },
+    });
+    if (current.status === "expired" || latest?.id !== id)
       throw new ConflictException("Попытка заменена новым прохождением");
     const cutoff = current.manuallySubmittedAt ?? current.expiresAt;
     if (
@@ -785,6 +801,15 @@ export async function extendAttempt(ctx: Context, id: string, input: unknown) {
   });
   if (!a) throw new NotFoundException();
   const result = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM test_assignments WHERE id = ${a.assignmentId} FOR UPDATE`;
+    const latest = await tx.testAttempt.findFirst({
+      where: { assignmentId: a.assignmentId },
+      orderBy: { attemptNumber: "desc" },
+    });
+    if (latest?.id !== id)
+      throw new BadRequestException(
+        "Для этого теста уже назначена новая попытка",
+      );
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
     const current = await tx.testAttempt.findUniqueOrThrow({ where: { id } });
     if (!current.timerStartedAt || !current.expiresAt)

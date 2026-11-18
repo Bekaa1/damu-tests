@@ -13,6 +13,7 @@ import { orgId, participant, requireRole, type Context } from "./access";
 import { getCampaign, listPeople } from "./people";
 import { openRouterKey } from "./secrets";
 import { campaignRanks } from "./cohort";
+import { normMetadata } from "./norms";
 import {
   REPORT_POLICY_VERSION,
   riskEvidence,
@@ -70,7 +71,10 @@ async function captureReport(
       "Сначала необходимо завершить назначенные тесты",
     );
   const ids = people.map((p) => p.id);
-  const ranks = await campaignRanks(orgId(ctx), campaignId);
+  const frozen = await db.frozenNorm.findFirst({
+    where: { organizationId: orgId(ctx), campaignId },
+  });
+  const ranks = await campaignRanks(orgId(ctx), campaignId, frozen);
   const keys = await db.scoringKey.findMany({
     where: {
       id: {
@@ -100,6 +104,7 @@ async function captureReport(
     }),
   ]);
   return {
+    norm: normMetadata(frozen),
     organization: { name: ctx.org!.name, matrixConfig: ctx.org!.matrixConfig },
     campaign: { id: campaign.id, name: campaign.name },
     people: await Promise.all(

@@ -14,11 +14,11 @@ export const REPORT_PROMPT = [
   "Пиши о самоописании, а не о человеке: «по ответам опросника участник описывает себя как…», «в ответах преобладает…».",
   "Не используй слова: гнев, тревожность, депрессия, уязвимость, неискренность, импульсивность, эмоциональное реагирование, конфликтный, неустойчивый, слабый, не способен, не подходит.",
   "Не делай выводов о поведении на работе, пригодности к должности, здоровье и честности.",
-  "Комментируй фасету только при значении ≤ 2,0 или ≥ 4,0. Не соединяй две фасеты в риск («низкая X вместе с высоким Y»).",
+  "До фиксации нормы комментируй фасету только при значении ≤ 2,0 или ≥ 4,0. После фиксации используй только предоставленные крайние фасеты со стеном 1–2 или 9–10. Не соединяй две фасеты в риск («низкая X вместе с высоким Y»).",
   "Рекомендации формулируй через действие: «придаст уверенности…», «поможет…», а не через недостаток.",
-  "These language rules also apply to Kazakh. Use the supplied neutral report aliases only. Describe personality domain bands; interpret only supplied extreme facets. If there are none, state that the personality profile is balanced with no pronounced extremes. Do not interpret omitted facets.",
+  "These language rules also apply to Kazakh. Use the supplied neutral report aliases only. Describe personality domain bands; interpret only supplied extreme facets. State that the profile is balanced only when allDomainsAvailable is true and there are no extreme facets. Do not interpret omitted facets or infer balance from missing norms.",
   "The public risks section must contain only supplied confirmedRisks supported by both an extreme questionnaire facet and approved expert exercise evidence. If none, risks=[]; never generate speculative risks or questions for interview in a customer report.",
-  "Describe abilities through supplied level labels. Raw scores belong only in the appendix, not narrative sections. Never invent percentiles, STEN scores or approved targets. Draft role targets are not requirements. A final competency rating is assigned by the expert, never calculated from test scores.",
+  "Describe abilities through supplied level labels. Raw scores belong only in the appendix, not narrative sections. Use only supplied frozen group percentiles and STEN scores; never calculate or invent them. They indicate a position within that fixed reference group, not a general ranking of employees. Draft role targets are not requirements. A final competency rating is assigned by the expert, never calculated from test scores.",
   "For motivation describe only the supplied top three and bottom two priorities, without numeric scores. For SJT describe only the overall level, never infer competencies or workplace behavior from individual cases. Include: «Тест не измеряет поведение в реальной работе» in Russian, or its Kazakh translation.",
   "Round every reported decimal to one decimal. At most two numeric values in each paragraph. Do not discuss differences below 0.5 points on a five-point scale or below ten percentage points in ability/SJT results. Do not compare different forms or keys.",
   "For a team use only aggregates. Never mention names, individual profiles or individual scores, and never compare separate branches. Suppressed cells and samples smaller than five must not be described or reconstructed by subtraction. Compare HQ with all branches only where a supplied comparison is present.",
@@ -68,14 +68,27 @@ export function reportAiInput(
           id: r.resultId,
           name: reportText(r.name, language),
           level: testLevel(r.score),
+          sten: r.score?.reportNorm?.sten ?? undefined,
           percentile:
             r.score?.cohortPercentile?.n >= 30
               ? r.score.cohortPercentile
               : undefined,
         })),
       personality: {
+        allDomainsAvailable:
+          personality.filter(
+            (s) =>
+              !s.facet &&
+              s.interpretable &&
+              (!s.reportNorm || s.reportNorm.sten !== null),
+          ).length === 5,
         domains: personality
-          .filter((s) => !s.facet && s.interpretable)
+          .filter(
+            (s) =>
+              !s.facet &&
+              s.interpretable &&
+              (!s.reportNorm || s.reportNorm.sten !== null),
+          )
           .map((s) => ({ name: reportText(s.name, language), band: s.text })),
         extremeFacets: personality
           .filter((s) => s.facet && s.interpretable && s.band !== "middle")
@@ -137,7 +150,12 @@ export function reportAiInput(
     };
   });
   return {
-    input: roundReportInput({ kind, language, profiles }),
+    input: roundReportInput({
+      kind,
+      language,
+      frozenNorm: snapshot.norm,
+      profiles,
+    }),
     evidence: new Set([
       "coverage",
       ...profiles.map((p) => p.id),

@@ -69,13 +69,20 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
     data?.some((a) => a.attempts[0]?.status === "in_progress"),
   );
   useEffect(() => {
-    if (!hasRunning) return;
-    const timer = window.setInterval(() => {
+    if (!campaign) return;
+    const refreshVisible = () => {
       if (document.visibilityState === "visible")
         void assignmentsRefresh.current();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [hasRunning]);
+    };
+    const timer = window.setInterval(refreshVisible, hasRunning ? 5000 : 15000);
+    window.addEventListener("focus", refreshVisible);
+    window.addEventListener("online", refreshVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisible);
+      window.removeEventListener("online", refreshVisible);
+    };
+  }, [hasRunning, campaign]);
   const latestAssignments = new Map<string, any>();
   for (const assignment of data || []) {
     const key = `${assignment.campaignId}:${assignment.testVersion.testId}`;
@@ -231,7 +238,9 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                       : null,
                   timedOut = attempt?.status === "expired",
                   status = timedOut ? "expired" : displayAttemptStatus(attempt),
-                  canResume = attempt?.status === "in_progress",
+                  canResume =
+                    attempt?.status === "in_progress" &&
+                    Boolean(attempt.timerStartedAt),
                   Icon = icons[v.test.direction] || BookOpen;
                 return (
                   <div className="test-card" key={a.id}>

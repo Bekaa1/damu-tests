@@ -262,7 +262,9 @@ for (let n = 0; n < 65; n++) {
   const id = n === 64 ? "employee" : `employee-${n + 1}`;
   const member = await user(
     id,
-    `${first[n % 13]} ${last[(n + Math.floor(n / 13)) % 13]}`,
+    n === 64
+      ? "Арман Ахметова"
+      : `${first[n % 13]} ${last[(n + Math.floor(n / 13)) % 13]}`,
     n === 64
       ? "employee@assessflow.local"
       : `participant${n + 1}@assessflow.local`,

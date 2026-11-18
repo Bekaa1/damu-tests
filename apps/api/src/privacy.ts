@@ -75,6 +75,10 @@ export async function exportPersonalData(ctx: Context, id: string) {
     ai,
     files,
     generatedReports,
+    groupAssignments: await db.participantGroup.findMany({
+      where: { organizationId, membershipId: id },
+      include: { scheme: true },
+    }),
     competencyConsensus: await db.competencyConsensus.findMany({
       where: { organizationId, membershipId: id },
     }),

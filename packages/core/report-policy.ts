@@ -81,10 +81,32 @@ export function personalityProfile(
   );
   return Object.entries(result?.score.scales || {}).map(([id, s]) => {
     const scale = reportScale(id, s, "personality");
+    const norm = scale.reportNorm;
+    const band = norm
+      ? norm.sten === null
+        ? "middle"
+        : norm.sten <= 2
+          ? "low"
+          : norm.sten >= 9
+            ? "high"
+            : "middle"
+      : null;
+    const label =
+      norm?.sten === null
+        ? language === "ru"
+          ? "нет сопоставимой нормы"
+          : "салыстырмалы норма жоқ"
+        : band
+          ? personalityBand(
+              band === "low" ? 1 : band === "high" ? 5 : 3,
+              language,
+            ).text
+          : null;
     return {
       id,
       ...scale,
       ...personalityBand(scale.mean, language),
+      ...(band ? { band, text: label } : {}),
       facet: id.length > 1,
     };
   });

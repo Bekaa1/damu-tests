@@ -4,7 +4,8 @@ import { DEFAULT_COMPETENCIES } from "./competencies";
 export const panelSchema = z
   .object({
     approvedBy: z.string().trim().min(3),
-    experts: z.array(z.string().trim().min(2)).min(5).max(7),
+    mode: z.enum(["panel", "single"]).default("panel"),
+    experts: z.array(z.string().trim().min(2)).min(1).max(7),
     cases: z.record(
       z.string(),
       z
@@ -24,6 +25,12 @@ export function compileEffectivenessKey(
   input: unknown,
 ): ScoringConfig {
   const panel = panelSchema.parse(input);
+  if (
+    panel.mode === "single"
+      ? panel.experts.length !== 1
+      : panel.experts.length < 5
+  )
+    throw Error("Укажите одного специалиста либо панель из 5–7 экспертов");
   if (new Set(panel.experts).size !== panel.experts.length)
     throw Error("Эксперты панели должны быть разными");
   if (questions.length !== 16 || Object.keys(panel.cases).length !== 16)
@@ -43,12 +50,14 @@ export function compileEffectivenessKey(
     for (const option of q.options) {
       const ratings = row.options[option.id];
       if (!ratings || ratings.length !== panel.experts.length)
-        throw Error("Каждый вариант оценивает вся панель из 5–7 экспертов");
+        throw Error(
+          "Каждый вариант должен быть оценён всеми указанными экспертами",
+        );
       const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
       const sd = Math.sqrt(
         ratings.reduce((sum, n) => sum + (n - mean) ** 2, 0) / ratings.length,
       );
-      if (sd > 1.5)
+      if (panel.mode === "panel" && sd > 1.5)
         throw Error(
           `Переработайте вариант ${option.id}: стандартное отклонение больше 1,5`,
         );
