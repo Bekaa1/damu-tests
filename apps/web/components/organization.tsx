@@ -1057,9 +1057,8 @@ export function Library() {
                   <span>
                     <Clock3 size={13} />
                     {v?.timeLimitSeconds
-                      ? v.timeLimitSeconds / 60
-                      : v?.durationMinutes || 0}{" "}
-                    {t("мин", "мин")}
+                      ? `${v.timeLimitSeconds / 60} ${t("мин", "мин")}`
+                      : t("Без ограничения времени", "Уақыт шектелмеген")}
                   </span>
                 </div>
                 <div className="method-note">
