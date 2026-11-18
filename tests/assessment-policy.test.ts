@@ -5,6 +5,7 @@ import {
   answerWithinWindow,
   displayAttemptStatus,
   TEST_LIMITS,
+  questionCountText,
 } from "../packages/core/assessment-policy";
 import {
   DEFAULT_COMPETENCIES,
@@ -52,7 +53,7 @@ describe("Assessment delivery policy", () => {
       ),
     ).toBe(false);
   });
-  it("finalizes both questionnaire timeouts with missing controls, rankings and reverse items scored as zero", () => {
+  it("can still interpret historical questionnaire timeouts with missing values", () => {
     const catalog = JSON.parse(readFileSync("data/catalog.json", "utf8"));
     for (const id of ["personality", "motivation"]) {
       const form = catalog.find((f: any) => f.id === id);
@@ -72,6 +73,19 @@ describe("Assessment delivery policy", () => {
   it("keeps canonical limits consistent with all six published source forms", () => {
     for (const form of JSON.parse(readFileSync("data/catalog.json", "utf8")))
       expect(form.timeLimitSeconds).toBe(TEST_LIMITS[form.id]);
+  });
+  it("formats Russian task counts including the teen exceptions", () => {
+    for (const [count, label] of [
+      [1, "1 задание"],
+      [2, "2 задания"],
+      [24, "24 задания"],
+      [11, "11 заданий"],
+      [14, "14 заданий"],
+      [21, "21 задание"],
+      [126, "126 заданий"],
+    ] as const)
+      expect(questionCountText(count, "ru")).toBe(label);
+    expect(questionCountText(24, "kk")).toBe("24 тапсырма");
   });
 });
 describe("Competency model", () => {

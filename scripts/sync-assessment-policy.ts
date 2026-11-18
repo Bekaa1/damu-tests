@@ -8,15 +8,28 @@ if (
   )
 )
   throw Error("local only");
-for (const t of JSON.parse(readFileSync("data/catalog.json", "utf8"))) {
-  await db.testVersion.updateMany({
-    where: { testId: t.id, version: t.version },
-    data: {
-      timeLimitSeconds: t.timeLimitSeconds,
-      durationMinutes: t.durationMinutes,
-      instructions: t.instructions,
-    },
-  });
-}
-console.log("Synchronized local test timing and instructions");
+await db.$transaction(async (tx) => {
+  for (const t of JSON.parse(readFileSync("data/catalog.json", "utf8"))) {
+    await tx.testVersion.updateMany({
+      where: { testId: t.id, version: t.version },
+      data: {
+        timeLimitSeconds: t.timeLimitSeconds,
+        durationMinutes: t.durationMinutes,
+        instructions: t.instructions,
+        delivery: t.delivery,
+      },
+    });
+    if (t.timeLimitSeconds === null)
+      await tx.testAttempt.updateMany({
+        where: {
+          status: "in_progress",
+          assignment: { testVersion: { testId: t.id, version: t.version } },
+        },
+        data: { expiresAt: null, pausedAt: null },
+      });
+  }
+});
+console.log(
+  "Synchronized local timing, instructions and training; existing answers preserved",
+);
 await db.$disconnect();

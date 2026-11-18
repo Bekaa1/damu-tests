@@ -30,8 +30,8 @@ describe("Новые формы заказчика 26.10.2026", () => {
       ["verbal", 30, 1320, 2],
       ["numerical", 18, 1500, 2],
       ["logical", 24, 1200, 2],
-      ["personality", 126, 1500, 0],
-      ["motivation", 49, 720, 0],
+      ["personality", 126, null, 0],
+      ["motivation", 49, null, 0],
       ["situations", 14, 1800, 1],
     ] as const) {
       const m = form(id);
@@ -39,6 +39,24 @@ describe("Новые формы заказчика 26.10.2026", () => {
       expect(m.timeLimitSeconds).toBe(seconds);
       expect(m.delivery.practice).toHaveLength(practice);
       verifyScoringConfig(m.config, m.questions);
+    }
+  });
+  it("keeps the same logical solution images at different tutorial positions and corrects only the SJT tutorial", () => {
+    const training = form("logical").delivery.practice;
+    expect(training.map((p: any) => p.correct)).toEqual([2, 4]);
+    expect(training[0].images[training[0].correct]).toContain(
+      "option-7082ddf495f7b84f.svg",
+    );
+    expect(training[1].images[training[1].correct]).toContain(
+      "option-f6f187c506f23439.svg",
+    );
+    const sjt = form("situations").delivery.practice[0];
+    expect([sjt.correctMost, sjt.correctLeast]).toEqual([1, 0]);
+    expect(sjt.explanation.ru).not.toContain("В тесте отметьте");
+    expect(sjt.explanation.ru).toContain("Наименее эффективно — A");
+    for (const id of ["personality", "motivation"]) {
+      expect(form(id).instructions.ru).toContain("Время не ограничено");
+      expect(form(id).instructions.kk).toMatch(/Уақыт шектел(мейді|меген)/);
     }
   });
   it("вербальный ключ 10 A, 10 B, 10 C, пропуск равен нулю", () => {

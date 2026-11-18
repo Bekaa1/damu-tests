@@ -24,11 +24,11 @@ try {
     where: { organizationId, role: "admin", status: "active" },
     include: { user: true, organization: true },
   });
-  if (user.name !== "Арман Ахметова")
+  if (user.name !== "Арман Ахметов")
     await db.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
-        data: { name: "Арман Ахметова" },
+        data: { name: "Арман Ахметов" },
       });
       await tx.auditLog.create({
         data: {
@@ -38,7 +38,7 @@ try {
           entityId: member.id,
           detail: json({
             previous: user.name,
-            name: "Арман Ахметова",
+            name: "Арман Ахметов",
             reason:
               "Исправление имени демонстрационной учётной записи по запросу владельца",
           }),
@@ -82,7 +82,7 @@ try {
     );
     created += result.attempts.length;
   }
-  console.log(JSON.stringify({ name: "Арман Ахметова", newAttempts: created }));
+  console.log(JSON.stringify({ name: "Арман Ахметов", newAttempts: created }));
 } finally {
   await db.$disconnect();
 }

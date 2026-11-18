@@ -1,4 +1,5 @@
 "use client";
+import { questionCountText } from "../../../packages/core/assessment-policy";
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -1048,7 +1049,10 @@ export function Library() {
                 <div className="test-meta">
                   <span>
                     <ClipboardList size={13} />
-                    {v?._count.questions || 0} {t("заданий", "тапсырма")}
+                    {t(
+                      questionCountText(v?._count.questions || 0, "ru"),
+                      questionCountText(v?._count.questions || 0, "kk"),
+                    )}
                   </span>
                   <span>
                     <Clock3 size={13} />

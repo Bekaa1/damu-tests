@@ -1503,6 +1503,18 @@ tbody tr:hover {
   border-color: #519a80;
   background: #eff7f3;
 }
+.practice-feedback { display: block; }
+.practice-feedback + button { margin-top: 12px; }
+.answer-option.practice-incorrect {
+  border: 2px solid #b94f4f;
+  background: #fff3f2;
+  color: #8a3030;
+}
+.answer-option.practice-correct {
+  border: 2px solid #337b5d;
+  background: #eaf5ee;
+  color: #225c44;
+}
 .option-letter {
   width: 27px;
   height: 27px;

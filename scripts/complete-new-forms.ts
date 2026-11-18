@@ -1,4 +1,5 @@
 import { TEST_LIMITS } from "../packages/core/assessment-policy";
+import { applyDeliveryCorrections } from "../packages/core/form-delivery";
 import "dotenv/config";
 import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import ExcelJS from "exceljs";
@@ -158,31 +159,32 @@ for (const [i, item] of [...ids, 1, 11].entries()) {
       })),
     });
     o.config.items[id] = { correct: `${id}-${token(v.solution)}` };
-  } else
+  } else {
+    // Keep the actual solution image, but vary its position in the two tutorials.
+    const correct = item === 1 ? 2 : 4;
+    const codes = [...v.codes];
+    const solution = codes.shift()!;
+    codes.splice(correct, 0, solution);
     o.delivery.practice.push({
       text: L("Выберите недостающий элемент."),
       imageUrl: `/api/assets/omib/${prefix}.svg`,
-      options: v.codes.map((_, k) => L(`Вариант ${k + 1}`)),
-      images: v.codes.map(
-        (_, k) => `/api/assets/omib/${prefix}-option-${token(v.codes[k])}.svg`,
+      options: codes.map((_, k) => L(`Вариант ${k + 1}`)),
+      images: codes.map(
+        (code) => `/api/assets/omib/${prefix}-option-${token(code)}.svg`,
       ),
-      correct: 0,
+      correct,
       explanation: L(
         item === 1
           ? "В каждой строке фигуры первой и второй клетки складываются."
           : "Фигура поворачивается на один и тот же угол из клетки в клетку.",
       ),
     });
+  }
 }
 catalog.splice(2, 0, o);
 for (const m of catalog) {
   m.timeLimitSeconds = TEST_LIMITS[m.id];
-  if (["personality", "motivation"].includes(m.id))
-    m.instructions.ru =
-      m.instructions.ru
-        .replace(/Время не ограничено[^.]*\./g, "")
-        .replace("Можно сделать перерыв и вернуться.", "") +
-      ` Лимит основного теста — ${m.timeLimitSeconds / 60} минут.`;
+  applyDeliveryCorrections(m);
   m.description = L(
     (
       {

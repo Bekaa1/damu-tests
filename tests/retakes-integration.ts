@@ -71,7 +71,7 @@ try {
     await db.user.create({
       data: {
         id: uid,
-        name: role === "employee" ? "Арман Ахметова" : role,
+        name: role === "employee" ? "Арман Ахметов" : role,
         email: uid + "@assessflow.local",
         emailVerified: true,
         mustChangePassword: false,
@@ -218,7 +218,7 @@ try {
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "Здравствуйте, Арман Ахметова",
+      name: "Здравствуйте, Арман Ахметов",
       exact: true,
     }),
   ).toBeVisible();
@@ -253,9 +253,9 @@ try {
     data: { endsAt: new Date(Date.now() + 86400000) },
   });
   await adminPage.goto(base + `/people/${member}`);
-  await expect(
-    adminPage.getByRole("cell", { name: /Нет ответа/ }),
-  ).toHaveCount(3);
+  await expect(adminPage.getByRole("cell", { name: /Нет ответа/ })).toHaveCount(
+    3,
+  );
   assert.equal(
     (await api(admin.request, `/people/${member}?campaignId=${id}`)).member
       .role,
@@ -341,12 +341,11 @@ try {
   });
   await page.goto(base + "/test/" + fresh.id);
   await page.getByRole("button", { name: "Начать тест", exact: true }).click();
-  await expect(page.locator(".test-timer")).toContainText(/24:|25:/);
+  await expect(page.locator(".new-question")).toBeVisible();
+  await expect(page.locator(".test-timer")).toHaveCount(0);
   fresh = await db.testAttempt.findUniqueOrThrow({ where: { id: fresh.id } });
-  assert.equal(
-    fresh.expiresAt!.getTime() - fresh.timerStartedAt!.getTime(),
-    target.timeLimitSeconds! * 1000,
-  );
+  assert.ok(fresh.timerStartedAt);
+  assert.equal(fresh.expiresAt, null);
   const question = target.questions[0];
   await api(employee.request, `/attempts/${fresh.id}/answers`, {
     questionId: question.id,
@@ -354,6 +353,14 @@ try {
     revision: 0,
     durationMs: 1000,
   });
+  await api(employee.request, `/attempts/${fresh.id}/submit`, {}, 400);
+  for (const q of target.questions.slice(1))
+    await api(employee.request, `/attempts/${fresh.id}/answers`, {
+      questionId: q.id,
+      value: 3,
+      revision: 0,
+      durationMs: 8000,
+    });
   await api(employee.request, `/attempts/${fresh.id}/submit`, {});
   const done = await db.testAttempt.findUniqueOrThrow({
     where: { id: fresh.id },
@@ -394,7 +401,7 @@ try {
     frozen,
   );
   mark(
-    "Bulk retake is atomic and duplicate-safe; full server timer starts on employee action; answer and submission work; old results, report artifact and frozen norm are unchanged",
+    "Bulk retake is atomic and duplicate-safe; untimed questionnaire requires all answers; old results, report artifact and frozen norm are unchanged",
   );
   await adminPage.reload();
   await adminPage.getByRole("button", { name: "История", exact: true }).click();

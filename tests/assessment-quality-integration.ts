@@ -104,7 +104,7 @@ try {
     await db.user.create({
       data: {
         id: uid,
-        name: role === "employee" ? "Арман Ахметова" : `Ассессор ${role}`,
+        name: role === "employee" ? "Арман Ахметов" : `Ассессор ${role}`,
         email: `${uid}@assessflow.local`,
         emailVerified: true,
         mustChangePassword: false,
@@ -203,7 +203,7 @@ try {
     CONSENT_VERSION,
   );
   await expect(
-    page.getByText("Здравствуйте, Арман Ахметова", { exact: true }).first(),
+    page.getByText("Здравствуйте, Арман Ахметов", { exact: true }).first(),
   ).toBeVisible();
   mark(
     "First-login consent gates API and UI; greeting uses the full profile name",

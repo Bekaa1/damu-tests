@@ -68,8 +68,10 @@ export function TestRunner({ id }: { id: string }) {
     [practice, setPractice] = useState(-1),
     [trial, setTrial] = useState<any>(null),
     [feedback, setFeedback] = useState(false),
+    [initialized, setInitialized] = useState(false),
     [autoNext, setAutoNext] = useState(true);
   const hydrated = useRef(false),
+    serverHydrated = useRef(false),
     revisions = useRef<Record<string, number>>({}),
     queue = useRef<
       Record<
@@ -87,6 +89,44 @@ export function TestRunner({ id }: { id: string }) {
     runningRef = useRef(false),
     flushRef = useRef<() => Promise<void>>(async () => {});
   const storage = `assessflow.answers.${id}`;
+  function applyLifecycle(snapshot: any, fresh: boolean) {
+    const active = Boolean(snapshot.timerStartedAt);
+    setRunning(active);
+    runningRef.current = active;
+    const completed = snapshot.status === "completed";
+    setDone(completed);
+    finished.current = completed;
+    setDeadline(
+      snapshot.expiresAt ? new Date(snapshot.expiresAt).getTime() : null,
+    );
+    if (!snapshot.expiresAt) setRemaining(null);
+    if (fresh && snapshot.serverTime)
+      timerOffset.current =
+        new Date(snapshot.serverTime).getTime() - Date.now();
+    else if (!fresh)
+      timerOffset.current = Number.isFinite(snapshot.clockOffsetMs)
+        ? snapshot.clockOffsetMs
+        : 0;
+    if (fresh) {
+      try {
+        const cached =
+          JSON.parse(
+            localStorage.getItem(`assessflow.cached.${id}`) || "null",
+          ) || data;
+        if (cached)
+          localStorage.setItem(
+            `assessflow.cached.${id}`,
+            JSON.stringify({
+              ...cached,
+              timerStartedAt: snapshot.timerStartedAt,
+              expiresAt: snapshot.expiresAt,
+              status: snapshot.status,
+              clockOffsetMs: timerOffset.current,
+            }),
+          );
+      } catch {}
+    }
+  }
   const completion = useData<any[]>(
     done && data?.campaignId
       ? `/my/assignments?campaignId=${data.campaignId}`
@@ -225,7 +265,12 @@ export function TestRunner({ id }: { id: string }) {
       try {
         localStorage.setItem(
           `assessflow.cached.${id}`,
-          JSON.stringify(remoteData),
+          JSON.stringify({
+            ...remoteData,
+            clockOffsetMs: remoteData.serverTime
+              ? new Date(remoteData.serverTime).getTime() - Date.now()
+              : 0,
+          }),
         );
       } catch {}
   }, [remoteData, id]);
@@ -254,15 +299,8 @@ export function TestRunner({ id }: { id: string }) {
         data.questions.findIndex((q: any) => !complete(q, a[q.id])),
       ),
     );
-    setRunning(Boolean(data.timerStartedAt));
-    runningRef.current = Boolean(data.timerStartedAt);
-    setDone(data.status === "completed");
-    finished.current = data.status === "completed";
-    if (data.serverTime)
-      timerOffset.current = new Date(data.serverTime).getTime() - Date.now();
-    if (data.expiresAt) setDeadline(new Date(data.expiresAt).getTime());
-
-    if (data.timerStartedAt) void heartbeat();
+    applyLifecycle(data, Boolean(remoteData));
+    setInitialized(true);
   }, [data]);
   useEffect(() => {
     if (!remoteData || !hydrated.current) return;
@@ -276,6 +314,17 @@ export function TestRunner({ id }: { id: string }) {
     answersRef.current = fresh;
     setAnswers(fresh);
     setSaved({ ...revisions.current });
+    // Cached answers can hydrate first; server lifecycle must still win afterwards.
+    applyLifecycle(remoteData, true);
+    if (!serverHydrated.current) {
+      serverHydrated.current = true;
+      setIndex(
+        Math.max(
+          0,
+          remoteData.questions.findIndex((q: any) => !complete(q, fresh[q.id])),
+        ),
+      );
+    }
   }, [remoteData]);
   async function heartbeat() {
     if (!runningRef.current) return;
@@ -285,16 +334,12 @@ export function TestRunner({ id }: { id: string }) {
       const a = await post(`/attempts/${id}/presence`, {
         action: document.visibilityState === "visible" ? "return" : "heartbeat",
       });
+      // An earlier heartbeat may arrive after a successful submission.
+      if (finished.current && a.status !== "completed") return;
       offlineRef.current = false;
       if (offline) opened.current = Date.now();
       setOffline(false);
-      if (a.serverTime)
-        timerOffset.current = new Date(a.serverTime).getTime() - Date.now();
-      if (a.expiresAt) setDeadline(new Date(a.expiresAt).getTime());
-      if (a.status === "completed") {
-        finished.current = true;
-        setDone(true);
-      }
+      applyLifecycle(a, true);
     } catch {
       offlineRef.current = true;
       setOffline(true);
@@ -426,11 +471,7 @@ export function TestRunner({ id }: { id: string }) {
     setBusy(true);
     try {
       const a = await post(`/attempts/${id}/presence`, { action: "begin" });
-      if (a.serverTime)
-        timerOffset.current = new Date(a.serverTime).getTime() - Date.now();
-      setRunning(true);
-      runningRef.current = true;
-      if (a.expiresAt) setDeadline(new Date(a.expiresAt).getTime());
+      applyLifecycle(a, true);
       opened.current = Date.now();
     } catch (e) {
       setMessage((e as Error).message);
@@ -503,7 +544,9 @@ export function TestRunner({ id }: { id: string }) {
                 {o.imageUrl ? (
                   <img src={o.imageUrl} alt={loc(o.text)} />
                 ) : (
-                  <span className="option-letter">{"ABCDEH"[i]}</span>
+                  <span className="option-letter">
+                    {String.fromCharCode(65 + i)}
+                  </span>
                 )}
                 <span>
                   {q.type === "image"
@@ -615,7 +658,16 @@ export function TestRunner({ id }: { id: string }) {
   const start = isBatch ? Math.floor(index / 6) * 6 : index;
   const end = isBatch ? start + 6 : index + 1;
   return (
-    <LoadState loading={!data && loading} error={data ? "" : error}>
+    <LoadState
+      loading={
+        (!data && loading) ||
+        Boolean(data && !initialized) ||
+        Boolean(
+          !remoteData && loading && cachedData && !cachedData.timerStartedAt,
+        )
+      }
+      error={data ? "" : error}
+    >
       {data && (
         <div className="test-workspace">
           <div className="test-topline">
@@ -684,7 +736,9 @@ export function TestRunner({ id }: { id: string }) {
                         </div>
                         {p.options.map((o: any, i: number) => (
                           <div className="sjt-option" key={i}>
-                            <span>{loc(o)}</span>
+                            <span>
+                              {String.fromCharCode(65 + i)}. {loc(o)}
+                            </span>
                             {["most", "least"].map((kind) => (
                               <label key={kind}>
                                 <input
@@ -725,7 +779,8 @@ export function TestRunner({ id }: { id: string }) {
                         {p.options.map((o: any, i: number) => (
                           <button
                             key={i}
-                            className={`answer-option ${trial === i ? "selected" : ""}`}
+                            className={`answer-option ${trial === i ? "selected" : ""} ${feedback && i === p.correct ? "practice-correct" : ""} ${feedback && trial === i && i !== p.correct ? "practice-incorrect" : ""}`}
+                            aria-pressed={trial === i}
                             onClick={() => {
                               setTrial(i);
                               setFeedback(true);
@@ -733,7 +788,11 @@ export function TestRunner({ id }: { id: string }) {
                           >
                             {p.images && <img src={p.images[i]} alt={loc(o)} />}
                             <span>
-                              {"ABCDEH"[i]}. {loc(o)}
+                              {String.fromCharCode(65 + i)}
+                              {!p.images && `. ${loc(o)}`}
+                              {feedback && i === p.correct && (
+                                <> — {t("Правильный ответ", "Дұрыс жауап")}</>
+                              )}
                             </span>
                           </button>
                         ))}
@@ -741,7 +800,10 @@ export function TestRunner({ id }: { id: string }) {
                     )}
                     {feedback && (
                       <>
-                        <div className="notice info mt">
+                        <div
+                          className="notice info mt practice-feedback"
+                          role="status"
+                        >
                           {p.correct !== undefined && (
                             <strong>
                               {trial === p.correct
@@ -749,6 +811,22 @@ export function TestRunner({ id }: { id: string }) {
                                 : t("Неверно. ", "Қате. ")}
                             </strong>
                           )}
+                          {p.correct !== undefined && (
+                            <strong>
+                              {t("Правильный ответ", "Дұрыс жауап")}:{" "}
+                              {String.fromCharCode(65 + p.correct)}.{" "}
+                            </strong>
+                          )}
+                          {p.type === "sjt" &&
+                            p.correctMost !== undefined &&
+                            p.correctLeast !== undefined && (
+                              <strong>
+                                {trial?.most === p.correctMost &&
+                                trial?.least === p.correctLeast
+                                  ? t("Верно. ", "Дұрыс. ")
+                                  : t("Неверно. ", "Қате. ")}
+                              </strong>
+                            )}
                           {loc(p.explanation)}
                         </div>
                         <Button
@@ -798,19 +876,27 @@ export function TestRunner({ id }: { id: string }) {
                   }{" "}
                   / {data.questions.length}
                 </span>
-                <strong className="test-timer">
-                  <Clock3 size={16} />
-                  {remaining === null
-                    ? t("Без ограничения времени", "Уақыт шектелмеген")
-                    : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
-                </strong>
+                {data.timeLimitSeconds ? (
+                  <strong className="test-timer">
+                    <Clock3 size={16} />
+                    {remaining === null
+                      ? t("Синхронизация…", "Синхрондау…")
+                      : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
+                  </strong>
+                ) : (
+                  <span>
+                    {t("Без ограничения времени", "Уақыт шектелмеген")}
+                  </span>
+                )}
               </div>
               {offline && (
                 <div className="notice warning">
                   {t(
-                    "Нет связи, не закрывайте страницу. Ответы сохраняются на устройстве и отправятся автоматически. Таймер продолжает идти.",
-                    "Байланыс жоқ, бетті жаппаңыз. Жауаптар құрылғыда сақталып, автоматты жіберіледі. Таймер жүріп жатыр.",
+                    "Нет связи, не закрывайте страницу. Ответы сохраняются на устройстве и отправятся автоматически.",
+                    "Байланыс жоқ, бетті жаппаңыз. Жауаптар құрылғыда сақталып, автоматты жіберіледі.",
                   )}
+                  {data.timeLimitSeconds &&
+                    t(" Таймер продолжает идти.", " Таймер жүріп жатыр.")}
                 </div>
               )}
               <details className="test-instructions">

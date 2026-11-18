@@ -1,6 +1,7 @@
 "use client";
 import {
   displayAttemptStatus,
+  questionCountText,
   CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
 export { TestRunner } from "./test-runner";
@@ -261,7 +262,10 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                     <div className="test-meta">
                       <span>
                         <ClipboardList size={13} />
-                        {questionCount} {t("заданий", "тапсырма")}
+                        {t(
+                          questionCountText(questionCount, "ru"),
+                          questionCountText(questionCount, "kk"),
+                        )}
                       </span>
                       <span>
                         <Clock3 size={13} />

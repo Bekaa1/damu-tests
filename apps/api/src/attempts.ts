@@ -65,12 +65,11 @@ export async function presence(ctx: Context, id: string, input: unknown) {
       now = new Date();
     if (action === "begin" && !a.timerStartedAt && a.status === "in_progress") {
       const limit = owned.assignment.testVersion.timeLimitSeconds;
-      if (!limit) throw new BadRequestException("Лимит времени не настроен");
       const updated = await tx.testAttempt.update({
         where: { id },
         data: {
           timerStartedAt: now,
-          expiresAt: new Date(now.getTime() + limit * 1000),
+          expiresAt: limit ? new Date(now.getTime() + limit * 1000) : null,
           lastHeartbeatAt: now,
           pausedAt: null,
         },
@@ -79,7 +78,7 @@ export async function presence(ctx: Context, id: string, input: unknown) {
         data: {
           organizationId: orgId(ctx),
           actorId: ctx.user.id,
-          action: "attempt.timer_started",
+          action: limit ? "attempt.timer_started" : "attempt.started",
           entityId: id,
           detail: json({ deadline: updated.expiresAt, limitSeconds: limit }),
         },
