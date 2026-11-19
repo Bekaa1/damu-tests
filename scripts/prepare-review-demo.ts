@@ -12,14 +12,21 @@ import { assessmentCompletion } from "../packages/core/result-validity";
 if (
   !["localhost", "127.0.0.1"].includes(
     new URL(process.env.DATABASE_URL!).hostname,
-  )
+  ) &&
+  !process.argv.includes("--production-review-demo")
 )
-  throw Error("This script is for the local demo database only");
+  throw Error("A remote database requires explicit --production-review-demo");
 const db = new PrismaClient(),
   organizationId = "demo-organization",
   campaignId = "review-demo-20261119";
 const json = (v: unknown) => JSON.parse(JSON.stringify(v));
 try {
+  await db.organization.findUniqueOrThrow({ where: { id: organizationId } });
+  const existingCampaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+  });
+  if (existingCampaign && existingCampaign.organizationId !== organizationId)
+    throw Error("The review campaign belongs to another organization");
   await db.campaign.upsert({
     where: { id: campaignId },
     update: {},
