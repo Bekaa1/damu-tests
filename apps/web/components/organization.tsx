@@ -1,5 +1,6 @@
 "use client";
 import { questionCountText } from "../../../packages/core/assessment-policy";
+import { METHOD_PASSPORTS } from "../../../packages/core/method-passports";
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -1033,17 +1034,9 @@ export function Library() {
                 <div>
                   <h3>{loc(m.name)}</h3>
                   <p style={{ marginTop: 9 }}>
-                    {m.id === "personality"
-                      ? "IPIP-NEO-120 · Big Five"
-                      : m.id === "motivation"
-                        ? "WMPS · 6 шкал"
-                        : m.id === "verbal"
-                          ? "ICAR · Verbal Reasoning"
-                          : m.id === "numerical"
-                            ? "Berlin Numeracy Test"
-                            : m.id === "logical"
-                              ? "OMIB · Technical adapted form"
-                              : "123test · MOST / LEAST"}
+                    {loc(
+                      (v?.delivery?.passport || METHOD_PASSPORTS[m.id])?.source,
+                    ) || m.source}
                   </p>
                 </div>
                 <div className="test-meta">
@@ -1081,10 +1074,30 @@ export function Library() {
                 {loc(detail.versions[0].instructions)}
               </p>
             </Field>
-            <div className="notice warning">
-              <Info size={18} />
-              <p>{loc(detail.versions[0].limitations)}</p>
-            </div>
+            {Object.entries({
+              source: t("Источник", "Дереккөз"),
+              structure: t("Состав и оценивание", "Құрамы және бағалау"),
+              rights: t("Права и лицензия", "Құқықтар мен лицензия"),
+              validation: t(
+                "Валидность и ограничения",
+                "Валидтілік пен шектеулер",
+              ),
+            }).map(([key, label]) => {
+              const passport =
+                detail.versions[0].delivery?.passport ||
+                METHOD_PASSPORTS[detail.id];
+              return passport?.[key] ? (
+                <Field key={key} label={label}>
+                  <p>{loc(passport[key])}</p>
+                </Field>
+              ) : null;
+            })}
+            {!METHOD_PASSPORTS[detail.id] && (
+              <div className="notice warning">
+                <Info size={18} />
+                <p>{loc(detail.versions[0].limitations)}</p>
+              </div>
+            )}
             <p className="text-small text-muted">
               {t("Перевод:", "Аударма:")}{" "}
               {detail.versions[0].translationStatus === "approved"
@@ -1094,15 +1107,24 @@ export function Library() {
                     "дайындалған, тексеруді күтуде",
                   )}
             </p>
-            <a
-              href={detail.source}
-              target="_blank"
-              rel="noreferrer"
-              className="text-link"
-            >
-              {t("Открыть первоисточник", "Бастапқы дереккөзді ашу")}
-              <ArrowUpRight size={14} />
-            </a>
+            {(
+              detail.versions[0].delivery?.passport ||
+              METHOD_PASSPORTS[detail.id]
+            )?.links?.map(
+              (link: any) =>
+                /^https?:\/\//.test(link.url) && (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-link"
+                  >
+                    {link.label}
+                    <ArrowUpRight size={14} />
+                  </a>
+                ),
+            )}
             {me.role === "superadmin" && (
               <Link
                 href={`/platform?method=${detail.versions[0].id}`}

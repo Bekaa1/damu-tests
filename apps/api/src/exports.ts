@@ -8,10 +8,7 @@ import { orgId, requireRole, type Context } from "./access";
 import { db, audit } from "./db";
 import { getGeneratedReport } from "./generated-reports";
 import { REPORT_POLICY_VERSION } from "../../../packages/core/report-policy";
-import {
-  reportCss,
-  sanitizePdfText,
-} from "./report-layout";
+import { reportCss, sanitizePdfText } from "./report-layout";
 import { paginateProfessionalReport } from "./report-pagination";
 import {
   generatedContentSchema,
@@ -284,6 +281,25 @@ export async function exportTeamPdf(ctx: Context, campaignId: string) {
 }
 export async function exportGeneratedPdf(ctx: Context, id: string) {
   const report = await getGeneratedReport(ctx, id);
+  const sourceIds = ((report.snapshot as any)?.people || []).flatMap((p: any) =>
+    (p.results || [])
+      .filter((r: any) => r.score && r.resultId)
+      .map((r: any) => r.resultId),
+  );
+  const invalidSources = await db.testResult.count({
+    where: {
+      organizationId: orgId(ctx),
+      id: { in: sourceIds },
+      OR: [
+        { result: { path: ["validity", "eligible"], equals: false } },
+        { result: { path: ["excluded"], equals: true } },
+      ],
+    },
+  });
+  if (invalidSources)
+    throw new BadRequestException(
+      "Отчёт содержит тест с недостаточным числом ответов. После повторного прохождения сформируйте новый отчёт.",
+    );
   if (report.status !== "completed")
     throw new BadRequestException("Отчёт ещё не готов");
   if (report.policyVersion !== REPORT_POLICY_VERSION)

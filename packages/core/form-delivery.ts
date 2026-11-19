@@ -1,6 +1,15 @@
 // Delivery-only corrections approved in the expert review, 18 November 2026.
 // Main questions and scoring keys are deliberately unchanged.
+import { METHOD_PASSPORTS, neutralMotivationText } from "./method-passports";
 export function applyDeliveryCorrections(form: any) {
+  form.delivery.passport = METHOD_PASSPORTS[form.id];
+  form.delivery.passportRevision = "2026-11-19";
+  if (METHOD_PASSPORTS[form.id])
+    form.limitations = METHOD_PASSPORTS[form.id].validation;
+  form.delivery.questionCount = form.questions.length;
+  if (form.id === "motivation")
+    for (const question of form.questions)
+      question.text.ru = neutralMotivationText(question.text.ru);
   if (["personality", "motivation"].includes(form.id)) {
     form.timeLimitSeconds = null;
     form.instructions.ru = form.instructions.ru

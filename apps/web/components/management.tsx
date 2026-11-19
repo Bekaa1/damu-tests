@@ -50,6 +50,7 @@ import {
 } from "./ui";
 import { AddPerson } from "./organization";
 import { QualityReview } from "./quality-review";
+import { ConsentRecord } from "./consent";
 import { RetakeAction, AttemptHistory } from "./retakes";
 import { displayAttemptStatus } from "../../../packages/core/assessment-policy";
 export function Participant({ id }: { id: string }) {
@@ -83,6 +84,7 @@ export function Participant({ id }: { id: string }) {
                     {data.member.position} · {data.member.unit}
                   </p>
                   <small className="text-muted">{data.member.user.email}</small>
+                  <ConsentRecord member={data.member} />
                 </div>
               </div>
               <div className="page-actions">
@@ -255,7 +257,14 @@ export function Participant({ id }: { id: string }) {
                           editable={editable}
                           onChange={() => void refresh()}
                         />
-                        {!s ? (
+                        {s?.validity?.eligible === false || s?.excluded ? (
+                          <p className="notice warning">
+                            {t(
+                              `Полностью отвечено: ${s.validity?.answered ?? 0} из ${s.validity?.total ?? 0}. Минимум для зачёта: ${s.validity?.required ?? 0}. Результат не учитывается в отчётах и аналитике.`,
+                              `Толық жауап берілгені: ${s.validity?.answered ?? 0} / ${s.validity?.total ?? 0}. Есепке алу минимумы: ${s.validity?.required ?? 0}. Нәтиже есептер мен талдауға кірмейді.`,
+                            )}
+                          </p>
+                        ) : !s ? (
                           <p className="text-muted text-small">
                             {t(
                               "Результаты появятся после завершения теста.",

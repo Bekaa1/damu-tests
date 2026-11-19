@@ -9,6 +9,7 @@ import {
   type NormResult,
 } from "../../../packages/core/frozen-norms";
 import { invalidProfile } from "../../../packages/core/report-policy";
+import { usableAttempt } from "../../../packages/core/result-validity";
 export async function normRoster(
   client: any,
   organizationId: string,
@@ -31,7 +32,7 @@ export async function normRoster(
   const rows: NormResult[] = tasks.flatMap((t: any) => {
     const a = t.attempts[0],
       r = a?.results[0];
-    return a?.status === "completed" && r
+    return usableAttempt(a) && r
       ? [
           {
             membershipId: t.membershipId,
@@ -48,11 +49,7 @@ export async function normRoster(
   const completed = members.filter((id) =>
     tasks
       .filter((t: any) => t.membershipId === id)
-      .every(
-        (t: any) =>
-          t.attempts[0]?.status === "completed" &&
-          t.attempts[0]?.results.length,
-      ),
+      .every((t: any) => usableAttempt(t.attempts[0])),
   );
   const excluded = new Set(
     rows

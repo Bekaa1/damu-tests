@@ -13,6 +13,7 @@ import { z } from "zod";
 import { db, audit, json } from "./db";
 import { orgId, requireRole, participant, type Context } from "./access";
 import { defaultMatrix } from "../../../packages/core/contracts";
+import { usableAttempt } from "../../../packages/core/result-validity";
 export async function createOrganization(ctx: Context, input: unknown) {
   requireRole(ctx, "superadmin");
   const d = z
@@ -266,17 +267,15 @@ export async function listPeople(ctx: Context, campaignId?: string) {
     : [];
   return members.map((m) => {
     const tasks = assignments.filter((a) => a.membershipId === m.id);
-    const done = tasks.filter(
-      (a) => a.attempts[0]?.status === "completed",
-    ).length;
+    const done = tasks.filter((a) => usableAttempt(a.attempts[0])).length;
     const now = Date.now();
     const activeAttempt = tasks.some(
       (a) =>
         a.attempts[0]?.status === "in_progress" &&
         (a.attempts[0]?._count.answers ?? 0) > 0,
     );
-    const expiredAttempt = tasks.some(
-      (a) => a.attempts[0]?.status === "expired",
+    const expiredAttempt = tasks.some((a) =>
+      ["expired", "retry_required"].includes(a.attempts[0]?.status),
     );
     const report = reports.find((r) => r.membershipId === m.id);
     return {
@@ -314,7 +313,9 @@ export async function listPeople(ctx: Context, campaignId?: string) {
         scoringKeyId: a.attempts[0]?.results[0]?.scoringKeyId,
         language: a.attempts[0]?.language,
         name: a.testVersion.test.name,
-        score: a.attempts[0]?.results[0]?.result ?? null,
+        score: usableAttempt(a.attempts[0])
+          ? a.attempts[0].results[0].result
+          : null,
       })),
     };
   });

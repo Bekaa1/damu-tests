@@ -12,6 +12,7 @@ import {
   CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
 import { queueCompletedAssessment } from "./report-lifecycle";
+import { assessmentCompletion } from "../../../packages/core/result-validity";
 import { orgId, requireRole, participant, type Context } from "./access";
 import {
   calculateScore,
@@ -311,7 +312,8 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
       where: { assignmentId: id },
       orderBy: { attemptNumber: "desc" },
     });
-    if (latest && latest.status !== "expired") return latest;
+    if (latest && !["expired", "retry_required"].includes(latest.status))
+      return latest;
     return tx.testAttempt.create({
       data: {
         organizationId: orgId(ctx),
@@ -482,7 +484,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
         revision: { increment: 1 },
       },
     });
-    if (current.status === "completed") {
+    if (["completed", "retry_required"].includes(current.status)) {
       const all = [
         ...current.answers.filter((a) => a.questionId !== data.questionId),
         answer,
@@ -492,32 +494,66 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
           attemptId_scoringKeyId: { attemptId: id, scoringKeyId: key.id },
         },
       });
-      const score = calculateScore(
-        key.algorithm,
-        key.config as ScoringConfig,
+      const validity = assessmentCompletion(
         deliveredQuestions(attempt.assignment.testVersion, id),
         Object.fromEntries(all.map((a) => [a.questionId, a.value])),
-        {
-          allowMissing: true,
-          durations: Object.fromEntries(
-            all.map((a) => [a.questionId, a.durationMs]),
-          ),
-          elapsedMs: Math.max(
-            0,
-            current.submittedAt!.getTime() - current.timerStartedAt!.getTime(),
-          ),
-        },
+        key.config as ScoringConfig,
+        key.algorithm === "scales",
       );
+      const score = validity.eligible
+        ? calculateScore(
+            key.algorithm,
+            key.config as ScoringConfig,
+            deliveredQuestions(attempt.assignment.testVersion, id),
+            Object.fromEntries(all.map((a) => [a.questionId, a.value])),
+            {
+              allowMissing: true,
+              durations: Object.fromEntries(
+                all.map((a) => [a.questionId, a.durationMs]),
+              ),
+              elapsedMs: Math.max(
+                0,
+                current.submittedAt!.getTime() -
+                  current.timerStartedAt!.getTime(),
+              ),
+            },
+          )
+        : {
+            algorithm: key.algorithm,
+            details: [],
+            excluded: true,
+            qualityFlags: ["insufficient_answers"],
+          };
       await tx.testResult.update({
         where: { id: previousScore.id },
         data: {
           result: json({
             ...score,
+            validity,
             sessionQuality: (previousScore.result as any).sessionQuality,
           }),
           reason: "delayed_answer_sync",
         },
       });
+      await tx.testAttempt.update({
+        where: { id },
+        data: { status: validity.eligible ? "completed" : "retry_required" },
+      });
+      if (current.status === "retry_required" && validity.eligible)
+        await tx.auditLog.create({
+          data: {
+            organizationId: orgId(ctx),
+            actorId: ctx.user.id,
+            action: "attempt.completed",
+            entityId: id,
+            detail: json({
+              reason: "delayed_answer_recovery",
+              completedAt: current.submittedAt,
+              recoveredAt: receivedAt,
+              ...validity,
+            }),
+          },
+        });
       await tx.auditLog.create({
         data: {
           organizationId: orgId(ctx),
@@ -551,7 +587,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       });
     return { revision: answer.revision, savedAt: answer.updatedAt, delayed };
   });
-  if (attempt.status === "completed")
+  if (["completed", "retry_required"].includes(attempt.status))
     void queueCompletedAssessment(
       attempt.organizationId,
       attempt.assignment.campaignId,
@@ -570,53 +606,64 @@ export async function submitAttempt(ctx: Context, id: string) {
       include: { answers: true, results: { orderBy: { createdAt: "asc" } } },
     });
     if (current.status === "expired") return { status: "expired" as const };
-    if (current.status === "completed")
+    if (current.status === "completed" || current.status === "retry_required")
       return {
-        status: "completed" as const,
+        status: current.status,
         resultId: current.results[0].id,
         campaignId: attempt.assignment.campaignId,
         membershipId: attempt.assignment.membershipId,
       };
     const questions = attempt.assignment.testVersion.questions;
-    const answered = new Set(
-      current.answers.map((answer) => answer.questionId),
-    );
-    const allAnswered = questions.every((question) =>
-      answered.has(question.id),
-    );
     const timeExpired = Boolean(
       current.expiresAt && current.expiresAt <= new Date(),
     );
     if (!current.timerStartedAt)
       throw new BadRequestException("Сначала начните основной тест");
-    if (!allAnswered && !attempt.assignment.testVersion.timeLimitSeconds)
-      throw new BadRequestException(
-        "Ответьте на все вопросы перед завершением",
-      );
     const key = await tx.scoringKey.findUniqueOrThrow({
       where: { id: current.scoringKeyId },
     });
+    const validity = assessmentCompletion(
+      questions.map(questionDTO),
+      Object.fromEntries(current.answers.map((a) => [a.questionId, a.value])),
+      key.config as ScoringConfig,
+      key.algorithm === "scales",
+    );
+    if (!validity.eligible && key.algorithm === "scales" && !timeExpired)
+      throw new BadRequestException(
+        "Ответьте на все вопросы и полностью заполните задание с выбором приоритетов, если оно есть",
+      );
     let score;
     try {
-      score = calculateScore(
-        key.algorithm,
-        key.config as ScoringConfig,
-        deliveredQuestions(attempt.assignment.testVersion, id),
-        Object.fromEntries(current.answers.map((a) => [a.questionId, a.value])),
-        {
-          allowMissing: Boolean(
-            attempt.assignment.testVersion.timeLimitSeconds,
-          ),
-          durations: Object.fromEntries(
-            current.answers.map((a) => [a.questionId, a.durationMs]),
-          ),
-          elapsedMs: Math.max(
-            0,
-            Math.min(Date.now(), current.expiresAt?.getTime() ?? Date.now()) -
-              current.timerStartedAt!.getTime(),
-          ),
-        },
-      );
+      score = validity.eligible
+        ? calculateScore(
+            key.algorithm,
+            key.config as ScoringConfig,
+            deliveredQuestions(attempt.assignment.testVersion, id),
+            Object.fromEntries(
+              current.answers.map((a) => [a.questionId, a.value]),
+            ),
+            {
+              allowMissing: Boolean(
+                attempt.assignment.testVersion.timeLimitSeconds,
+              ),
+              durations: Object.fromEntries(
+                current.answers.map((a) => [a.questionId, a.durationMs]),
+              ),
+              elapsedMs: Math.max(
+                0,
+                Math.min(
+                  Date.now(),
+                  current.expiresAt?.getTime() ?? Date.now(),
+                ) - current.timerStartedAt!.getTime(),
+              ),
+            },
+          )
+        : {
+            algorithm: key.algorithm,
+            details: [],
+            excluded: true,
+            qualityFlags: ["insufficient_answers"],
+          };
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -637,20 +684,20 @@ export async function submitAttempt(ctx: Context, id: string) {
         attemptId_scoringKeyId: { attemptId: id, scoringKeyId: key.id },
       },
       update: {
-        result: json({ ...score, sessionQuality }),
+        result: json({ ...score, validity, sessionQuality }),
         reason: "completed_after_extension",
       },
       create: {
         organizationId: orgId(ctx),
         attemptId: id,
         scoringKeyId: key.id,
-        result: json({ ...score, sessionQuality }),
+        result: json({ ...score, validity, sessionQuality }),
       },
     });
     await tx.testAttempt.update({
       where: { id },
       data: {
-        status: "completed",
+        status: validity.eligible ? "completed" : "retry_required",
         submittedAt: timeExpired ? current.expiresAt : new Date(),
         manuallySubmittedAt: timeExpired ? null : new Date(),
         pausedAt: null,
@@ -660,18 +707,21 @@ export async function submitAttempt(ctx: Context, id: string) {
       data: {
         organizationId: orgId(ctx),
         actorId: ctx.user.id,
-        action: "attempt.completed",
+        action: validity.eligible
+          ? "attempt.completed"
+          : "attempt.insufficient_answers",
         entityId: id,
         detail: json({
           completedAt: timeExpired ? current.expiresAt : new Date(),
           reason: timeExpired ? "deadline" : "submitted",
-          answered: current.answers.length,
+          answered: validity.answered,
+          required: validity.required,
           total: questions.length,
         }),
       },
     });
     return {
-      status: "completed" as const,
+      status: validity.eligible ? "completed" : "retry_required",
       resultId: result.id,
       campaignId: attempt.assignment.campaignId,
       membershipId: attempt.assignment.membershipId,

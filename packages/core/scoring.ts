@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { responseQuality } from "./response-quality";
 
 export const localized = z.object({
   ru: z.string().min(1),
@@ -87,6 +88,7 @@ export type Score = {
   level?: number;
   elapsedSeconds?: number;
   qualityFlags?: string[];
+  responseQuality?: ReturnType<typeof responseQuality>;
   reviewRequired?: boolean;
   motivation?: {
     baseline: number;
@@ -298,6 +300,7 @@ function baseScore(
     for (const [id, s] of Object.entries(config.scales ?? {}))
       scales[id] = { ...s, sum: 0, mean: 0, count: 0 };
     for (const d of details) {
+      if (d.value === null) continue;
       const key = config.items[d.questionId];
       let n = d.value === null ? 0 : numericValue(d.value);
       if (key.reverse && d.value !== null)
@@ -305,13 +308,15 @@ function baseScore(
       if (!key.scales?.length) throw new Error("Не задана шкала вопроса");
       for (const id of key.scales) {
         if (!scales[id]) throw new Error("Неизвестная шкала");
-        if (d.value === null) scales[id].min = 0;
         scales[id].sum += n;
         scales[id].count++;
       }
     }
-    for (const s of Object.values(scales)) {
-      if (!s.count) throw new Error("Пустая шкала");
+    for (const [id, s] of Object.entries(scales)) {
+      if (!s.count) {
+        delete scales[id];
+        continue;
+      }
       s.mean = s.sum / s.count;
     }
     return { algorithm, scales, details, interpretation: "raw_only" };
@@ -447,12 +452,7 @@ export function calculateScore(
     for (const id of config.invertScales ?? []) {
       const s = result.scales[id];
       if (s) {
-        const missing = result.details.filter(
-          (d) =>
-            d.value === null && config.items[d.questionId].scales?.includes(id),
-        ).length;
-        s.sum =
-          (s.count - missing) * ((config.min ?? 1) + (config.max ?? 5)) - s.sum;
+        s.sum = s.count * ((config.min ?? 1) + (config.max ?? 5)) - s.sum;
         s.mean = s.sum / s.count;
       }
     }
@@ -497,7 +497,10 @@ export function calculateScore(
         flags.push("contradictions");
       result.reviewRequired = flags.length >= 2;
     }
-    if (config.quality === "motivation") {
+    if (
+      config.quality === "motivation" &&
+      Object.keys(result.scales).length === 12
+    ) {
       const scales = result.scales;
       const baseline =
         Object.values(scales).reduce((s, x) => s + x.mean, 0) / 12;
@@ -558,6 +561,19 @@ export function calculateScore(
     }
     result.qualityFlags = flags;
   }
+  const quality = responseQuality(questions, answers, options.durations);
+  result.responseQuality = quality;
+  const qualityFlags = new Set(
+    (result.qualityFlags || []).filter(
+      (f) => !["too_fast", "straightlining"].includes(f),
+    ),
+  );
+  if (quality.fastAnswers) qualityFlags.add("too_fast");
+  if (quality.longestRun >= quality.runThreshold)
+    qualityFlags.add("straightlining");
+  result.qualityFlags = [...qualityFlags];
+  if (config.quality === "personality")
+    result.reviewRequired = qualityFlags.size >= 2;
   return result;
 }
 export function verifyScoringConfig(

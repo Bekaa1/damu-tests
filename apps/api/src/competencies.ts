@@ -169,7 +169,13 @@ export async function competencyEvidence(
         if (attempt?.status !== "completed") continue;
         const r = attempt.results[attempt.results.length - 1],
           score = r?.result as any;
-        if (!r || score.reviewRequired) continue;
+        if (
+          !r ||
+          score.reviewRequired ||
+          score.validity?.eligible === false ||
+          score.excluded
+        )
+          continue;
         if (
           mapping.scales.length &&
           !mapping.scales.some(

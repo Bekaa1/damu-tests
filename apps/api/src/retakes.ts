@@ -84,7 +84,7 @@ export async function assignRetakes(
       if (
         !previous ||
         previous.id !== selected.previousAttemptId ||
-        previous.status !== "completed"
+        !["completed", "retry_required", "expired"].includes(previous.status)
       )
         throw new ConflictException(
           "Состояние тестов изменилось. Обновите карточку: повтор доступен только для завершённых тестов.",

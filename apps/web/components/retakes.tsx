@@ -19,8 +19,9 @@ export function RetakeAction({
     [error, setError] = useState("");
   const eligible = data.assignments.filter(
     (a: any) =>
-      a.attempts[0]?.status === "completed" &&
-      a.testVersion.status === "published",
+      ["completed", "retry_required", "expired"].includes(
+        a.attempts[0]?.status,
+      ) && a.testVersion.status === "published",
   );
   if (data.member.role !== "employee") return null;
   return (

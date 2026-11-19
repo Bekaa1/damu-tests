@@ -115,6 +115,7 @@ export function invalidProfile(person: ReportPerson) {
   return person.results.some((r) => {
     const score = r.score;
     if (!score) return false;
+    if (score.validity?.eligible === false || score.excluded) return true;
     if (score.invalidProfile || score.reviewRequired) return true;
     if (score.qualityReview) return false;
     return (

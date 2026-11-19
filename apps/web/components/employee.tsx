@@ -224,8 +224,7 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
               {visibleAssignments.map((a) => {
                 const v = a.testVersion,
                   attempt = a.attempts[0],
-                  questionCount =
-                    v.delivery?.questionCount ?? v._count.questions,
+                  questionCount = v._count.questions,
                   remainingSeconds =
                     attempt?.status === "in_progress" && attempt.expiresAt
                       ? Math.max(
@@ -237,8 +236,12 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                           ),
                         )
                       : null,
-                  timedOut = attempt?.status === "expired",
-                  status = timedOut ? "expired" : displayAttemptStatus(attempt),
+                  timedOut = ["expired", "retry_required"].includes(
+                    attempt?.status,
+                  ),
+                  status = timedOut
+                    ? "retry_required"
+                    : displayAttemptStatus(attempt),
                   canResume =
                     attempt?.status === "in_progress" &&
                     Boolean(attempt.timerStartedAt),

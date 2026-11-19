@@ -60,6 +60,7 @@ export function TestRunner({ id }: { id: string }) {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [done, setDone] = useState(false),
+    [retryRequired, setRetryRequired] = useState(false),
     [running, setRunning] = useState(false),
     [deadline, setDeadline] = useState<number | null>(null),
     [remaining, setRemaining] = useState<number | null>(null),
@@ -93,7 +94,10 @@ export function TestRunner({ id }: { id: string }) {
     const active = Boolean(snapshot.timerStartedAt);
     setRunning(active);
     runningRef.current = active;
-    const completed = snapshot.status === "completed";
+    const completed = ["completed", "retry_required", "expired"].includes(
+      snapshot.status,
+    );
+    setRetryRequired(["retry_required", "expired"].includes(snapshot.status));
     setDone(completed);
     finished.current = completed;
     setDeadline(
@@ -335,7 +339,7 @@ export function TestRunner({ id }: { id: string }) {
         action: document.visibilityState === "visible" ? "return" : "heartbeat",
       });
       // An earlier heartbeat may arrive after a successful submission.
-      if (finished.current && a.status !== "completed") return;
+      if (finished.current && a.status === "in_progress") return;
       offlineRef.current = false;
       if (offline) opened.current = Date.now();
       setOffline(false);
@@ -436,9 +440,10 @@ export function TestRunner({ id }: { id: string }) {
           t("Дождитесь сохранения ответов", "Жауаптардың сақталуын күтіңіз"),
         );
       const r = await post(`/attempts/${id}/submit`);
-      if (r.status === "completed") {
+      if (["completed", "retry_required", "expired"].includes(r.status)) {
         finished.current = true;
         setDone(true);
+        setRetryRequired(r.status !== "completed");
         localStorage.removeItem(storage);
       }
     } catch (e) {
@@ -485,17 +490,34 @@ export function TestRunner({ id }: { id: string }) {
         loading={completion.loading || (!completion.data && !completion.error)}
         error={completion.error}
       >
-        {allDone ? (
+        {allDone && !retryRequired ? (
           <AssessmentComplete />
         ) : (
           <Panel>
             <Empty
-              icon={<CheckCircle2 size={30} />}
-              title={t("Тестирование завершено", "Тестілеу аяқталды")}
-              description={t(
-                "Ответы сохранены, результаты рассчитаны.",
-                "Жауаптар сақталды, нәтижелер есептелді.",
-              )}
+              icon={
+                retryRequired ? (
+                  <Clock3 size={30} />
+                ) : (
+                  <CheckCircle2 size={30} />
+                )
+              }
+              title={
+                retryRequired
+                  ? t("Необходимо пройти заново", "Қайта өту қажет")
+                  : t("Тестирование завершено", "Тестілеу аяқталды")
+              }
+              description={
+                retryRequired
+                  ? t(
+                      "Недостаточно полностью отвеченных заданий. Этот результат не учитывается в отчётах и аналитике. Если есть ответы, сохранённые без интернета, дождитесь их отправки. Новую попытку можно начать в кабинете.",
+                      "Толық жауап берілген тапсырмалар жеткіліксіз. Бұл нәтиже есептер мен талдауға кірмейді. Интернетсіз сақталған жауаптар болса, жіберілгенін күтіңіз. Жаңа әрекетті жеке кабинетте бастауға болады.",
+                    )
+                  : t(
+                      "Ответы сохранены, результаты рассчитаны.",
+                      "Жауаптар сақталды, нәтижелер есептелді.",
+                    )
+              }
               action={
                 <Link className="button primary" href="/cabinet">
                   {t("Вернуться в кабинет", "Кабинетке оралу")}
@@ -693,6 +715,17 @@ export function TestRunner({ id }: { id: string }) {
                 {practice < 0 ? (
                   <>
                     <Material text={loc(data.instructions)} />
+                    <p className="notice">
+                      {data.timeLimitSeconds
+                        ? t(
+                            `Для зачёта необходимо полностью ответить минимум на ${Math.ceil(data.questions.length * 0.8)} из ${data.questions.length} заданий (80%). Иначе тест необходимо пройти заново; результат не попадёт в отчёт и аналитику.`,
+                            `Есепке алу үшін ${data.questions.length} тапсырманың кемінде ${Math.ceil(data.questions.length * 0.8)} тапсырмасына (80%) толық жауап беру қажет. Әйтпесе тестті қайта өту керек; нәтиже есеп пен талдауға кірмейді.`,
+                          )
+                        : t(
+                            "Для зачёта необходимо ответить на все задания.",
+                            "Есепке алу үшін барлық тапсырмаға жауап беру қажет.",
+                          )}
+                    </p>
                     {data.questions.length === 49 && (
                       <p>
                         {t(
@@ -986,12 +1019,12 @@ export function TestRunner({ id }: { id: string }) {
                     <p>
                       {data.timeLimitSeconds
                         ? t(
-                            "Пропущенные вопросы получат 0 баллов. После завершения ответы изменить нельзя.",
-                            "Өткізілген сұрақтарға 0 балл беріледі. Аяқтағаннан кейін жауаптарды өзгерту мүмкін емес.",
+                            "Если полностью отвечено меньше 80% заданий, тест необходимо пройти заново: результат не учитывается. При достижении порога пропущенные вопросы получают 0 баллов. После завершения ответы изменить нельзя.",
+                            "Тапсырмалардың 80%-ынан азына толық жауап берілсе, тестті қайта өту қажет: нәтиже есепке алынбайды. Шекке жеткенде өткізіп жіберілген сұрақтарға 0 балл беріледі. Аяқтағаннан кейін жауаптарды өзгерту мүмкін емес.",
                           )
                         : t(
-                            "Ответьте на все утверждения и завершите выбор приоритетов.",
-                            "Барлық тұжырымдарға жауап беріп, басымдықтарды таңдауды аяқтаңыз.",
+                            "Перед завершением ответьте на все задания опросника.",
+                            "Аяқтамас бұрын сауалнаманың барлық тапсырмаларына жауап беріңіз.",
                           )}
                     </p>
                     <Button

@@ -1,4 +1,6 @@
 import { initializeCompetencies } from "./competencies";
+import { repairHistoricalResults } from "./result-repair";
+import { updateMethodMetadata } from "./method-metadata";
 import { startReportWatchdog } from "./report-lifecycle";
 import "reflect-metadata";
 import "dotenv/config";
@@ -85,6 +87,8 @@ app.use((req: any, res: any, next: any) => {
 });
 app.useGlobalFilters(new ApiErrors());
 await initializeCompetencies();
+await updateMethodMetadata();
+await repairHistoricalResults();
 const reportWatchdog = startReportWatchdog();
 const worker = startAiWorker();
 const reportWorker = startReportWorker();

@@ -54,10 +54,17 @@ export async function queueAi(
   });
   const model = settings?.aiModel || process.env.OPENROUTER_MODEL || "";
   const storedPrompt = settings?.aiPrompt || "";
-  const prompt = !storedPrompt || /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(storedPrompt)
-    ? DEFAULT_AI_PROMPT
-    : storedPrompt;
-  const promptVersion = prompt === DEFAULT_AI_PROMPT ? "2.0" : settings?.aiPromptVersion || "custom";
+  const prompt =
+    !storedPrompt ||
+    /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(
+      storedPrompt,
+    )
+      ? DEFAULT_AI_PROMPT
+      : storedPrompt;
+  const promptVersion =
+    prompt === DEFAULT_AI_PROMPT
+      ? "2.0"
+      : settings?.aiPromptVersion || "custom";
   const providerConfig = {
     only: (settings?.aiProviderAllowlist ?? []) as string[],
     zdr: settings?.aiZdr ?? true,
@@ -145,10 +152,14 @@ export async function generateAi(
     where: { id: reportId },
   });
   if (report.status === "completed") return;
-  const prompt = /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(report.prompt || "")
-    ? DEFAULT_AI_PROMPT
-    : report.prompt || DEFAULT_AI_PROMPT;
-  const promptVersion = prompt === DEFAULT_AI_PROMPT ? "2.0" : report.promptVersion;
+  const prompt =
+    /Frame interpretations as hypotheses to validate, not facts about behavior/i.test(
+      report.prompt || "",
+    )
+      ? DEFAULT_AI_PROMPT
+      : report.prompt || DEFAULT_AI_PROMPT;
+  const promptVersion =
+    prompt === DEFAULT_AI_PROMPT ? "2.0" : report.promptVersion;
   const settings = await db.platformSettings.findUniqueOrThrow({
     where: { id: "default" },
   });
@@ -178,6 +189,17 @@ export async function generateAi(
   });
   if (results.length !== (report.resultIds as string[]).length)
     throw new Error("Result snapshot is incomplete");
+  if (
+    results.some(
+      (r) =>
+        r.attempt.status !== "completed" ||
+        (r.result as any).validity?.eligible === false ||
+        (r.result as any).excluded,
+    )
+  )
+    throw new Error(
+      "Insufficient answers: result is excluded from interpretation",
+    );
   const input = {
     participantId: createHash("sha256")
       .update(`${report.organizationId}:${member.id}`)
@@ -185,17 +207,19 @@ export async function generateAi(
       .slice(0, 24),
     category: member.category,
     language: results[0]?.attempt.language ?? "ru",
-    results: results.filter(r=>!(r.result as any).reviewRequired).map((r) => {
-      const v = r.attempt.assignment.testVersion;
-      const { details, ...scores } = r.result as Record<string, unknown>;
-      return {
-        id: r.id,
-        method: v.test.name,
-        version: v.version,
-        scoringKeyId: r.scoringKeyId,
-        scores,
-      };
-    }),
+    results: results
+      .filter((r) => !(r.result as any).reviewRequired)
+      .map((r) => {
+        const v = r.attempt.assignment.testVersion;
+        const { details, ...scores } = r.result as Record<string, unknown>;
+        return {
+          id: r.id,
+          method: v.test.name,
+          version: v.version,
+          scoringKeyId: r.scoringKeyId,
+          scores,
+        };
+      }),
   };
   const provider = report.providerConfig as { only?: string[]; zdr?: boolean };
   const request = {
@@ -250,7 +274,8 @@ export async function generateAi(
     });
     if (
       organization.status !== "active" ||
-      (spent._sum.cost ?? 0) + (reportSpend._sum.cost ?? 0) + 1 > organization.aiBudget
+      (spent._sum.cost ?? 0) + (reportSpend._sum.cost ?? 0) + 1 >
+        organization.aiBudget
     )
       return false;
     await tx.aiReport.update({
@@ -341,7 +366,8 @@ export async function generateAi(
 export function startAiWorker() {
   const worker = new Worker(
     "assessflow-ai",
-    (job) => generateAi(job.data.reportId, job.attemptsMade, job.opts.attempts ?? 1),
+    (job) =>
+      generateAi(job.data.reportId, job.attemptsMade, job.opts.attempts ?? 1),
     { connection, concurrency: 1 },
   );
   worker.on("error", () => {});

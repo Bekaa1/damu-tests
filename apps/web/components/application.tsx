@@ -1,5 +1,5 @@
 "use client";
-import { Consent, AnswerRecovery } from "./consent";
+import { Consent, ConsentRecord, AnswerRecovery } from "./consent";
 import { CONSENT_VERSION } from "../../../packages/core/assessment-policy";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -163,7 +163,10 @@ export function Application() {
     );
   if (me.user.mustChangePassword)
     return <ChangePassword onDone={reload} locale={locale} />;
-  if (me.role === "employee" && me.member?.consentVersion !== CONSENT_VERSION)
+  if (
+    me.role === "employee" &&
+    (!me.member?.consentAt || me.member?.consentVersion !== CONSENT_VERSION)
+  )
     return <Consent locale={locale} onDone={reload} />;
   const isEmployee = me.role === "employee",
     isExpert = me.role === "expert";
@@ -396,6 +399,7 @@ export function Application() {
             ))}
           </nav>
           <div className="sidebar-bottom">
+            {isEmployee && <ConsentRecord member={me.member} />}
             <button className="nav-item" onClick={() => setHelp(!help)}>
               <HelpCircle size={19} />
               {t("Помощь и поддержка", "Көмек және қолдау")}

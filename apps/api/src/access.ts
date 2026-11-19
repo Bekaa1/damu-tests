@@ -60,7 +60,7 @@ export class AccessGuard implements CanActivate {
       throw new ForbiddenException("Доступ организации приостановлен");
     if (
       member?.role === "employee" &&
-      member.consentVersion !== CONSENT_VERSION &&
+      (!member.consentAt || member.consentVersion !== CONSENT_VERSION) &&
       ![
         "/api/me",
         "/api/me/consent",

@@ -21,6 +21,10 @@ export function QualityReview({
   )
     return null;
   const flags: Record<string, string> = {
+    insufficient_answers: t(
+      "Недостаточно ответов — результат не учитывается",
+      "Жауаптар жеткіліксіз — нәтиже есепке алынбайды",
+    ),
     fast_answers: t("Очень быстрые ответы", "Өте жылдам жауаптар"),
     slow_precise: t(
       "Невысокий темп при высокой точности",
@@ -77,9 +81,22 @@ export function QualityReview({
           {Math.round(score.sessionQuality.awayMs / 1000)} {t("сек", "сек")}
         </p>
       )}
-      {editable && (
+      {score.qualityFlags?.length > 0 && (
         <p>
           {score.qualityFlags?.map((x: string) => flags[x] || x).join(" · ")}
+        </p>
+      )}
+      {score.responseQuality && (
+        <p>
+          {t("Ответов быстрее 2 секунд", "2 секундтан жылдам жауаптар")}:{" "}
+          {score.responseQuality.fastAnswers} /{" "}
+          {score.responseQuality.timedAnswers}
+          {" · "}
+          {t(
+            "Самая длинная серия одинаковых ответов",
+            "Бірдей жауаптардың ең ұзын қатары",
+          )}
+          : {score.responseQuality.longestRun}
         </p>
       )}
       {score.reviewRequired && editable && (

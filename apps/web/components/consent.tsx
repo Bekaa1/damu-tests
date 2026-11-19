@@ -4,7 +4,51 @@ import {
   CONSENT_TEXT,
   CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
-import { Button, post, type Locale } from "./ui";
+import { Button, Modal, useApp, post, type Locale } from "./ui";
+export function ConsentRecord({ member }: { member: any }) {
+  const { t, locale } = useApp();
+  const [open, setOpen] = useState(false);
+  const current =
+    member?.consentAt && member?.consentVersion === CONSENT_VERSION;
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        {t("Согласие на обработку данных", "Деректерді өңдеуге келісім")}
+      </Button>
+      {open && (
+        <Modal
+          title={t(
+            "Согласие на обработку данных",
+            "Деректерді өңдеуге келісім",
+          )}
+          onClose={() => setOpen(false)}
+        >
+          <p>
+            {current
+              ? t("Согласие подтверждено", "Келісім расталды")
+              : t(
+                  "Актуальное согласие ещё не подтверждено",
+                  "Өзекті келісім әлі расталмаған",
+                )}
+          </p>
+          {member?.consentAt && (
+            <p>
+              {t("Дата подтверждения", "Растау күні")}:{" "}
+              {new Date(member.consentAt).toLocaleString(
+                locale === "kk" ? "kk-KZ" : "ru-RU",
+              )}{" "}
+              · {t("Редакция", "Нұсқа")}: {member.consentVersion}
+            </p>
+          )}
+          <p>{CONSENT_TEXT[locale]}</p>
+          <small>
+            {t("Текущая редакция", "Қазіргі нұсқа")}: {CONSENT_VERSION}
+          </small>
+        </Modal>
+      )}
+    </>
+  );
+}
 export function Consent({
   locale,
   onDone,
