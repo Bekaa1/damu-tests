@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { responseQuality } from "./response-quality";
+import { percentageLevel } from "./test-levels";
 
 export const localized = z.object({
   ru: z.string().min(1),
@@ -421,11 +422,7 @@ export function calculateScore(
     result.accuracy = result.answered
       ? (100 * result.total) / result.answered
       : 0;
-    if (config.mode === "effectiveness") {
-      const p = result.percent!;
-      result.level = p < 40 ? 1 : p < 55 ? 2 : p < 70 ? 3 : p < 85 ? 4 : 5;
-    } else if (config.bands)
-      result.level = config.bands.findIndex((x) => result.total! <= x) + 1;
+    result.level = percentageLevel(result.percent!) ?? undefined;
   }
   if (algorithm === "sjt") {
     result.competencies = {};

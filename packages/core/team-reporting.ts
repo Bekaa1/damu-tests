@@ -5,7 +5,19 @@ import {
   reportText,
   roundReport,
   testLevel,
+  personalityProfile,
+  personalityBand,
+  levelText,
 } from "./report-policy";
+import { testScoreSummary } from "./test-levels";
+
+function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b),
+    middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
 
 export const JOB_GROUPS = [
   { id: "director_hq", ru: "Директор ГО", kk: "Бас кеңсе директоры" },
@@ -97,7 +109,17 @@ export function teamReportData(
       testId: string;
       scale: string;
       percentage: boolean;
-      values: { p: ReportPerson; value: number; level: number | null }[];
+      comparableKey: string;
+      maximum: number | null;
+      normBased: boolean;
+      values: {
+        p: ReportPerson;
+        value: number;
+        level: number | null;
+        total?: number;
+        priority: number;
+        band: number | null;
+      }[];
     }
   >();
   for (const p of valid)
@@ -130,14 +152,36 @@ export function teamReportData(
           testId: r.testId,
           scale: id,
           percentage: !s,
+          comparableKey: base,
+          maximum: !s ? score.maximum : null,
+          normBased: !!s?.reportNorm,
           values: [] as {
             p: ReportPerson;
             value: number;
             level: number | null;
+            total?: number;
+            priority: number;
+            band: number | null;
           }[],
         };
-        if (!m.values.some((v) => v.p.id === p.id))
-          m.values.push({ p, value, level: s ? null : testLevel(score) });
+        if (!m.values.some((v) => v.p.id === p.id)) {
+          const domain =
+            r.testId === "personality"
+              ? personalityProfile(p, language).find((d) => d.id === id)
+              : null;
+          m.values.push({
+            p,
+            value,
+            level: s ? null : testLevel(score),
+            total: s ? undefined : score.total,
+            priority: score.motivation?.profile?.[id]?.adjusted ?? value,
+            band: domain
+              ? domain.reportNorm
+                ? domain.reportNorm.sten
+                : domain.mean
+              : null,
+          });
+        }
         metrics.set(key, m);
       }
     }
@@ -162,6 +206,35 @@ export function teamReportData(
       testId: m.testId,
       scale: m.scale,
       percentage: m.percentage,
+      comparableKey: m.comparableKey,
+      maximum: m.maximum,
+      medianTotal:
+        m.percentage && m.values.length >= 5
+          ? median(m.values.map((v) => v.total!))
+          : null,
+      groupTotals: JOB_GROUPS.map((g) => {
+        const rows = m.values.filter((v) => jobGroup(v.p) === g.id);
+        return rows.length >= 5 && m.percentage
+          ? median(rows.map((v) => v.total!))
+          : null;
+      }),
+      medianPriority:
+        m.testId === "motivation" && m.values.length >= 5
+          ? median(m.values.map((v) => v.priority))
+          : null,
+      personalityBand:
+        m.testId === "personality" &&
+        m.values.filter((v) => v.band !== null).length >= 5
+          ? (() => {
+              const value = median(
+                m.values.flatMap((v) => (v.band === null ? [] : [v.band])),
+              );
+              return personalityBand(
+                m.normBased ? (value <= 2 ? 1 : value >= 9 ? 5 : 3) : value,
+                language,
+              );
+            })()
+          : null,
       overall: summaryStats(m.values.map((v) => v.value)),
       groups: JOB_GROUPS.map((g) => ({
         id: g.id,
@@ -254,4 +327,72 @@ export function teamReportData(
     methods,
     competencies: competencyStats,
   };
+}
+
+/** Compact test-only view shared by the customer PDF and its narrative generator.
+ * Detailed measurements and expert consensus remain available through teamReportData/admin/Excel.
+ */
+export function teamTestReportData(
+  snapshot: ReportSnapshot,
+  language: ReportLanguage,
+) {
+  const data = teamReportData(snapshot, language);
+  const summary = (
+    total: number | null,
+    maximum: number | null,
+    stats: ReturnType<typeof summaryStats>,
+  ) => {
+    if (total === null || maximum === null || stats.suppressed) return null;
+    const score = testScoreSummary({ total, maximum });
+    return score
+      ? { ...score, n: stats.n, label: levelText(score.level, language) }
+      : null;
+  };
+  const methods = data.methods
+    .filter((m) => m.percentage)
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      testId: m.testId,
+      overall: summary(m.medianTotal, m.maximum, m.overall),
+      groups: m.groups.map((g, i) => ({
+        id: g.id,
+        name: JOB_GROUPS[i][language],
+        summary: summary(m.groupTotals[i], m.maximum, g),
+      })),
+      distribution: m.distribution,
+      comparison: m.comparison,
+    }));
+  const personality = data.methods
+    .filter((m) => m.testId === "personality")
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      band: m.personalityBand,
+    }));
+  const forms = new Map<string, typeof data.methods>();
+  for (const m of data.methods.filter((m) => m.testId === "motivation")) {
+    const rows = forms.get(m.comparableKey) || [];
+    rows.push(m);
+    forms.set(m.comparableKey, rows);
+  }
+  const motivation = [...forms.values()].map((rows) => {
+    // Do not rank an incomplete or suppressed profile: that could reveal small cells.
+    const available =
+      rows.length >= 6 && rows.every((m) => m.medianPriority !== null);
+    const sorted = available
+      ? [...rows].sort(
+          (a, b) =>
+            b.medianPriority! - a.medianPriority! ||
+            a.scale.localeCompare(b.scale),
+        )
+      : [];
+    const compact = (m: (typeof rows)[number]) => ({ id: m.id, name: m.name });
+    return {
+      available,
+      top: sorted.slice(0, 3).map(compact),
+      bottom: sorted.slice(-3).reverse().map(compact),
+    };
+  });
+  return { passport: data.passport, methods, personality, motivation };
 }

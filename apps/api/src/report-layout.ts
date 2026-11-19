@@ -49,6 +49,7 @@ export function sanitizePdfText(value: unknown) {
     .trim();
 }
 export const reportCss = [
+  ".score-calculation{font-size:13px;line-height:1.6;margin:0 0 18px;font-weight:600;color:#285f58}.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;break-inside:avoid}",
   "*{box-sizing:border-box}body{margin:0;color:#1e3442;font:13px/1.55 Arial,'DejaVu Sans',sans-serif}",
   "h1,h2,h3,p{margin:0}h1{font-size:29px;line-height:1.2;letter-spacing:-.5px;margin:13px 0 9px}h2{font-size:19px;line-height:1.3;margin:25px 0 12px}h3{font-size:14px;margin:17px 0 9px}h1,h2,h3{break-after:avoid}",
   "p{margin:9px 0;white-space:pre-line;overflow-wrap:anywhere;orphans:3;widows:3}small,.muted{color:#657a86}.note{font-size:11px;line-height:1.55;color:#657a86;margin:10px 0 16px}",

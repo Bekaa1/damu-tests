@@ -190,7 +190,7 @@ describe("Professional reports", () => {
     expect(rendered.html).not.toContain("<script>");
     expect(rendered.html).not.toContain("<img src=x");
     expect(rendered.html).toContain("&lt;script&gt;");
-    expect(rendered.html.match(/<section class="report-page/g)).toHaveLength(7);
+    expect(rendered.html.match(/<section class="report-page/g)).toHaveLength(6);
     expect(rendered.html).not.toContain("metric-1");
   });
   it("applies the individual PDF copy cleanup to team reports", () => {

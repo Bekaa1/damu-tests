@@ -1,6 +1,7 @@
 import type { ReportLanguage, ReportPerson, ReportSnapshot } from "./reporting";
+import { percentageLevel, testScoreSummary } from "./test-levels";
 
-export const REPORT_POLICY_VERSION = "customer-2026-11-17.1";
+export const REPORT_POLICY_VERSION = "customer-2026-11-19.1";
 export const roundReport = (n: number) =>
   Math.round((n + Number.EPSILON) * 10) / 10;
 export const reportText = (v: any, language: ReportLanguage) =>
@@ -61,14 +62,14 @@ export function personalityBand(value: number, language: ReportLanguage) {
     text:
       language === "ru"
         ? {
-            low: "выражено слабо",
-            middle: "в среднем диапазоне",
-            high: "выражено сильно",
+            low: "низкий",
+            middle: "средний",
+            high: "высокий",
           }[band]
         : {
-            low: "аз байқалады",
-            middle: "орташа ауқымда",
-            high: "айқын байқалады",
+            low: "төмен",
+            middle: "орташа",
+            high: "жоғары",
           }[band],
   };
 }
@@ -127,31 +128,18 @@ export function invalidProfile(person: ReportPerson) {
   });
 }
 export function testLevel(score: any) {
-  if (Number.isInteger(score?.level) && score.level >= 1 && score.level <= 5)
-    return score.level as number;
-  const percent =
-    typeof score?.percent === "number"
-      ? score.percent
-      : typeof score?.total === "number" && score.maximum > 0
-        ? (100 * score.total) / score.maximum
-        : null;
-  if (percent === null) return null;
   if (
-    Array.isArray(score.bandThresholds) &&
-    score.bandThresholds.length === 5
-  ) {
-    const i = score.bandThresholds.findIndex((n: number) => score.total <= n);
-    return i < 0 ? 5 : i + 1;
-  }
-  return percent < 40
-    ? 1
-    : percent < 55
-      ? 2
-      : percent < 70
-        ? 3
-        : percent < 85
-          ? 4
-          : 5;
+    score?.excluded ||
+    score?.validity?.eligible === false ||
+    score?.reviewRequired
+  )
+    return null;
+  // Stored levels and absolute bands may belong to an older policy.
+  const summary = testScoreSummary(score);
+  return (
+    summary?.level ??
+    (typeof score?.percent === "number" ? percentageLevel(score.percent) : null)
+  );
 }
 export function levelText(
   level: number | null,
@@ -169,14 +157,7 @@ export function levelText(
         "выше требуемого",
         "значительно выше",
       ]
-    : [
-        "",
-        "начальный уровень",
-        "уровень ниже среднего",
-        "средний уровень",
-        "уровень выше среднего",
-        "высокий уровень",
-      ];
+    : ["", "низкий", "ниже среднего", "средний", "выше среднего", "высокий"];
   const kk = approvedTarget
     ? [
         "",
@@ -186,14 +167,7 @@ export function levelText(
         "талаптан жоғары",
         "едәуір жоғары",
       ]
-    : [
-        "",
-        "бастапқы деңгей",
-        "орташадан төмен деңгей",
-        "орташа деңгей",
-        "орташадан жоғары деңгей",
-        "жоғары деңгей",
-      ];
+    : ["", "төмен", "орташадан төмен", "орташа", "орташадан жоғары", "жоғары"];
   return (language === "ru" ? ru : kk)[level];
 }
 export function motivationProfile(
@@ -225,7 +199,7 @@ export function motivationProfile(
     bottom: [...sorted]
       .reverse()
       .filter((s) => !sorted.slice(0, 3).includes(s))
-      .slice(0, 2),
+      .slice(0, 3),
   };
 }
 export function riskEvidence(person: ReportPerson, language: ReportLanguage) {

@@ -144,7 +144,7 @@ describe("Customer report policy 17.11", () => {
       reportContentIssues(c, s, "team").some((i) => i.code === "personal_data"),
     ).toBe(true);
   });
-  it("keeps raw scores in appendix and interview prompts out of public PDF", () => {
+  it("omits the numerical appendix, facets and expert competency pages from the public PDF", () => {
     const s = reviewFixture(1),
       c = dataReport(s, "ru"),
       html = customerReportTemplate(s, c, {
@@ -156,8 +156,11 @@ describe("Customer report policy 17.11", () => {
     expect(main).not.toContain("3,1");
     expect(main).not.toContain("Вопросы для интервью");
     expect(main).not.toContain("Тревожность");
-    expect(html).toContain("3,1");
-    expect(html.match(/<section class="report-page/g)).toHaveLength(8);
+    expect(html).not.toContain("3,1");
+    expect(html).not.toContain("Приложение:");
+    expect(html).not.toContain("Профиль компетенций");
+    expect(html).not.toContain("Спокойствие в неопределённости");
+    expect(html.match(/<section class="report-page/g)).toHaveLength(6);
     expect(reportContentIssues(c, s, "individual")).toEqual([]);
   });
 });

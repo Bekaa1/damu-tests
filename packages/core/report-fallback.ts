@@ -10,7 +10,7 @@ import {
   personalityProfile,
   motivationProfile,
 } from "./report-policy";
-import { teamReportData } from "./team-reporting";
+import { teamTestReportData } from "./team-reporting";
 export function dataReport(
   snapshot: ReportSnapshot,
   language: ReportLanguage,
@@ -44,7 +44,7 @@ export function dataReport(
     limitations: [],
   };
   if (kind === "team") {
-    const data = teamReportData(snapshot, language);
+    const data = teamTestReportData(snapshot, language);
     result.summary = [
       statement(
         t(
@@ -53,22 +53,22 @@ export function dataReport(
         ),
       ),
     ];
-    const training = data.competencies
-      .filter((c) => c.training)
-      .sort((a, b) => b.training!.count - a.training!.count)
+    const training = data.methods
+      .filter((c) => c.overall)
+      .sort((a, b) => a.overall!.percent - b.overall!.percent)
       .slice(0, 4);
     for (const c of training) {
       result.development.push(
         statement(
-          `${c.name}: ${t("потребность в развитии подтверждена итоговой экспертной оценкой", "даму қажеттілігі сарапшының қорытынды бағасымен расталған")}.`,
+          `${c.name}: ${t("направление практики по результатам тестирования группы", "топтың тест нәтижелері бойынша тәжірибе бағыты")}.`,
           [c.id],
         ),
       );
       result.developmentPlan.push({
         focus: c.name,
         action: t(
-          `Группа: ${c.training!.count} участников. Разберите рабочие кейсы, отработайте действия в паре и примените их к текущей задаче.`,
-          `Топ: ${c.training!.count} қатысушы. Жұмыс кейстерін талдап, әрекеттерді жұппен пысықтап, ағымдағы міндетке қолданыңыз.`,
+          "Разберите рабочие кейсы по этому направлению, сопоставьте варианты решений и примените выбранный способ к текущей задаче.",
+          "Осы бағыттағы жұмыс кейстерін талдап, шешім нұсқаларын салыстырып, таңдалған тәсілді ағымдағы міндетке қолданыңыз.",
         ),
         format: t(
           "Практикум и сопровождение руководителя",
@@ -76,8 +76,8 @@ export function dataReport(
         ),
         timeframe: t("6 недель", "6 апта"),
         success: t(
-          "Повторное наблюдение по тем же поведенческим индикаторам",
-          "Сол мінез-құлық индикаторлары бойынша қайталап бақылау",
+          "Обоснованное решение рабочего кейса с проверкой исходных данных и результата",
+          "Бастапқы деректер мен нәтижені тексеріп, жұмыс кейсіне негізделген шешім ұсыну",
         ),
         evidenceIds: [c.id],
       });
@@ -104,14 +104,14 @@ export function dataReport(
             ),
           );
       }
-    for (const s of personalityProfile(p, language)
-      .filter((s) => s.facet && s.interpretable && s.band !== "middle")
-      .slice(0, 6))
+    for (const s of personalityProfile(p, language).filter(
+      (s) => !s.facet && s.interpretable,
+    ))
       result.personality.push(
         statement(
           t(
-            `В самоописании «${reportText(s.name, language)}» ${s.text}.`,
-            `Өзіндік сипаттауда «${reportText(s.name, language)}» ${s.text}.`,
+            `В самоописании уровень шкалы «${reportText(s.name, language)}»: ${s.text}.`,
+            `Өзіндік сипаттауда «${reportText(s.name, language)}» шкаласының деңгейі: ${s.text}.`,
           ),
           evidence,
         ),
@@ -182,16 +182,6 @@ export function dataReport(
             ? "Жұмыс міндетіндегі заңдылыққа бірнеше түсініктеме ұсынып, әрқайсысын қарсы мысалмен тексеріңіз. Шешім таңдау критерийін жазыңыз."
             : "Жұмыс құжатындағы фактілерді, қорытындыларды және болжамдарды бөліңіз. Әр шешімді құжаттың нақты шартына сілтемемен негіздеңіз.",
       );
-    }
-    const profile = p.competencyProfile,
-      rating = profile?.consensus?.scores?.ratings
-        .filter((r: any) => typeof r.value === "number")
-        .sort((a: any, b: any) => a.value - b.value)[0];
-    if (rating) {
-      const c = profile.model.content.competencies.find(
-        (c: any) => c.id === rating.competencyId,
-      );
-      if (c) result.developmentPlan[1].focus = reportText(c.name, language);
     }
     if (motivation.top[0]) {
       result.developmentPlan[2].focus = motivation.top[0].name;

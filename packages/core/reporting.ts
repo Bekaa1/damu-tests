@@ -273,7 +273,7 @@ export const generatedContentSchema = z
   })
   .strict();
 export type GeneratedContent = z.infer<typeof generatedContentSchema>;
-export const REPORT_PROMPT_VERSION = "reports-2.1-frozen-norms";
+export const REPORT_PROMPT_VERSION = "reports-2.2-test-summary";
 export function validateReportEvidence(
   content: GeneratedContent,
   evidence: Set<string>,
