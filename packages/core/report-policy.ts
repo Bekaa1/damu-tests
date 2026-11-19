@@ -112,6 +112,21 @@ export function personalityProfile(
     };
   });
 }
+export function averagePersonalitySummary(
+  bands: (string | null)[],
+  language: ReportLanguage,
+  team = false,
+) {
+  if (bands.length !== 5 || bands.some((band) => band !== "middle"))
+    return null;
+  if (language === "kk")
+    return team
+      ? "Топ бойынша барлық бес шкаланың нәтижелері орташа диапазонда, айқын ерекшеліктер жоқ."
+      : "Барлық бес шкала бойынша нәтижелер орташа диапазонда, айқын ерекшеліктер жоқ.";
+  return team
+    ? "По всем пяти шкалам результаты группы в среднем диапазоне, выраженных особенностей нет."
+    : "По всем пяти шкалам результаты в среднем диапазоне, выраженных особенностей нет.";
+}
 export function invalidProfile(person: ReportPerson) {
   return person.results.some((r) => {
     const score = r.score;

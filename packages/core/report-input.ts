@@ -6,6 +6,7 @@ import {
   testLevel,
   levelText,
   roundReportInput,
+  averagePersonalitySummary,
 } from "./report-policy";
 import { teamTestReportData } from "./team-reporting";
 
@@ -16,6 +17,7 @@ export const REPORT_PROMPT = [
   "Не делай выводов о поведении на работе, пригодности к должности, здоровье и честности.",
   "Рекомендации формулируй через действие: «придаст уверенности…», «поможет…», а не через недостаток.",
   "These language rules also apply to Kazakh. Describe only the five supplied personality domain bands in words, without numbers. Do not discuss facets, omitted scales or infer balance from missing data.",
+  "If personality.overviewText (individual) or personalityOverview (team) is supplied, use that exact sentence as the sole statement in the personality section. Do not paraphrase it, enumerate the five average scales again, or repeat the same personality finding in summary or strengths. Never write «описывает себя средним образом». Without the supplied overview, describe the actual domain differences concisely and without repetition.",
   "Competencies are assessed by the expert in a separate conclusion. This is a test-results report. Always set competencies=[], potential=[], risks=[]. Do not infer expert ratings or observed workplace behavior from test scores.",
   "Describe abilities using the supplied level and label. The PDF renderer adds exact scores, percentages, calculations and the common legend. Do not repeat numerical calculations in the narrative or invent percentiles. Levels use the exact percentage: <40=1, <55=2, <70=3, <85=4, otherwise 5; display rounding does not change the level. Never use older absolute score bands.",
   "For motivation describe only the supplied top three and bottom three priorities, without numeric scores. For SJT describe only the overall level, never infer competencies or workplace behavior from individual cases. Include: «Тест не измеряет поведение в реальной работе» in Russian, or its Kazakh translation.",
@@ -35,7 +37,16 @@ export function reportAiInput(
   if (kind === "team") {
     const data = teamTestReportData(snapshot, language);
     return {
-      input: roundReportInput({ kind, language, ...data }),
+      input: roundReportInput({
+        kind,
+        language,
+        ...data,
+        personalityOverview: averagePersonalitySummary(
+          data.personality.map((s) => s.band?.band ?? null),
+          language,
+          true,
+        ),
+      }),
       evidence: new Set([
         "coverage",
         ...data.methods.map((m) => m.id),
@@ -68,6 +79,10 @@ export function reportAiInput(
       abilities: levels(["verbal", "numerical", "logical"]),
       personality: {
         allDomainsAvailable: domains.length === 5,
+        overviewText: averagePersonalitySummary(
+          domains.map((s) => s.band),
+          language,
+        ),
         domains: domains.map((s) => ({
           name: reportText(s.name, language),
           band: s.text,

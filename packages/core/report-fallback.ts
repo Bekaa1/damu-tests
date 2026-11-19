@@ -9,6 +9,7 @@ import {
   reportText,
   personalityProfile,
   motivationProfile,
+  averagePersonalitySummary,
 } from "./report-policy";
 import { teamTestReportData } from "./team-reporting";
 export function dataReport(
@@ -45,6 +46,12 @@ export function dataReport(
   };
   if (kind === "team") {
     const data = teamTestReportData(snapshot, language);
+    const overview = averagePersonalitySummary(
+      data.personality.map((s) => s.band?.band ?? null),
+      language,
+      true,
+    );
+    if (overview) result.personality = [statement(overview)];
     result.summary = [
       statement(
         t(
@@ -104,18 +111,25 @@ export function dataReport(
             ),
           );
       }
-    for (const s of personalityProfile(p, language).filter(
+    const domains = personalityProfile(p, language).filter(
       (s) => !s.facet && s.interpretable,
-    ))
-      result.personality.push(
-        statement(
-          t(
-            `В самоописании уровень шкалы «${reportText(s.name, language)}»: ${s.text}.`,
-            `Өзіндік сипаттауда «${reportText(s.name, language)}» шкаласының деңгейі: ${s.text}.`,
+    );
+    const overview = averagePersonalitySummary(
+      domains.map((s) => (s.reportNorm?.sten === null ? null : s.band)),
+      language,
+    );
+    if (overview) result.personality = [statement(overview, evidence)];
+    else
+      for (const s of domains)
+        result.personality.push(
+          statement(
+            t(
+              `В самоописании уровень шкалы «${reportText(s.name, language)}»: ${s.text}.`,
+              `Өзіндік сипаттауда «${reportText(s.name, language)}» шкаласының деңгейі: ${s.text}.`,
+            ),
+            evidence,
           ),
-          evidence,
-        ),
-      );
+        );
     const motivation = motivationProfile(p, language);
     if (motivation.top.length)
       result.motivation.push(

@@ -135,6 +135,53 @@ describe("Customer report revisions 19.11", () => {
     expect(m.top.map((x) => x.id)).toEqual(["M1", "M12", "M11"]);
     expect(m.bottom.map((x) => x.id)).toEqual(["M2", "M3", "M4"]);
   });
+  it("uses one concise personality paragraph only when all five domains are available and average", () => {
+    for (const kind of ["individual", "team"] as const)
+      for (const language of ["ru", "kk"] as const) {
+        const s = reportSummaryFixture(kind === "team" ? 5 : 1);
+        for (const p of s.people)
+          for (const [id, scale] of Object.entries(
+            p.results[1].score.scales,
+          ) as [string, any][])
+            if (id.length === 1) scale.mean = 3;
+        const c = dataReport(s, language, kind);
+        expect(c.personality).toHaveLength(1);
+        const expected = c.personality[0].text;
+        if (kind === "individual" && language === "ru")
+          expect(expected).toBe(
+            "По всем пяти шкалам результаты в среднем диапазоне, выраженных особенностей нет.",
+          );
+        expect(
+          JSON.stringify(reportAiInput(s, kind, language).input),
+        ).toContain(expected);
+        c.personality = [
+          {
+            text: "Описывает себя средним образом.",
+            evidenceIds: ["coverage"],
+          },
+          { text: "Повтор описания каждой шкалы.", evidenceIds: ["coverage"] },
+        ];
+        const render = () =>
+          customerReportTemplate(s, c, {
+            kind,
+            language,
+            createdAt: "2026-11-19",
+          }).html;
+        expect(render().split(expected)).toHaveLength(2);
+        expect(render()).not.toContain("Описывает себя средним образом");
+        expect(render()).not.toContain("Повтор описания каждой шкалы");
+        for (const p of s.people) p.results[1].score.scales.E.mean = 4.5;
+        expect(render()).not.toContain(expected);
+        for (const p of s.people) {
+          p.results[1].score.scales.E.mean = 3;
+          p.results[1].score.scales.N.reportNorm = { sten: null };
+        }
+        expect(render()).not.toContain(expected);
+        expect(
+          JSON.stringify(reportAiInput(s, kind, language).input),
+        ).not.toContain(expected);
+      }
+  });
   it("derives the group level from median raw scores and suppresses small cells or incompatible keys", () => {
     const s = reportSummaryFixture(6);
     const d = teamTestReportData(s, "ru");

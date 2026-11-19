@@ -9,6 +9,7 @@ import {
   motivationProfile,
   levelText,
   roundReport,
+  averagePersonalitySummary,
 } from "../../../packages/core/report-policy";
 import { testScoreSummary } from "../../../packages/core/test-levels";
 import { teamTestReportData } from "../../../packages/core/team-reporting";
@@ -157,6 +158,11 @@ export function customerReportTemplate(
         );
       })
       .join("");
+    const personalityOverview = averagePersonalitySummary(
+      data.personality.map((s) => s.band?.band ?? null),
+      lang,
+      true,
+    );
     const personality = data.personality
       .map((s) =>
         s.band
@@ -200,7 +206,9 @@ export function customerReportTemplate(
           personality +
             section(
               t("Особенности самоописания", "Өзіндік сипаттау ерекшеліктері"),
-              content.personality,
+              personalityOverview
+                ? [{ text: personalityOverview }]
+                : content.personality,
             ),
         ) +
         page(
@@ -235,6 +243,10 @@ export function customerReportTemplate(
     (s) => !s.facet && s.interpretable,
   );
   const motivation = motivationProfile(person, lang);
+  const personalityOverview = averagePersonalitySummary(
+    domains.map((s) => (s.reportNorm?.sten === null ? null : s.band)),
+    lang,
+  );
   return {
     label,
     html:
@@ -292,7 +304,9 @@ export function customerReportTemplate(
           .join("") +
           section(
             t("Особенности самоописания", "Өзіндік сипаттау ерекшеліктері"),
-            content.personality,
+            personalityOverview
+              ? [{ text: personalityOverview }]
+              : content.personality,
           ),
       ) +
       page(
