@@ -9,15 +9,20 @@ import {
 import { assessmentCompletion } from "../packages/core/result-validity";
 
 // Synthetic fixtures live in a separate campaign and never enter the 65-person reference cohort.
+const requestedOrganization = process.argv
+  .find((arg) => arg.startsWith("--organization="))
+  ?.slice("--organization=".length);
 if (
   !["localhost", "127.0.0.1"].includes(
     new URL(process.env.DATABASE_URL!).hostname,
   ) &&
-  !process.argv.includes("--production-review-demo")
+  (!process.argv.includes("--production-review-demo") || !requestedOrganization)
 )
-  throw Error("A remote database requires explicit --production-review-demo");
+  throw Error(
+    "A remote database requires --production-review-demo and --organization=<id>",
+  );
 const db = new PrismaClient(),
-  organizationId = "demo-organization",
+  organizationId = requestedOrganization || "demo-organization",
   campaignId = "review-demo-20261119";
 const json = (v: unknown) => JSON.parse(JSON.stringify(v));
 try {
