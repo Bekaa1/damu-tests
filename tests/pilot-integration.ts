@@ -199,6 +199,8 @@ try {
   assert(
     (consent.detail as any).textHash && (consent.detail as any).acceptedAt,
   );
+  assert((consent.detail as any).deletionDueAt);
+  assert(PILOT_CONSENT_TEXT.ru.includes("3 календарных месяца"));
   mark(
     "Ordinary consent is not reused for pilot; explicit acceptance stores text/version/date/hash atomically",
   );
@@ -343,6 +345,10 @@ try {
   mark(
     "Another organization's administrator cannot discover, read or export pilot data, including forged organization header",
   );
+  await db.membership.update({where:{id:`${id}-employee`},data:{createdAt:new Date(Date.now()-180*86400000)}});
+  await api(employee.request, "/me", undefined, 403);
+  await api(admin.request, `/people/${id}-employee?campaignId=${id}`, undefined, 403);
+  mark("Expired pilot participation is inaccessible to participant and admin before the cleanup sweep");
   assert.deepEqual(errors, []);
   await writeFile(folder + "/checks.json", JSON.stringify(checks, null, 2));
 } finally {

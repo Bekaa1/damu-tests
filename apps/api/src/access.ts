@@ -1,4 +1,4 @@
-import { hasCurrentConsent } from "../../../packages/core/pilot";
+import { hasCurrentConsent, pilotDataExpired } from "../../../packages/core/pilot";
 import {
   CanActivate,
   ExecutionContext,
@@ -58,6 +58,8 @@ export class AccessGuard implements CanActivate {
       : null;
     if (!user.platformAdmin && org?.status !== "active")
       throw new ForbiddenException("Доступ организации приостановлен");
+    if (pilotDataExpired(member, org))
+      throw new ForbiddenException("Срок хранения данных пилота истёк. Обратитесь к организатору.");
     if (
       member?.role === "employee" &&
       !hasCurrentConsent(member, org) &&
@@ -97,6 +99,8 @@ export async function participant(
     where: { id, organizationId: orgId(ctx) },
   });
   if (!member) throw new ForbiddenException("Участник недоступен");
+  if (pilotDataExpired(member, ctx.org))
+    throw new ForbiddenException("Срок хранения данных участника пилота истёк");
   if (ctx.role === "employee" && ctx.member?.id !== id)
     throw new ForbiddenException("Участник недоступен");
   if (ctx.role === "expert") {

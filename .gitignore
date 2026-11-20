@@ -19,3 +19,4 @@ output/retakes/
 output/delivery-review/
 output/completion-review/
 output/pilot-review/
+__pycache__/

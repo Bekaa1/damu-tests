@@ -8,7 +8,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
 import { answerWithinWindow } from "../../../packages/core/assessment-policy";
-import { hasCurrentConsent, pilotCanStart } from "../../../packages/core/pilot";
+import { hasCurrentConsent, pilotCanStart, pilotDeletionDate } from "../../../packages/core/pilot";
 import { queueCompletedAssessment } from "./report-lifecycle";
 import { assessmentCompletion } from "../../../packages/core/result-validity";
 import { orgId, requireRole, participant, type Context } from "./access";
@@ -362,6 +362,8 @@ export async function getAttempt(ctx: Context, id: string) {
     serverTime: new Date(),
     delivery: version.delivery,
     campaignId: attempt.assignment.campaignId,
+    dataDeletionAt: ctx.org?.purpose === "pilot" && ctx.member?.role === "employee"
+      ? pilotDeletionDate(ctx.member.createdAt).toISOString() : null,
     name: version.test.name,
     instructions: version.instructions,
     questions: version.questions.map(questionDTO).map((q) => ({

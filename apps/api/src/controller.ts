@@ -1,4 +1,4 @@
-import { consentPolicy } from "../../../packages/core/pilot";
+import { consentPolicy, pilotDeletionDate } from "../../../packages/core/pilot";
 import { recordEmployerPermission } from "./pilot";
 import { createHash } from "node:crypto";
 import { getNormStatus, freezeNorm } from "./norms";
@@ -292,6 +292,9 @@ export class AppController {
             locale: req.ctx.user.locale,
             acceptedAt: consentAt.toISOString(),
             purpose: req.ctx.org?.purpose || "assessment",
+            ...(req.ctx.org?.purpose === "pilot" && req.ctx.member?.role === "employee"
+              ? { deletionDueAt: pilotDeletionDate(req.ctx.member.createdAt).toISOString() }
+              : {}),
           },
         },
       });

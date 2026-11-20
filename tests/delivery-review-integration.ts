@@ -223,6 +223,11 @@ try {
     "Abstract training A–F, correct C/E images and explanations in RU/KK; no timer until start or answer hints in main test",
   );
 
+  await page.reload();
+  await expect(page.locator(".new-question")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Перед началом", exact: true })).toHaveCount(0);
+  assert.equal((await snapshot(logical.id)).expiresAt, deadline);
+  mark("Started abstract test with zero answers resumes without training and keeps its deadline");
   await page.locator(".new-question .answer-option").first().click();
   await expect
     .poll(async () => (await snapshot(logical.id)).answers.length)
