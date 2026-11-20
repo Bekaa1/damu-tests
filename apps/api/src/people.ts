@@ -20,6 +20,7 @@ export async function createOrganization(ctx: Context, input: unknown) {
     .object({
       name: z.string().min(2).max(150),
       slug: z.string().regex(/^[a-z0-9-]{3,50}$/),
+      purpose: z.enum(["assessment", "pilot"]).default("assessment"),
       adminName: z.string().min(3).max(150),
       adminEmail: z.email().transform((s) => s.toLowerCase()),
     })
@@ -31,6 +32,7 @@ export async function createOrganization(ctx: Context, input: unknown) {
       data: {
         name: d.name,
         slug: d.slug,
+        purpose: d.purpose,
         showPreliminary: true,
         showApproved: true,
         matrixConfig: json(defaultMatrix),

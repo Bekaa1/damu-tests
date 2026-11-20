@@ -75,6 +75,7 @@ model Organization {
   id String @id @default(cuid())
   name String
   slug String @unique
+  purpose String @default("assessment")
   status String @default("active")
   logoUrl String?
   color String @default("#25635f")
@@ -138,6 +139,7 @@ model Campaign {
   organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
   name String
   description String @default("")
+  employerPermission Json?
   status String @default("active")
   startsAt DateTime @default(now())
   endsAt DateTime

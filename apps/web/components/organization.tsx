@@ -1,4 +1,5 @@
 "use client";
+import { PilotPermission } from "./pilot-permission";
 import { questionCountText } from "../../../packages/core/assessment-policy";
 import { METHOD_PASSPORTS } from "../../../packages/core/method-passports";
 import { useState, useMemo } from "react";
@@ -940,6 +941,7 @@ export function Campaigns() {
             </div>
             <h2 style={{ margin: "20px 0 9px" }}>{c.name}</h2>
             <p className="text-small text-muted">{c.description}</p>
+            <PilotPermission campaign={c} />
             <p className="text-small text-muted mt">
               {date(c.startsAt)} — {date(c.endsAt)}
             </p>

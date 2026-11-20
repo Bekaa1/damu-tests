@@ -193,7 +193,7 @@ export async function queueCompletedAssessment(
     where: { id: membershipId, organizationId },
     include: { organization: true, user: true },
   });
-  if (!member) return;
+  if (!member || member.organization.purpose === "pilot") return;
   const ctx: Context = {
     org: member.organization,
     user: member.user,

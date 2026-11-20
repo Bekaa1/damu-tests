@@ -1,7 +1,5 @@
-import {
-  CONSENT_TEXT,
-  CONSENT_VERSION,
-} from "../../../packages/core/assessment-policy";
+import { consentPolicy } from "../../../packages/core/pilot";
+import { recordEmployerPermission } from "./pilot";
 import { createHash } from "node:crypto";
 import { getNormStatus, freezeNorm } from "./norms";
 import { grouping, saveScheme, assignGroup, exportGroups } from "./grouping";
@@ -234,7 +232,7 @@ export class AppController {
               },
         select: { id: true, name: true, slug: true },
       }),
-      consent: { version: CONSENT_VERSION, text: CONSENT_TEXT },
+      consent: consentPolicy(req.ctx.org),
       demo: process.env.DEMO_MODE === "true",
     };
   }
@@ -267,28 +265,37 @@ export class AppController {
     @Req() req: AuthRequest,
     @Body() body: unknown,
   ) {
+    const policy = consentPolicy(req.ctx.org);
     z.object({
       accepted: z.literal(true),
-      version: z.literal(CONSENT_VERSION),
+      version: z.literal(policy.version),
     }).parse(body);
     if (!req.ctx.member) throw new BadRequestException();
-    await db.membership.update({
-      where: { id: req.ctx.member.id },
-      data: { consentAt: new Date(), consentVersion: CONSENT_VERSION },
+    const consentAt = new Date();
+    await db.$transaction(async (tx) => {
+      await tx.membership.update({
+        where: { id: req.ctx.member!.id },
+        data: { consentAt, consentVersion: policy.version },
+      });
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId(req.ctx),
+          actorId: req.ctx.user.id,
+          action: "consent.accepted",
+          entityId: req.ctx.member!.id,
+          detail: {
+            version: policy.version,
+            text: policy.text,
+            textHash: createHash("sha256")
+              .update(JSON.stringify(policy.text))
+              .digest("hex"),
+            locale: req.ctx.user.locale,
+            acceptedAt: consentAt.toISOString(),
+            purpose: req.ctx.org?.purpose || "assessment",
+          },
+        },
+      });
     });
-    await audit(
-      orgId(req.ctx),
-      req.ctx.user.id,
-      "consent.accepted",
-      req.ctx.member.id,
-      {
-        version: CONSENT_VERSION,
-        textHash: createHash("sha256")
-          .update(JSON.stringify(CONSENT_TEXT))
-          .digest("hex"),
-        locale: req.ctx.user.locale,
-      },
-    );
     return { ok: true };
   }
   @Patch("me/locale") async locale(
@@ -313,6 +320,13 @@ export class AppController {
   }
   @Post("campaigns") campaign(@Req() req: AuthRequest, @Body() body: unknown) {
     return createCampaign(req.ctx, body);
+  }
+  @Post("campaigns/:id/employer-permission") employerPermission(
+    @Req() req: AuthRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return recordEmployerPermission(req.ctx, id, body);
   }
   @Post("assignments") assign(@Req() req: AuthRequest, @Body() body: unknown) {
     return assignTests(req.ctx, body);

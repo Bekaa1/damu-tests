@@ -406,6 +406,10 @@ export async function createGeneratedReport(
   automatic = false,
 ) {
   requireRole(ctx, "admin");
+  if (ctx.org?.purpose === "pilot")
+    throw new ForbiddenException(
+      "В пилоте автоматические отчёты и передача данных внешнему AI отключены. Результаты доступны команде проверки в аналитике и Excel.",
+    );
   const data = z
     .object({
       campaignId: z.string().min(1),

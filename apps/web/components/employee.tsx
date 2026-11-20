@@ -2,8 +2,8 @@
 import {
   displayAttemptStatus,
   questionCountText,
-  CONSENT_VERSION,
 } from "../../../packages/core/assessment-policy";
+import { consentPolicy, pilotCanStart } from "../../../packages/core/pilot";
 export { TestRunner } from "./test-runner";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -123,7 +123,7 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
       if (!me.member.consentAt) {
         await post("/me/consent", {
           accepted: consent,
-          version: CONSENT_VERSION,
+          version: consentPolicy(me.organization).version,
         });
         await reload();
       }
@@ -178,6 +178,22 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
         </div>
       )}
       <LoadState loading={loading} error={error}>
+        {me.organization.purpose === "pilot" && (
+          <div className="notice info mb">
+            {pilotCanStart(
+              me.organization,
+              campaigns.find((c) => c.id === campaign),
+            )
+              ? t(
+                  "Пилотное тестирование. Участие добровольное; индивидуальные результаты работодателю и руководству не передаются.",
+                  "Пилоттық тестілеу. Қатысу ерікті; жеке нәтижелер жұмыс берушіге және басшылыққа берілмейді.",
+                )
+              : t(
+                  "Пилот ещё не открыт. Ожидается подтверждение разрешения работодателя организатором.",
+                  "Пилот әлі ашылған жоқ. Ұйымдастырушы жұмыс берушінің рұқсатын растауы керек.",
+                )}
+          </div>
+        )}
         {allDone ? (
           <AssessmentComplete />
         ) : (
@@ -304,7 +320,13 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                     )}
                     <Button
                       variant={status === "completed" ? "secondary" : "primary"}
-                      disabled={status === "completed"}
+                      disabled={
+                        status === "completed" ||
+                        !pilotCanStart(
+                          me.organization,
+                          campaigns.find((c) => c.id === a.campaignId),
+                        )
+                      }
                       onClick={() => {
                         setSelected(a);
                         setStartError("");

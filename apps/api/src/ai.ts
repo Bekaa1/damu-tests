@@ -31,6 +31,11 @@ export async function queueAi(
   regenerate = false,
   oncePerCampaign = false,
 ) {
+  const pilot = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { purpose: true },
+  });
+  if (pilot?.purpose === "pilot") return { status: "disabled_for_pilot" };
   const tasks = await db.testAssignment.findMany({
     where: { organizationId, campaignId, membershipId },
     include: {

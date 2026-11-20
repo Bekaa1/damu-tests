@@ -1,15 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import {
-  CONSENT_TEXT,
-  CONSENT_VERSION,
-} from "../../../packages/core/assessment-policy";
+import { consentPolicy, hasCurrentConsent } from "../../../packages/core/pilot";
 import { Button, Modal, useApp, post, type Locale } from "./ui";
 export function ConsentRecord({ member }: { member: any }) {
-  const { t, locale } = useApp();
+  const { t, locale, me } = useApp();
+  const policy = consentPolicy(me.organization);
   const [open, setOpen] = useState(false);
-  const current =
-    member?.consentAt && member?.consentVersion === CONSENT_VERSION;
+  const current = hasCurrentConsent(member, me.organization);
   return (
     <>
       <Button variant="ghost" onClick={() => setOpen(true)}>
@@ -40,9 +37,9 @@ export function ConsentRecord({ member }: { member: any }) {
               · {t("Редакция", "Нұсқа")}: {member.consentVersion}
             </p>
           )}
-          <p>{CONSENT_TEXT[locale]}</p>
+          <p>{policy.text[locale]}</p>
           <small>
-            {t("Текущая редакция", "Қазіргі нұсқа")}: {CONSENT_VERSION}
+            {t("Текущая редакция", "Қазіргі нұсқа")}: {policy.version}
           </small>
         </Modal>
       )}
@@ -52,10 +49,15 @@ export function ConsentRecord({ member }: { member: any }) {
 export function Consent({
   locale,
   onDone,
+  organization,
+  onLocaleChange,
 }: {
   locale: Locale;
   onDone: () => Promise<void>;
+  organization?: { purpose?: string; name?: string };
+  onLocaleChange: (locale: Locale) => void;
 }) {
+  const policy = consentPolicy(organization);
   const [accepted, setAccepted] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -66,11 +68,12 @@ export function Consent({
         className="panel"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!accepted || busy) return;
           setBusy(true);
           try {
             await post("/me/consent", {
               accepted: true,
-              version: CONSENT_VERSION,
+              version: policy.version,
             });
             await onDone();
           } catch (e) {
@@ -80,12 +83,27 @@ export function Consent({
           }
         }}
       >
+        <label className="field">
+          {t("Язык", "Тіл")}
+          <select
+            value={locale}
+            onChange={(e) => onLocaleChange(e.target.value as Locale)}
+          >
+            <option value="ru">Русский</option>
+            <option value="kk">Қазақша</option>
+          </select>
+        </label>
         <h1>
-          {t("Согласие на обработку данных", "Деректерді өңдеуге келісім")}
+          {organization?.purpose === "pilot"
+            ? t("Согласие на участие в пилоте", "Пилотқа қатысуға келісім")
+            : t("Согласие на обработку данных", "Деректерді өңдеуге келісім")}
         </h1>
-        <p>{CONSENT_TEXT[locale]}</p>
+        {organization?.name && (
+          <p className="text-muted">{organization.name}</p>
+        )}
+        <p>{policy.text[locale]}</p>
         <small>
-          {t("Редакция", "Нұсқа")}: {CONSENT_VERSION}
+          {t("Редакция", "Нұсқа")}: {policy.version}
         </small>
         <label className="row">
           <input
@@ -99,6 +117,24 @@ export function Consent({
         {error && <p role="alert">{error}</p>}
         <Button disabled={!accepted} busy={busy}>
           {t("Принять и продолжить", "Қабылдап, жалғастыру")}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await post("/auth/sign-out");
+              localStorage.removeItem("assessflow.offline-session");
+              window.location.assign("/login");
+            } catch (e) {
+              setError((e as Error).message);
+              setBusy(false);
+            }
+          }}
+        >
+          {t("Отказаться и выйти", "Бас тартып, шығу")}
         </Button>
       </form>
     </main>

@@ -7,10 +7,8 @@ import {
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
-import {
-  answerWithinWindow,
-  CONSENT_VERSION,
-} from "../../../packages/core/assessment-policy";
+import { answerWithinWindow } from "../../../packages/core/assessment-policy";
+import { hasCurrentConsent, pilotCanStart } from "../../../packages/core/pilot";
 import { queueCompletedAssessment } from "./report-lifecycle";
 import { assessmentCompletion } from "../../../packages/core/result-validity";
 import { orgId, requireRole, participant, type Context } from "./access";
@@ -249,7 +247,7 @@ async function ownedAttempt(ctx: Context, id: string) {
 }
 export async function startAttempt(ctx: Context, id: string, input: unknown) {
   requireRole(ctx, "employee");
-  if (!ctx.member?.consentAt || ctx.member.consentVersion !== CONSENT_VERSION)
+  if (!ctx.member || !hasCurrentConsent(ctx.member, ctx.org))
     throw new ForbiddenException("Подтвердите согласие на обработку данных");
   const { language } = z
     .object({ language: z.enum(["ru", "kk"]) })
@@ -267,6 +265,10 @@ export async function startAttempt(ctx: Context, id: string, input: unknown) {
     },
   });
   if (!assignment) throw new NotFoundException("Назначение не найдено");
+  if (!pilotCanStart(ctx.org, assignment.campaign))
+    throw new ForbiddenException(
+      "Пилот ещё не открыт: организатор должен подтвердить разрешение работодателя",
+    );
   const existing = await db.testAttempt.findFirst({
     where: { assignmentId: id },
     orderBy: { attemptNumber: "desc" },

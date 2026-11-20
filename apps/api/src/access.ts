@@ -1,4 +1,4 @@
-import { CONSENT_VERSION } from "../../../packages/core/assessment-policy";
+import { hasCurrentConsent } from "../../../packages/core/pilot";
 import {
   CanActivate,
   ExecutionContext,
@@ -60,7 +60,7 @@ export class AccessGuard implements CanActivate {
       throw new ForbiddenException("Доступ организации приостановлен");
     if (
       member?.role === "employee" &&
-      (!member.consentAt || member.consentVersion !== CONSENT_VERSION) &&
+      !hasCurrentConsent(member, org) &&
       ![
         "/api/me",
         "/api/me/consent",

@@ -1,6 +1,6 @@
 "use client";
 import { Consent, ConsentRecord, AnswerRecovery } from "./consent";
-import { CONSENT_VERSION } from "../../../packages/core/assessment-policy";
+import { hasCurrentConsent } from "../../../packages/core/pilot";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -75,7 +75,7 @@ export function Application() {
       if (
         !session.user.mustChangePassword &&
         (session.role !== "employee" ||
-          session.member?.consentVersion === CONSENT_VERSION)
+          hasCurrentConsent(session.member, session.organization))
       ) {
         const cs = session.organization ? await api<any[]>("/campaigns") : [];
         setCampaigns(cs);
@@ -163,11 +163,15 @@ export function Application() {
     );
   if (me.user.mustChangePassword)
     return <ChangePassword onDone={reload} locale={locale} />;
-  if (
-    me.role === "employee" &&
-    (!me.member?.consentAt || me.member?.consentVersion !== CONSENT_VERSION)
-  )
-    return <Consent locale={locale} onDone={reload} />;
+  if (me.role === "employee" && !hasCurrentConsent(me.member, me.organization))
+    return (
+      <Consent
+        locale={locale}
+        organization={me.organization}
+        onLocaleChange={changeLocale}
+        onDone={reload}
+      />
+    );
   const isEmployee = me.role === "employee",
     isExpert = me.role === "expert";
   const nav = [
@@ -228,7 +232,15 @@ export function Application() {
                 },
               ]
             : []),
-          { href: "/reports", label: t("Отчёты", "Есептер"), icon: FileText },
+          ...(me.organization?.purpose === "pilot"
+            ? []
+            : [
+                {
+                  href: "/reports",
+                  label: t("Отчёты", "Есептер"),
+                  icon: FileText,
+                },
+              ]),
           ...(isExpert
             ? [
                 {
