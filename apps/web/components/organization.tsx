@@ -1,5 +1,7 @@
 "use client";
 import { PilotPermission } from "./pilot-permission";
+import { HOLDING_PROFILES, holdingProfile } from "../../../packages/core/holding";
+import { privateAnalytics } from "../../../packages/core/analytics-privacy";
 import { questionCountText } from "../../../packages/core/assessment-policy";
 import { METHOD_PASSPORTS } from "../../../packages/core/method-passports";
 import { useState, useMemo } from "react";
@@ -689,7 +691,9 @@ export function AddPerson({
   const { t, notify } = useApp();
   const [busy, setBusy] = useState(false),
     [created, setCreated] = useState<any>(null),
+    [profileRow, setProfileRow] = useState(""),
     [error, setError] = useState("");
+  const profile = holdingProfile(Number(profileRow));
   return (
     <Modal
       title={t(
@@ -742,7 +746,7 @@ export function AddPerson({
               setError("");
               const data = Object.fromEntries(new FormData(e.currentTarget));
               try {
-                setCreated(await post("/people", { ...data, role }));
+                setCreated(await post("/people", { ...data, role, ...(role === "employee" ? { profileRow: Number(profileRow) } : {}) }));
                 onSaved();
               } catch (e) {
                 setError((e as Error).message);
@@ -771,15 +775,23 @@ export function AddPerson({
                   placeholder="name@company.kz"
                 />
               </Field>
+              {role === "employee" && <Field label="Номер должностного профиля · исходный язык RU">
+                <select name="profileRow" required value={profileRow} onChange={e=>setProfileRow(e.target.value)}>
+                  <option value="">Выберите номер профиля (1–65)</option>
+                  {HOLDING_PROFILES.map(p=><option key={p.profileRow} value={p.profileRow}>№ {p.profileRow} · {p.block} · {p.unit} · {p.position}</option>)}
+                </select>
+                <small>Это номер профиля, не ID человека. Подразделение и должность берутся дословно из реестра.</small>
+                <small>CSV/XLSX: обязательные заголовки name,email,profile_row. unit/position заполняются из реестра; противоречащие значения отклоняются.</small>
+              </Field>}
               <Field label={t("Должность", "Лауазымы")}>
-                <input name="position" required />
+                {role === "employee" ? <input name="position" readOnly value={profile?.position ?? ""}/> : <input name="position" required /> }
               </Field>
               <Field label={t("Подразделение", "Бөлімше")}>
-                <input
+                {role === "employee" ? <input name="unit" readOnly value={profile?.unit ?? ""}/> : <input
                   name="unit"
                   required
                   defaultValue={t("Головной офис", "Бас кеңсе")}
-                />
+                /> }
               </Field>
               <Field label={t("Категория должности", "Лауазым санаты")}>
                 <input
@@ -996,6 +1008,7 @@ export function Campaigns() {
             <Field label={t("Описание", "Сипаттамасы")}>
               <textarea name="description" rows={3} />
             </Field>
+            <Field label="Страна выборки (необязательно)"><input name="country" maxLength={100} placeholder="Не указана"/><small>Только явно указанная страна; размещение сервера не определяет страну выборки.</small></Field>
             <Field label={t("Дата завершения", "Аяқталу күні")}>
               <input name="endsAt" type="date" required />
             </Field>
@@ -1059,6 +1072,7 @@ export function Library() {
                 <div className="method-note">
                   {t("Версия", "Нұсқа")} {v?.version} · RU / ҚАЗ
                 </div>
+                {m.direction === "situations" && (v?.delivery?.holdingModelVersion || v?.delivery?.keyPanelStatus === "unapproved") && <p className="notice warning" lang="ru">Ключ не утверждён экспертной панелью</p>}
                 <Button variant="secondary" onClick={() => setDetail(m)}>
                   {t("О методике", "Әдістеме туралы")}
                   <ArrowUpRight size={14} />
@@ -1150,17 +1164,7 @@ export function Analytics() {
     campaign ? `/people?campaignId=${campaign}` : null,
   );
   const [group, setGroup] = useState<"unit" | "position">("unit");
-  const people = (data || []).filter((p) => p.role === "employee");
-  const groupName = (person: any) =>
-    String(person[group] || "").trim() ||
-    t("Должность не указана", "Лауазымы көрсетілмеген");
-  const groups = [...new Set(people.map(groupName))].sort((a, b) =>
-    a.localeCompare(b, locale === "ru" ? "ru" : "kk"),
-  );
-  const results = people.flatMap((p) => p.results.filter((r: any) => r.score));
-  const groupKey = (r: any) =>
-    [r.testVersionId, r.scoringKeyId, r.language].join(":");
-  const methods = [...new Set(results.map(groupKey))];
+  const { groups, methods, suppressed, complementarySuppressed } = privateAnalytics(data || [], group);
   return (
     <>
       <PageTitle
@@ -1171,6 +1175,13 @@ export function Analytics() {
         )}
       />
       <LoadState loading={loading} error={error}>
+        {suppressed && <p className="notice">
+          {t("Группы менее 5 участников не отображаются", "5-тен аз қатысушысы бар топтар көрсетілмейді")}
+          {complementarySuppressed && t(
+            ". Чтобы исключить восстановление малых групп, связанные разрезы и показатели также скрыты.",
+            ". Шағын топтарды қайта анықтауға жол бермеу үшін байланысты бөліністер мен көрсеткіштер де жасырылған.",
+          )}
+        </p>}
         <div className="chip-filter">
           <button
             className={group === "unit" ? "active" : ""}
@@ -1194,20 +1205,9 @@ export function Analytics() {
             )}
           >
             <div className="bar-chart">
-              {groups.map((g) => {
-                const members = people.filter((p) => groupName(p) === g),
-                  done = members.filter((p) => p.status === "completed").length;
-                const percent = Math.round((done / members.length) * 100);
-                return (
-                  <div className="bar-chart-row" key={g}>
-                    <span>{g}</span>
-                    <div className="bar-track">
-                      <span style={{ width: percent + "%" }} />
-                    </div>
-                    <strong>{percent}%</strong>
-                  </div>
-                );
-              })}
+              {groups.map(g => <div className="bar-chart-row" key={g.label}>
+                <span>{g.label}</span><div className="bar-track"><span style={{width:g.percent+"%"}}/></div><strong>{g.percent}%</strong>
+              </div>)}
             </div>
           </Panel>
         </div>
@@ -1231,20 +1231,21 @@ export function Analytics() {
                 </tr>
               </thead>
               <tbody>
-                {methods.map((id) => {
-                  const rs = results.filter((r) => groupKey(r) === id);
-                  const s = rs[0].score;
+                {methods.map((method) => {
+                  const s = method.score;
                   return (
-                    <tr key={id}>
-                      <td>{loc(rs[0].name)}</td>
-                      <td>{rs.length}</td>
+                    <tr key={method.id}>
+                      <td>{loc(method.name as any)}</td>
+                      <td>{method.n}</td>
                       <td>
                         {s.total !== undefined
-                          ? `${(rs.reduce((a, r) => a + r.score.total, 0) / rs.length).toFixed(1)} / ${s.maximum}`
-                          : t(
-                              `${Object.keys(s.scales).length} шкал`,
-                              `${Object.keys(s.scales).length} шкала`,
-                            )}
+                          ? `${s.total.toFixed(1)} / ${s.maximum}`
+                          : Object.keys(s.scales || {}).length
+                            ? t(
+                                `${Object.keys(s.scales || {}).length} шкал`,
+                                `${Object.keys(s.scales || {}).length} шкала`,
+                              )
+                            : t("Показатели недоступны", "Көрсеткіштер қолжетімсіз")}
                       </td>
                     </tr>
                   );

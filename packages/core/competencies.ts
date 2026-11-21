@@ -1,77 +1,50 @@
 import { z } from "zod";
-const label = z.object({
-  ru: z.string().min(2).max(300),
-  kk: z.string().min(2).max(300),
+import { HOLDING_COMPETENCIES, HOLDING_PROFILES, HOLDING_SJT_CASES, HOLDING_MODEL_VERSION, HOLDING_PROVENANCE } from "./holding";
+const label = z.object({ ru: z.string().min(2).max(1000), kk: z.string().min(2).max(1000) });
+export const competencyModelSchema = z.object({
+  holdingModelVersion: z.literal(HOLDING_MODEL_VERSION).optional(),
+  sourceLanguage: z.literal("ru").optional(),
+  translationStatus: z.object({ kk: z.literal("source_ru_fallback") }).optional(),
+  provenance: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  competencies: z.array(z.object({
+    id: z.string().regex(/^(?:[a-z][a-z0-9_-]*|C[1-8])$/),
+    name: label, block: z.string().optional(),
+    indicators: z.array(z.object({ id: z.string().min(1), text: label })).min(3).max(5),
+    sources: z.array(z.object({ kind: z.enum(["test","exercise"]), id: z.string().min(1), scales: z.array(z.string()).default([]) })).min(2),
+  })).length(8),
+  roles: z.array(z.object({
+    id: z.string().min(1), name: label,
+    profileRow: z.number().int().min(1).max(65).optional(),
+    block: z.enum(["ГО","РФ"]).optional(), unit: z.string().optional(), position: z.string().optional(),
+    targetLevelModel: z.literal("В").optional(), targetScore: z.null().optional(),
+    criticality: z.record(z.string(),z.number().int().min(1).max(3)).optional(),
+    targets: z.record(z.string(), z.number().int().min(1).max(5).nullable()),
+  })).min(4).max(65),
+  scale: z.array(z.object({ value: z.number().int().min(1).max(5), description: label })).length(5),
+}).superRefine((m,ctx) => {
+  const issue=(message:string)=>ctx.addIssue({code:"custom",message});
+  const ids=m.competencies.map(c=>c.id), isHolding=m.holdingModelVersion===HOLDING_MODEL_VERSION;
+  if(new Set(ids).size!==8) issue("Компетенции должны иметь уникальные ID");
+  if(new Set(m.roles.map(r=>r.id)).size!==m.roles.length || new Set(m.scale.map(s=>s.value)).size!==5) issue("Повторяются роли или баллы шкалы");
+  for(const c of m.competencies) if(new Set(c.indicators.map(i=>i.id)).size!==c.indicators.length) issue("ID индикаторов должны быть уникальными");
+  for(const r of m.roles) if(ids.some(id=>r.targets[id]===undefined) || Object.keys(r.targets).some(id=>!ids.includes(id))) issue("Укажите целевые уровни всех восьми компетенций");
+  if(!isHolding) {
+    if(m.roles.length!==4 || ids.some(id=>! /^[a-z][a-z0-9_-]*$/.test(id)) || m.roles.some(r=>Object.values(r.targets).some(v=>v===null))) issue("Некорректная историческая модель");
+    return;
+  }
+  if(m.sourceLanguage!=="ru" || m.translationStatus?.kk!=="source_ru_fallback") issue("Укажите исходный язык RU; перевод KK не предоставлен");
+  if(m.roles.length!==65) issue("Модель Холдинга содержит 65 номерных профилей");
+  for(const [index,c] of m.competencies.entries()) {
+    const original=HOLDING_COMPETENCIES[index];
+    if(c.id!==original.id || c.block!==original.block || JSON.stringify(c.name)!==JSON.stringify(original.name) || JSON.stringify(c.indicators)!==JSON.stringify(original.indicators.map(i=>({id:i.id,text:i.text})))) issue("Сохраните дословную модель и 24 индикатора источника");
+    const mapped=HOLDING_SJT_CASES.filter(row=>row.competencyCode===c.id).map(row=>row.questionId);
+    for(const s of c.sources) if(s.kind==="test" && (s.id!=="situations" || s.scales.length!==mapped.length || mapped.some(id=>!s.scales.includes(id)))) issue("Источник SJT должен содержать только кейсы своей компетенции");
+  }
+  for(const [index,r] of m.roles.entries()) {
+    const p=HOLDING_PROFILES[index];
+    if(!p || r.id!==`holding-profile-${p.profileRow}` || r.profileRow!==p.profileRow || r.block!==p.block || r.unit!==p.unit || r.position!==p.position || r.targetLevelModel!=="В" || r.targetScore!==null || (!r.criticality || Object.keys(r.criticality).length!==8 || Object.keys(p.criticality).some(code=>r.criticality![code]!==p.criticality[code])) || r.name.ru!==`№ ${p.profileRow} · ${p.unit} · ${p.position}` || r.name.kk!==r.name.ru || Object.values(r.targets).some(v=>v!==null)) issue("Профиль, критичность и пустой целевой балл должны совпадать с источником");
+  }
 });
-export const competencyModelSchema = z
-  .object({
-    competencies: z
-      .array(
-        z.object({
-          id: z.string().regex(/^[a-z][a-z0-9_-]*$/),
-          name: label,
-          indicators: z
-            .array(z.object({ id: z.string().min(1), text: label }))
-            .min(3)
-            .max(5),
-          sources: z
-            .array(
-              z.object({
-                kind: z.enum(["test", "exercise"]),
-                id: z.string().min(1),
-                scales: z.array(z.string()).default([]),
-              }),
-            )
-            .min(2),
-        }),
-      )
-      .length(8),
-    roles: z
-      .array(
-        z.object({
-          id: z.string().min(1),
-          name: label,
-          targets: z.record(z.string(), z.number().int().min(1).max(5)),
-        }),
-      )
-      .length(4),
-    scale: z
-      .array(
-        z.object({ value: z.number().int().min(1).max(5), description: label }),
-      )
-      .length(5),
-  })
-  .superRefine((m, ctx) => {
-    const ids = m.competencies.map((c) => c.id);
-    if (new Set(ids).size !== 8)
-      ctx.addIssue({
-        code: "custom",
-        message: "Компетенции должны иметь уникальные ID",
-      });
-    for (const c of m.competencies)
-      if (new Set(c.indicators.map((i) => i.id)).size !== c.indicators.length)
-        ctx.addIssue({
-          code: "custom",
-          message: "ID индикаторов должны быть уникальными",
-        });
-    if (
-      new Set(m.roles.map((r) => r.id)).size !== 4 ||
-      new Set(m.scale.map((s) => s.value)).size !== 5
-    )
-      ctx.addIssue({
-        code: "custom",
-        message: "Повторяются роли или баллы шкалы",
-      });
-    for (const r of m.roles)
-      if (
-        ids.some((id) => r.targets[id] === undefined) ||
-        Object.keys(r.targets).some((id) => !ids.includes(id))
-      )
-        ctx.addIssue({
-          code: "custom",
-          message: "Укажите целевые уровни всех восьми компетенций",
-        });
-  });
 export type CompetencyConfig = z.infer<typeof competencyModelSchema>;
 const drafts = [
   [
@@ -211,7 +184,7 @@ const drafts = [
     ["presentation", "interview"],
   ],
 ] as const;
-export const DEFAULT_COMPETENCIES: CompetencyConfig = {
+export const LEGACY_COMPETENCIES: CompetencyConfig = {
   competencies: drafts.map(([id, ru, kk, indRu, indKk, tests, exercises]) => ({
     id,
     name: { ru, kk },
@@ -265,6 +238,25 @@ export const DEFAULT_COMPETENCIES: CompetencyConfig = {
     value: Number(value),
     description: { ru: String(ru), kk: String(kk) },
   })),
+};
+// Source literals are immutable. The mappings below expose observation opportunities,
+// not claims of validated exercise coverage or a numeric target approved by the Fund.
+export const DEFAULT_COMPETENCIES: CompetencyConfig = {
+  holdingModelVersion: HOLDING_MODEL_VERSION, sourceLanguage: "ru",
+  translationStatus: { kk: "source_ru_fallback" }, provenance: HOLDING_PROVENANCE,
+  competencies: HOLDING_COMPETENCIES.map(c => ({
+    id: c.id, name: c.name, block: c.block,
+    indicators: c.indicators.map(i => ({ id: i.id, text: i.text })),
+    sources: [
+      { kind: "test", id: "situations", scales: HOLDING_SJT_CASES.filter(row=>row.competencyCode===c.id).map(row=>row.questionId) },
+      ...["group","roleplay","presentation","interview","facts"].map(id=>({ kind: "exercise" as const, id, scales: [] })),
+    ],
+  })),
+  roles: HOLDING_PROFILES.map(p => ({ ...p, id: `holding-profile-${p.profileRow}`,
+    name: { ru: `№ ${p.profileRow} · ${p.unit} · ${p.position}`, kk: `№ ${p.profileRow} · ${p.unit} · ${p.position}` },
+    targets: Object.fromEntries(HOLDING_COMPETENCIES.map(c=>[c.id,null])),
+  })),
+  scale: LEGACY_COMPETENCIES.scale,
 };
 export function exerciseCriteria(model: CompetencyConfig, type: string) {
   return model.competencies

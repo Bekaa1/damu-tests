@@ -12,6 +12,7 @@ model User {
   emailVerified Boolean @default(false)
   image String?
   platformAdmin Boolean @default(false)
+  demoOnly Boolean @default(false)
   mustChangePassword Boolean @default(true)
   locale String @default("ru")
   createdAt DateTime @default(now())
@@ -69,6 +70,7 @@ model RateLimit {
   @@map("rate_limits")
 }
 model Organization {
+  competencyModels CompetencyModel[]
   sjtExpertKeys SjtExpertKey[]
   groupSchemes GroupScheme[]
   exercises AssessmentExercise[]
@@ -76,6 +78,7 @@ model Organization {
   name String
   slug String @unique
   purpose String @default("assessment")
+  dataMode String @default("real")
   status String @default("active")
   logoUrl String?
   color String @default("#25635f")
@@ -102,6 +105,7 @@ model OrganizationUnit {
   @@map("organization_units")
 }
 model Membership {
+  competencyConsensus CompetencyConsensus[]
   groupAssignments ParticipantGroup[]
   assignments TestAssignment[] @relation("AssignedParticipant")
   expertAssignments TestAssignment[] @relation("AssignedExpert")
@@ -116,6 +120,9 @@ model Membership {
   user User @relation(fields:[userId],references:[id],onDelete:Cascade)
   role String @default("employee")
   position String @default("")
+  profileRow Int?
+  targetLevelModel String @default("В")
+  block String?
   unit String @default("Головной офис")
   category String @default("Руководитель")
   status String @default("active")
@@ -127,6 +134,8 @@ model Membership {
   @@map("memberships")
 }
 model Campaign {
+  country String?
+  competencyConsensus CompetencyConsensus[]
   frozenNorm FrozenNorm?
   participantGroups ParticipantGroup[]
   generatedReports GeneratedReport[]
@@ -473,6 +482,10 @@ model ParticipantGroup {
   @@map("participant_groups")
 }
 model CompetencyModel {
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade,onUpdate:NoAction)
+  consensus CompetencyConsensus[] @relation("TenantCompetencyConsensus")
+  legacyConsensus CompetencyConsensus[] @relation("LegacyCompetencyConsensus")
+  @@unique([id,organizationId])
   id String @id @default(cuid())
   organizationId String
   version Int
@@ -482,10 +495,14 @@ model CompetencyModel {
   approvedAt DateTime?
   createdAt DateTime @default(now())
   @@unique([organizationId,version])
-  @@index([organizationId])
+  @@index([organizationId],map:"competency_models_org")
   @@map("competency_models")
 }
 model CompetencyConsensus {
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId],onDelete:Cascade,onUpdate:NoAction)
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId],onDelete:Cascade,onUpdate:NoAction)
+  model CompetencyModel @relation("TenantCompetencyConsensus",fields:[modelId,organizationId],references:[id,organizationId],onDelete:Cascade,onUpdate:Cascade)
+  legacyModel CompetencyModel @relation("LegacyCompetencyConsensus",fields:[modelId],references:[id],onDelete:NoAction,onUpdate:NoAction,map:"competency_consensus_modelId_fkey")
   id String @id @default(cuid())
   organizationId String
   campaignId String
@@ -495,7 +512,7 @@ model CompetencyConsensus {
   scores Json
   authorId String
   createdAt DateTime @default(now())
-  @@unique([organizationId,campaignId,membershipId,version])
+  @@unique([organizationId,campaignId,membershipId,version],map:"competency_consensus_organizationId_campaignId_membershipId_key")
   @@map("competency_consensus")
 }
 model LicenseRecord {

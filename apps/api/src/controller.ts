@@ -1,4 +1,7 @@
-import { consentPolicy, pilotDeletionDate } from "../../../packages/core/pilot";
+import { consentPolicy } from "../../../packages/core/pilot";
+import { participantDeletionDate, externalAiAllowed } from "../../../packages/core/data-policy";
+import { resolveProfileBinding } from "../../../packages/core/profile-binding";
+import { holdingKeyFingerprint } from "../../../packages/core/holding-key";
 import { recordEmployerPermission } from "./pilot";
 import { createHash } from "node:crypto";
 import { getNormStatus, freezeNorm } from "./norms";
@@ -222,18 +225,23 @@ export class AppController {
       member: req.ctx.member,
       organization: req.ctx.org,
       organizations: await db.organization.findMany({
-        where:
-          req.ctx.role === "superadmin"
+        where: {
+          ...(req.ctx.user.demoOnly ? { dataMode: "synthetic" } : {}),
+          ...(req.ctx.role === "superadmin"
             ? {}
             : {
                 memberships: {
                   some: { userId: req.ctx.user.id, status: "active" },
                 },
-              },
+              }),
+        },
         select: { id: true, name: true, slug: true },
       }),
       consent: consentPolicy(req.ctx.org),
-      demo: process.env.DEMO_MODE === "true",
+      demo: req.ctx.user.demoOnly || req.ctx.org?.dataMode === "synthetic" || process.env.DEMO_MODE === "true",
+      externalAiAllowed: externalAiAllowed(req.ctx.org),
+      dataDeletionAt: req.ctx.member?.role === "employee"
+        ? participantDeletionDate(req.ctx.member.createdAt).toISOString() : null,
     };
   }
   @Post("me/password") async password(
@@ -292,8 +300,8 @@ export class AppController {
             locale: req.ctx.user.locale,
             acceptedAt: consentAt.toISOString(),
             purpose: req.ctx.org?.purpose || "assessment",
-            ...(req.ctx.org?.purpose === "pilot" && req.ctx.member?.role === "employee"
-              ? { deletionDueAt: pilotDeletionDate(req.ctx.member.createdAt).toISOString() }
+            ...(req.ctx.member?.role === "employee"
+              ? { deletionDueAt: participantDeletionDate(req.ctx.member.createdAt).toISOString() }
               : {}),
           },
         },
@@ -355,16 +363,23 @@ export class AppController {
     @Body() body: unknown,
   ) {
     requireRole(req.ctx, "admin");
-    await participant(req.ctx, id);
+    const previous = await participant(req.ctx, id);
     const data = z
       .object({
         position: z.string().max(150).optional(),
         unit: z.string().min(1).max(150).optional(),
         category: z.string().max(150).optional(),
         status: z.enum(["active", "blocked"]).optional(),
+        profileRow: z.union([z.string(), z.number()]).optional(),
       })
       .parse(body);
-    const member = await db.membership.update({ where: { id }, data });
+    let binding = {};
+    if (data.profileRow !== undefined || (previous.profileRow && (data.unit !== undefined || data.position !== undefined))) {
+      try { binding = resolveProfileBinding(data.profileRow ?? previous.profileRow, { unit: data.unit, position: data.position }); }
+      catch (error) { throw new BadRequestException((error as Error).message); }
+    }
+    const { profileRow, ...fields } = data;
+    const member = await db.membership.update({ where: { id }, data: { ...fields, ...binding } });
     if (data.status === "blocked")
       await db.session.deleteMany({ where: { userId: member.userId } });
     await audit(orgId(req.ctx), req.ctx.user.id, "employee.updated", id);
@@ -925,7 +940,7 @@ export class AppController {
     const version = await db.testVersion.findUniqueOrThrow({
       where: { id },
       include: {
-        questions: { include: { options: true } },
+        questions: { orderBy: { position: "asc" }, include: { options: { orderBy: { position: "asc" } } } },
         keys: { orderBy: { createdAt: "desc" } },
       },
     });
@@ -995,7 +1010,7 @@ export class AppController {
     const v = await db.testVersion.findUniqueOrThrow({
       where: { id },
       include: {
-        questions: { include: { options: true } },
+        questions: { orderBy: { position: "asc" }, include: { options: { orderBy: { position: "asc" } } } },
         keys: { take: 1, orderBy: { createdAt: "desc" } },
       },
     });
@@ -1016,7 +1031,9 @@ export class AppController {
         )
       )
         throw new BadRequestException("Контрольный пример не пройден");
-    const key = await db.scoringKey.create({
+    const key = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM test_versions WHERE id=${id} FOR UPDATE`;
+      const created = await tx.scoringKey.create({
       data: {
         testVersionId: id,
         version: data.version,
@@ -1028,8 +1045,14 @@ export class AppController {
         status: data.approvedBy ? "approved" : "preliminary",
         controlExamples: json(data.controlExamples),
       },
+      });
+      await tx.auditLog.create({ data: {
+        organizationId: null, actorId: req.ctx.user.id, action: "scoring.key_version_created", entityId: created.id,
+        detail: { previousKeyId: v.keys[0]?.id, newKeyId: created.id, version: data.version, source: data.source,
+          configSha256: holdingKeyFingerprint(data.config) },
+      } });
+      return created;
     });
-    await audit(null, req.ctx.user.id, "scoring.key_version_created", key.id);
     return key;
   }
 }

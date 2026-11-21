@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { invalidProfile, holdingReportProfile } from "./report-policy";
 export { REPORT_PROMPT, reportAiInput } from "./report-input";
 
 export type ReportLanguage = "ru" | "kk";
@@ -49,9 +50,13 @@ export type ReportSnapshot = {
     method: string;
     languageMode: string;
     sourceHash: string;
+    country?: string | null;
+    period?: { startsAt: Date | string; endsAt: Date | string } | null;
+    actualN?: Record<string, number>;
+    provenance?: Record<string, unknown> | null;
   } | null;
   organization: { name: string; matrixConfig: any };
-  campaign: { id: string; name: string };
+  campaign: { id: string; name: string; startsAt?: Date | string; endsAt?: Date | string; country?: string | null };
   people: ReportPerson[];
 };
 export type ReportMetric = {
@@ -79,6 +84,7 @@ export const reportLoc = (v: any, language: ReportLanguage) =>
 export function reportMetrics(
   snapshot: ReportSnapshot,
   language: ReportLanguage,
+  kind: "individual" | "team" = "team",
 ): ReportMetric[] {
   const groups = new Map<
     string,
@@ -113,6 +119,7 @@ export function reportMetrics(
     groups.set(key, group);
   };
   for (const person of snapshot.people) {
+    if (kind === "team" && (person.status !== "completed" || invalidProfile(person))) continue;
     for (const result of person.results) {
       const score = result.score;
       if (!score || score.reviewRequired) continue;
@@ -124,7 +131,17 @@ export function reportMetrics(
         version: result.version,
         language: result.language || "ru",
       };
-      if (score.scales) {
+      if (result.testId === "situations" || score.algorithm === "sjt") {
+        add(person, JSON.stringify([...base, "total", score.maximum]), {
+          ...meta, name: method, scale: "total", min: 0, max: score.maximum,
+        }, score.total);
+        for (const row of holdingReportProfile(score) || []) {
+          if (!row.showSeparate) continue;
+          add(person, JSON.stringify([...base, "holding", row.code, row.maximum]), {
+            ...meta, name: `${row.code} · ${reportLoc(row.name, language)}`, scale: row.code, min: 0, max: row.maximum,
+          }, row.total);
+        }
+      } else if (score.scales) {
         for (const [id, scale] of Object.entries(score.scales) as [
           string,
           any,
@@ -220,17 +237,22 @@ export function reportMetrics(
   }
   const mean = (values: number[]) =>
     values.reduce((a, b) => a + b, 0) / values.length;
-  return [...groups.values()].map(({ metric, values }, index) => ({
+  return [...groups.values()].filter(({ values }) => kind === "individual" || values.length >= 5).map(({ metric, values }, index) => ({
     ...metric,
     id: "metric-" + (index + 1),
     mean: mean(values.map((v) => v.value)),
     n: values.length,
     low: Math.min(...values.map((v) => v.value)),
     high: Math.max(...values.map((v) => v.value)),
-    units: [...new Set(values.map((v) => v.unit))].map((name) => {
+    units: (() => {
+      const units = [...new Set(values.map((v) => v.unit))].map((name) => {
       const group = values.filter((v) => v.unit === name);
       return { name, n: group.length, mean: mean(group.map((v) => v.value)) };
-    }),
+      });
+      // Withhold the whole secondary partition: an overall mean + one visible
+      // unit would otherwise reconstruct the suppressed complement.
+      return kind === "team" && units.some((u) => u.n < 5) ? [] : units;
+    })(),
   }));
 }
 
@@ -273,7 +295,7 @@ export const generatedContentSchema = z
   })
   .strict();
 export type GeneratedContent = z.infer<typeof generatedContentSchema>;
-export const REPORT_PROMPT_VERSION = "reports-2.3-personality-wording";
+export const REPORT_PROMPT_VERSION = "reports-3.0-holding-provenance";
 export function validateReportEvidence(
   content: GeneratedContent,
   evidence: Set<string>,

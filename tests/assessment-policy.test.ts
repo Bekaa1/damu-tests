@@ -89,7 +89,7 @@ describe("Assessment delivery policy", () => {
   });
 });
 describe("Competency model", () => {
-  it("provides eight competencies, observable indicators, four role targets and relevant exercise criteria", () => {
+  it("provides eight Holding competencies, 65 nullable profile targets and exercise criteria", () => {
     const config = competencyModelSchema.parse(DEFAULT_COMPETENCIES);
     expect(config.competencies).toHaveLength(8);
     for (const c of config.competencies) {
@@ -98,9 +98,12 @@ describe("Competency model", () => {
         new Set(c.sources.map((s) => `${s.kind}:${s.id}`)).size,
       ).toBeGreaterThanOrEqual(2);
     }
+    expect(config.roles).toHaveLength(65);
+    expect(config.roles.every(r=>Object.values(r.targets).every(target=>target===null))).toBe(true);
     const roleplay = exerciseCriteria(config, "roleplay");
-    expect(roleplay.some((c) => c.competencyId === "team")).toBe(true);
-    expect(roleplay.some((c) => c.competencyId === "strategy")).toBe(false);
+    expect(roleplay).toHaveLength(24);
+    expect(roleplay.some((c) => c.competencyId === "C1")).toBe(true);
+    expect(roleplay.some((c) => c.competencyId === "C8")).toBe(true);
   });
   it("preserves different assessors and keeps only each assessor's latest version", () => {
     const rows = [

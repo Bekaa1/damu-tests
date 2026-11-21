@@ -1,7 +1,9 @@
+import { HOLDING_MODEL_VERSION, holdingProfile } from "../../../packages/core/holding";
+import { withParticipantWriteFence } from "./participant-write";
 import { projectSourceScore } from "../../../packages/core/competency-source";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { z } from "zod";
-import { db, audit, json } from "./db";
+import { db, json } from "./db";
 import { orgId, participant, requireRole, type Context } from "./access";
 import {
   DEFAULT_COMPETENCIES,
@@ -25,6 +27,8 @@ export async function saveCompetencyModel(ctx: Context, input: unknown) {
       approve: z.boolean().default(false),
     })
     .parse(input);
+  if (data.content.holdingModelVersion !== HOLDING_MODEL_VERSION)
+    throw new BadRequestException("Новые версии используют только модель Холдинга; исторические версии доступны для чтения");
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${orgId(ctx)} FOR UPDATE`;
     const prev = await tx.competencyModel.findFirst({
@@ -75,42 +79,27 @@ export async function saveCompetencyModel(ctx: Context, input: unknown) {
     return row;
   });
 }
+/** Append-only activation, scoped and idempotent. Never edits keys, results or people. */
+export async function activateHoldingModel(organizationId: string, authorId = "system") {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${organizationId} FOR UPDATE`;
+    const previous=await tx.competencyModel.findFirst({where:{organizationId},orderBy:{version:"desc"}});
+    if((previous?.content as any)?.holdingModelVersion===HOLDING_MODEL_VERSION) return previous;
+    const model=await tx.competencyModel.create({data:{organizationId,version:(previous?.version??0)+1,content:json(DEFAULT_COMPETENCIES),authorId}});
+    const exercises=await tx.assessmentExercise.findMany({where:{organizationId,active:true}});
+    for(const e of exercises) {
+      const criteria=exerciseCriteria(DEFAULT_COMPETENCIES,e.type);
+      if(!criteria.length) continue;
+      await tx.assessmentExercise.update({where:{id:e.id},data:{active:false}});
+      await tx.assessmentExercise.create({data:{organizationId,type:e.type,name:json(e.name),version:e.version+1,criteria:json(criteria),active:true}});
+    }
+    await tx.auditLog.create({data:{organizationId,actorId:authorId,action:"holding_model.activated",entityId:model.id,detail:json({holdingModelVersion:HOLDING_MODEL_VERSION,previousModelId:previous?.id??null})}});
+    return model;
+  });
+}
 export async function initializeCompetencies() {
-  const orgs = await db.organization.findMany({ select: { id: true } });
-  for (const org of orgs)
-    await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${org.id} FOR UPDATE`;
-      if (await tx.competencyModel.count({ where: { organizationId: org.id } }))
-        return;
-      await tx.competencyModel.create({
-        data: {
-          organizationId: org.id,
-          version: 1,
-          content: json(DEFAULT_COMPETENCIES),
-          authorId: "system",
-        },
-      });
-      // Replace placeholders only, preserve all existing observations and custom criteria.
-      const exercises = await tx.assessmentExercise.findMany({
-        where: { organizationId: org.id, active: true },
-      });
-      for (const e of exercises)
-        if (JSON.stringify(e.criteria).includes("Компетенция для настройки")) {
-          await tx.assessmentExercise.update({
-            where: { id: e.id },
-            data: { active: false },
-          });
-          await tx.assessmentExercise.create({
-            data: {
-              organizationId: org.id,
-              type: e.type,
-              name: json(e.name),
-              version: e.version + 1,
-              criteria: json(exerciseCriteria(DEFAULT_COMPETENCIES, e.type)),
-            },
-          });
-        }
-    });
+  const orgs=await db.organization.findMany({select:{id:true}});
+  for(const org of orgs) await activateHoldingModel(org.id);
 }
 export async function competencyEvidence(
   ctx: Context,
@@ -201,12 +190,7 @@ export async function competencyEvidence(
           const criteria = (snap.criteria || []).filter(
             (i: any) => i.competencyId === c.id,
           );
-          const observed = criteria.filter(
-            (i: any) =>
-              (o.scores as any)[i.id] !== null &&
-              (o.scores as any)[i.id] !== undefined,
-          );
-          if (!observed.length) continue;
+          if (!criteria.length) continue;
           sources.push({
             id: o.id,
             method: `exercise:${snap.type}`,
@@ -216,10 +200,12 @@ export async function competencyEvidence(
             expertName:
               authors.find((a) => a.id === o.expertId)?.user.name || "",
             notes: o.notes,
-            scores: observed.map((i: any) => ({
+            notObserved: criteria.every((i:any)=>(o.scores as any)[i.id]==null),
+            scores: criteria.map((i: any) => ({
               id: i.id,
               name: i.name,
-              score: (o.scores as any)[i.id],
+              score: (o.scores as any)[i.id] ?? null,
+              notObserved: (o.scores as any)[i.id] == null,
               example: (o.indicatorExamples as any)[i.id] || o.notes,
             })),
           });
@@ -229,9 +215,9 @@ export async function competencyEvidence(
     return {
       ...c,
       sources,
-      methodCount: new Set(sources.map((s) => s.method)).size,
+      methodCount: new Set(sources.filter(s=>!s.notObserved).map((s) => s.method)).size,
       sourceIds: sources.map((s) => s.id),
-      insufficientSources: new Set(sources.map((s) => s.method)).size < 2,
+      insufficientSources: new Set(sources.filter(s=>!s.notObserved).map((s) => s.method)).size < 2,
     };
   });
   return {
@@ -240,7 +226,8 @@ export async function competencyEvidence(
     consensus,
     member,
     assessors: authors.map((a) => ({ id: a.id, name: a.user.name })),
-    roleId: (consensus?.scores as any)?.roleId || "",
+    roleId: (consensus?.scores as any)?.roleId || (config.holdingModelVersion===HOLDING_MODEL_VERSION && member.profileRow ? `holding-profile-${member.profileRow}` : ""),
+    profile: member.profileRow ? holdingProfile(member.profileRow) : null,
   };
 }
 export async function saveConsensus(
@@ -259,8 +246,13 @@ export async function saveConsensus(
           z.object({
             competencyId: z.string(),
             value: z.number().int().min(1).max(5).nullable(),
+            notObserved: z.boolean().default(false),
+            evidenceText: z.string().trim().max(4000).default(""),
             reason: z.string().trim().min(10).max(4000),
-            evidenceIds: z.array(z.string()).min(1),
+            evidenceIds: z.array(z.string()).max(100),
+          }).superRefine((r,ctx)=>{
+            if(r.notObserved && r.value!==null) ctx.addIssue({code:"custom",message:"Не наблюдалось — отдельный статус без балла"});
+            if(!r.notObserved && !r.evidenceIds.length) ctx.addIssue({code:"custom",message:"Выберите источник оценки"});
           }),
         )
         .length(8),
@@ -272,6 +264,10 @@ export async function saveConsensus(
   const model = evidence.model.content as unknown as CompetencyConfig;
   if (!model.roles.some((r) => r.id === data.roleId))
     throw new BadRequestException("Укажите должностной профиль");
+  const profile = model.holdingModelVersion===HOLDING_MODEL_VERSION
+    ? holdingProfile(model.roles.find(r=>r.id===data.roleId)?.profileRow ?? 0) : undefined;
+  if(model.holdingModelVersion===HOLDING_MODEL_VERSION && (!profile || (evidence.member.profileRow && profile.profileRow!==evidence.member.profileRow)))
+    throw new BadRequestException("Сначала привяжите участника к его номерному должностному профилю");
   if (new Set(data.ratings.map((r) => r.competencyId)).size !== 8)
     throw new BadRequestException("Оцените все восемь компетенций");
   for (const r of data.ratings) {
@@ -279,8 +275,11 @@ export async function saveConsensus(
     if (!c || r.evidenceIds.some((id) => !c.sourceIds.includes(id)))
       throw new BadRequestException("Источник не связан с компетенцией");
   }
-  const result = await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM memberships WHERE id = ${membershipId} FOR UPDATE`;
+  const result = await withParticipantWriteFence(orgId(ctx), [membershipId], async (tx) => {
+    if (ctx.role === "expert" && !await tx.testAssignment.count({ where: {
+      organizationId: orgId(ctx), membershipId, campaignId: data.campaignId,
+      OR: [{ expertId: ctx.member!.id }, { assessorIds: { has: ctx.member!.id } }],
+    } })) throw new ForbiddenException("Участник не назначен вам");
     const prev = await tx.competencyConsensus.findFirst({
       where: {
         organizationId: orgId(ctx),
@@ -289,7 +288,7 @@ export async function saveConsensus(
       },
       orderBy: { version: "desc" },
     });
-    return tx.competencyConsensus.create({
+    const created = await tx.competencyConsensus.create({
       data: {
         organizationId: orgId(ctx),
         campaignId: data.campaignId,
@@ -299,25 +298,31 @@ export async function saveConsensus(
         authorId: ctx.user.id,
         scores: json({
           ...data,
+          ...(profile ? {holdingModelVersion:HOLDING_MODEL_VERSION,participantId:membershipId,profileRow:profile.profileRow,block:profile.block,targetLevelModel:profile.targetLevelModel} : {}),
           ratings: data.ratings.map((r) => ({
             ...r,
+            ...(profile ? {
+              competencyCode:r.competencyId, criticality:profile.criticality[r.competencyId],
+              targetLevelModel:profile.targetLevelModel,targetScore:null,score:r.value,
+              evidenceSource:evidence.cards.find(c=>c.id===r.competencyId)!.sources.filter(s=>r.evidenceIds.includes(s.id)).map(s=>({id:s.id,kind:s.kind,method:s.method})),
+              assessorScores:evidence.cards.find(c=>c.id===r.competencyId)!.sources.filter(s=>s.kind==="exercise" && r.evidenceIds.includes(s.id)).map(s=>({assessorId:s.expertId,observationId:s.id,scores:s.scores})),
+            } : {}),
             methodCount: new Set(
               evidence.cards
                 .find((c) => c.id === r.competencyId)!
-                .sources.filter((s) => r.evidenceIds.includes(s.id))
+                .sources.filter((s) => r.evidenceIds.includes(s.id) && !s.notObserved)
                 .map((s) => s.method),
             ).size,
           })),
         }),
       },
     });
+    await tx.auditLog.create({ data: {
+      organizationId: orgId(ctx), actorId: ctx.user.id,
+      action: "competencies.consensus_saved", entityId: created.id,
+    } });
+    return created;
   });
-  await audit(
-    orgId(ctx),
-    ctx.user.id,
-    "competencies.consensus_saved",
-    result.id,
-  );
   const { queueCompletedAssessment } = await import("./report-lifecycle");
   void queueCompletedAssessment(
     orgId(ctx),
@@ -339,27 +344,32 @@ export async function assignAssessors(
     })
     .parse(input);
   await participant(ctx, id, data.campaignId);
-  const experts = await db.membership.count({
-    where: {
-      organizationId: orgId(ctx),
-      role: "expert",
-      status: "active",
-      id: { in: data.expertIds },
-    },
+  return withParticipantWriteFence(orgId(ctx), [id], async tx => {
+    const experts = await tx.membership.count({
+      where: {
+        organizationId: orgId(ctx),
+        role: "expert",
+        status: "active",
+        id: { in: data.expertIds },
+      },
+    });
+    if (experts !== new Set(data.expertIds).size)
+      throw new BadRequestException("Эксперт недоступен");
+    await tx.testAssignment.updateMany({
+      where: {
+        organizationId: orgId(ctx),
+        campaignId: data.campaignId,
+        membershipId: id,
+      },
+      data: {
+        expertId: data.expertIds[0],
+        assessorIds: [...new Set(data.expertIds)],
+      },
+    });
+    await tx.auditLog.create({ data: {
+      organizationId: orgId(ctx), actorId: ctx.user.id,
+      action: "assessors.assigned", entityId: id, detail: json(data),
+    } });
+    return { ok: true };
   });
-  if (experts !== new Set(data.expertIds).size)
-    throw new BadRequestException("Эксперт недоступен");
-  await db.testAssignment.updateMany({
-    where: {
-      organizationId: orgId(ctx),
-      campaignId: data.campaignId,
-      membershipId: id,
-    },
-    data: {
-      expertId: data.expertIds[0],
-      assessorIds: [...new Set(data.expertIds)],
-    },
-  });
-  await audit(orgId(ctx), ctx.user.id, "assessors.assigned", id, data);
-  return { ok: true };
 }

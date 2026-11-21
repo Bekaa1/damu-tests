@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { HOLDING_SJT_CASES, HOLDING_SINGLE_CASE_NOTE } from "../../../packages/core/holding";
 import {
   useApp,
   useData,
@@ -188,6 +189,19 @@ export function SjtExpertSetup() {
     window.addEventListener("beforeunload", before);
     return () => window.removeEventListener("beforeunload", before);
   }, [dirty]);
+  if (source.data?.holdingModelVersion) return (
+    <Panel title={t("Экспертный ключ SJT — модель Холдинга", "SJT сарапшылық кілті — Холдинг моделі")}>
+      <div className="panel-body form-stack" lang="ru">
+        <p className="notice warning">Ключ не утверждён экспертной панелью</p>
+        <p>14 кейсов. +1 за совпадение MOST, +1 за совпадение LEAST; максимум 28. Ключ хранится по ID вариантов, а не по перемешиваемой букве.</p>
+        <p>Изменения ключа и версии — только с записью в журнал. Оценки эффективности и утверждение одним специалистом не заменяют исходный ключ Холдинга.</p>
+        <p>Отдельный профиль SJT: C2, C3, C4, C7. C1, C5, C6, C8: {HOLDING_SINGLE_CASE_NOTE}.</p>
+        <div className="table-wrap"><table><thead><tr><th>Кейс</th><th>Компетенция</th><th>Основной индикатор</th><th>Доп. индикатор</th><th>MOST ID</th><th>LEAST ID</th></tr></thead>
+          <tbody>{HOLDING_SJT_CASES.map(c=><tr key={c.questionId} data-holding-case={c.caseNumber}><td>{c.caseNumber}</td><td>{c.competencyCode}</td><td>{c.indicatorCode}</td><td>{c.additionalIndicatorCode}</td><td>{c.mostOptionId}</td><td>{c.leastOptionId}</td></tr>)}</tbody>
+        </table></div>
+      </div>
+    </Panel>
+  );
   const total = (source.data?.questions || []).reduce(
       (sum: number, q: any) => sum + q.options.length,
       0,
@@ -230,6 +244,14 @@ export function SjtExpertSetup() {
               "Бір маманның бағасы: әр әрекеттің тиімділігі 1-ден 5-ке дейін. Бұл кілт жарияланған тестті автоматты алмастырмайды.",
             )}
           </p>
+          <details lang="ru"><summary>Справочник Холдинга: 14 кейсов и дословная привязка индикаторов (исходный язык RU)</summary>
+            <p className="notice warning">Ключ не утверждён экспертной панелью</p>
+            <p>Исходный ключ — черновик. Оценки одного специалиста и статус «готов» не равны утверждению экспертной панелью.</p>
+            <p>Отдельный профиль SJT: C2, C3, C4, C7. C1, C5, C6, C8: {HOLDING_SINGLE_CASE_NOTE}.</p>
+            <div className="table-wrap"><table><thead><tr><th>Кейс</th><th>Компетенция</th><th>Основной индикатор</th><th>Доп. индикатор</th><th>MOST ID</th><th>LEAST ID</th></tr></thead>
+              <tbody>{HOLDING_SJT_CASES.map(c=><tr key={c.questionId} data-holding-case={c.caseNumber}><td>{c.caseNumber}</td><td>{c.competencyCode}</td><td>{c.indicatorCode}</td><td>{c.additionalIndicatorCode}</td><td>{c.mostOptionId}</td><td>{c.leastOptionId}</td></tr>)}</tbody>
+            </table></div>
+          </details>
           <p>
             <b>
               {t("Оценено вариантов", "Бағаланған нұсқалар")}: {filled} /{" "}
@@ -244,8 +266,8 @@ export function SjtExpertSetup() {
           <details>
             <summary>
               {t(
-                "Открыть 16 ситуаций для оценки",
-                "Бағалау үшін 16 жағдаятты ашу",
+                `Открыть ${source.data?.questions.length ?? 0} ситуаций для оценки`,
+                `Бағалау үшін ${source.data?.questions.length ?? 0} жағдаятты ашу`,
               )}
             </summary>
             {source.data?.questions.map((q: any) => (

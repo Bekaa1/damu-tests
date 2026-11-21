@@ -1,4 +1,7 @@
 import { persistReportPdf, makeFallbackAvailable } from "./report-lifecycle";
+import { withParticipantWriteFence } from "./participant-write";
+import { assertReportSubjectsAvailable, reportSubjectScope, withReportSubjectFence, ignoreUnavailableReport } from "./report-subject";
+import type { GeneratedReport, Prisma } from "@prisma/client";
 import { competencyEvidence } from "./competencies";
 import {
   BadRequestException,
@@ -8,7 +11,7 @@ import {
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
 import { z } from "zod";
-import { db, audit, json } from "./db";
+import { db, json } from "./db";
 import { orgId, participant, requireRole, type Context } from "./access";
 import { getCampaign, listPeople } from "./people";
 import { openRouterKey } from "./secrets";
@@ -21,6 +24,7 @@ import {
   paragraphIssues,
 } from "../../../packages/core/report-policy";
 import { customerReportTemplate } from "./customer-report";
+import { externalAiAllowed } from "../../../packages/core/data-policy";
 import {
   REPORT_PROMPT,
   REPORT_PROMPT_VERSION,
@@ -106,7 +110,7 @@ async function captureReport(
   return {
     norm: normMetadata(frozen),
     organization: { name: ctx.org!.name, matrixConfig: ctx.org!.matrixConfig },
-    campaign: { id: campaign.id, name: campaign.name },
+    campaign: { id: campaign.id, name: campaign.name, startsAt: campaign.startsAt?.toISOString(), endsAt: campaign.endsAt?.toISOString(), country: campaign.country },
     people: await Promise.all(
       people.map(async (p) => {
         const seen = new Set<string>();
@@ -197,9 +201,9 @@ const metadata = {
   createdBy: true,
 } as const;
 
-async function expertCanRead(ctx: Context, ids: string[], campaignId: string) {
+async function expertCanRead(ctx: Context, ids: string[], campaignId: string, client: Pick<Prisma.TransactionClient, "testAssignment"> = db) {
   if (ctx.role !== "expert") return true;
-  const assignments = await db.testAssignment.findMany({
+  const assignments = await client.testAssignment.findMany({
     where: {
       organizationId: orgId(ctx),
       campaignId,
@@ -229,17 +233,20 @@ export async function listGeneratedReports(
       campaignId,
       ...(kind ? { kind: z.enum(["individual", "team"]).parse(kind) } : {}),
     },
-    select: metadata,
+    // Scope is checked internally; frozen participant payload is never listed.
+    select: { ...metadata, organizationId: true, snapshot: true },
     orderBy: { createdAt: "desc" },
     take: 150,
   });
-  const visible = await Promise.all(
-    rows.map(async (row) =>
-      (await expertCanRead(ctx, row.participantIds as string[], campaignId))
-        ? row
-        : null,
-    ),
-  );
+  const visible = await Promise.all(rows.map(async row => {
+    try {
+      const scope = await assertReportSubjectsAvailable(row);
+      return await expertCanRead(ctx, scope.ids, campaignId) ? row : null;
+    } catch (error) {
+      if (error instanceof ForbiddenException) return null;
+      throw error;
+    }
+  }));
   const allowed = visible.filter((r): r is NonNullable<typeof r> => Boolean(r));
   const authors = await db.user.findMany({
     where: { id: { in: [...new Set(allowed.map((r) => r.createdBy))] } },
@@ -248,34 +255,42 @@ export async function listGeneratedReports(
   const authorNames = new Map(
     authors.map((author) => [author.id, author.name]),
   );
-  return allowed.map(({ participantIds, ...row }) => ({
-    ...row,
-    createdByName:
-      row.createdBy === "system"
-        ? "AssessFlow"
-        : authorNames.get(row.createdBy) || "",
-    participantCount: (participantIds as string[]).length,
-  }));
+  return allowed.map((report) => {
+    const { participantIds, snapshot, organizationId, ...row } = report;
+    return {
+      ...row,
+      createdByName: row.createdBy === "system" ? "AssessFlow" : authorNames.get(row.createdBy) || "",
+      participantCount: reportSubjectScope(report).peopleIds.length,
+    };
+  });
+}
+
+/** For download consumers: read artifact bytes and write its export audit inside
+ * this callback. Do not call the global DB client or render while holding it.
+ */
+export async function withGeneratedReportAccess<T>(
+  ctx: Context,
+  id: string,
+  operation: (tx: Prisma.TransactionClient, report: GeneratedReport) => Promise<T>,
+): Promise<T> {
+  requireRole(ctx, "admin", "expert");
+  const report = await db.generatedReport.findFirst({ where: { id, organizationId: orgId(ctx) } });
+  if (!report) throw new NotFoundException("Отчёт не найден");
+  return withReportSubjectFence(report, async (tx, current) => {
+    if (!(await expertCanRead(ctx, reportSubjectScope(current).ids, current.campaignId, tx)))
+      throw new ForbiddenException("Отчёт содержит участников, которые не назначены вам");
+    return operation(tx, current);
+  });
 }
 
 export async function getGeneratedReport(ctx: Context, id: string) {
-  requireRole(ctx, "admin", "expert");
-  const report = await db.generatedReport.findFirst({
-    where: { id, organizationId: orgId(ctx) },
+  return withGeneratedReportAccess(ctx, id, async (tx, current) => {
+    await tx.auditLog.create({ data: {
+      organizationId: orgId(ctx), actorId: ctx.user.id,
+      action: "generated_report.viewed", entityId: id,
+    } });
+    return current;
   });
-  if (!report) throw new NotFoundException("Отчёт не найден");
-  if (
-    !(await expertCanRead(
-      ctx,
-      report.participantIds as string[],
-      report.campaignId,
-    ))
-  )
-    throw new ForbiddenException(
-      "Отчёт содержит участников, которые не назначены вам",
-    );
-  await audit(orgId(ctx), ctx.user.id, "generated_report.viewed", id);
-  return report;
 }
 function editableEvidenceTexts(snapshot: ReportSnapshot) {
   const texts = new Set<string>();
@@ -370,32 +385,38 @@ export async function saveReportReview(
     report.language as "ru" | "kk",
   );
   validateReportEvidence(data.content, evidence);
-  const claimed = await db.generatedReport.updateMany({
-    where: { id, status: "manual_review", updatedAt: new Date(data.updatedAt) },
-    data: {
-      status: "processing",
-      generationMode: "expert",
-      error: null,
-      content: json(data.content),
-      presentationEdits: json(data.presentationEdits),
-    },
+  const claimed = await withReportSubjectFence(report, async (tx, current) => {
+    if (!(await expertCanRead(ctx, reportSubjectScope(current).ids, current.campaignId, tx)))
+      throw new ForbiddenException("Отчёт содержит участников, которые не назначены вам");
+    return tx.generatedReport.updateMany({
+      where: { id, organizationId: orgId(ctx), status: "manual_review", updatedAt: new Date(data.updatedAt) },
+      data: {
+        status: "processing", generationMode: "expert", error: null,
+        content: json(data.content), presentationEdits: json(data.presentationEdits),
+      },
+    });
   });
   if (!claimed.count)
     throw new BadRequestException("Отчёт уже изменён. Откройте его заново.");
+  const editedReport = { ...report, presentationEdits: json(data.presentationEdits) };
   try {
     await persistReportPdf(id, data.content, "expert");
   } catch (error) {
-    await db.generatedReport.updateMany({
-      where: { id, readyAt: null },
-      data: {
-        status: "manual_review",
-        error: "Не удалось подготовить PDF. Повторите проверку.",
-      },
-    });
+    await ignoreUnavailableReport(() => withReportSubjectFence(editedReport, async tx => {
+      await tx.generatedReport.updateMany({
+        where: { id, organizationId: orgId(ctx), readyAt: null, generationMode: "expert" },
+        data: { status: "manual_review", error: "Не удалось подготовить PDF. Повторите проверку." },
+      });
+    }));
     throw error;
   }
-  await audit(orgId(ctx), ctx.user.id, "generated_report.reviewed", id, {
-    presentationEdits: data.presentationEdits,
+  await withReportSubjectFence(editedReport, async (tx, current) => {
+    if (!(await expertCanRead(ctx, reportSubjectScope(current).ids, current.campaignId, tx)))
+      throw new ForbiddenException("Отчёт содержит участников, которые не назначены вам");
+    await tx.auditLog.create({ data: {
+      organizationId: orgId(ctx), actorId: ctx.user.id, action: "generated_report.reviewed", entityId: id,
+      detail: json({ presentationEdits: data.presentationEdits }),
+    } });
   });
   return reportReview(ctx, id);
 }
@@ -445,13 +466,19 @@ export async function createGeneratedReport(
       )
     : null;
   const snapshot = await captureReport(ctx, data.campaignId, data.membershipId);
-  if (!reportMetrics(snapshot, data.language).length)
+  const capturedScope = {
+    organizationId: orgId(ctx), campaignId: data.campaignId,
+    membershipId: data.membershipId || null, kind: data.kind,
+    participantIds: snapshot.people.map(p => p.id), snapshot: json(snapshot),
+  };
+  const subjects = reportSubjectScope(capturedScope);
+  if (!reportMetrics(snapshot, data.language, data.kind).length)
     throw new BadRequestException("Нет рассчитанных результатов для анализа");
   const settings = await db.platformSettings.findUnique({
     where: { id: "default" },
   });
   const model = settings?.aiModel || process.env.OPENROUTER_MODEL || "";
-  const providerReady = Boolean(openRouterKey(settings) && model);
+  const providerReady = externalAiAllowed(ctx.org) && Boolean(openRouterKey(settings) && model);
   const providerConfig = {
     only: settings?.aiProviderAllowlist || [],
     zdr: settings?.aiZdr ?? true,
@@ -467,11 +494,13 @@ export async function createGeneratedReport(
       }),
     )
     .digest("hex");
-  const outcome = await db.$transaction(async (tx) => {
+  const outcome = await withParticipantWriteFence(orgId(ctx), subjects.ids, async (tx) => {
+    // Erasure takes users -> memberships. Never take this org lock first.
     await tx.$queryRawUnsafe(
       "SELECT id FROM organizations WHERE id = $1 FOR UPDATE",
       orgId(ctx),
     );
+    await assertReportSubjectsAvailable(capturedScope, tx);
     const existing = await tx.generatedReport.findFirst({
       where: {
         organizationId: orgId(ctx),
@@ -488,9 +517,15 @@ export async function createGeneratedReport(
         ],
       },
       orderBy: { createdAt: "desc" },
-      select: metadata,
+      select: { ...metadata, organizationId: true, snapshot: true },
     });
-    if (existing) return { row: existing, created: false };
+    if (existing) {
+      if (JSON.stringify(reportSubjectScope(existing)) !== JSON.stringify(subjects))
+        throw new ForbiddenException("Состав сохранённого отчёта изменился");
+      await assertReportSubjectsAvailable(existing, tx);
+      const { snapshot: _snapshot, organizationId: _organizationId, ...row } = existing;
+      return { row, created: false };
+    }
     const row = await tx.generatedReport.create({
       data: {
         organizationId: orgId(ctx),
@@ -498,7 +533,7 @@ export async function createGeneratedReport(
         membershipId: data.membershipId || null,
         kind: data.kind,
         language: data.language,
-        participantIds: snapshot.people.map((p) => p.id),
+        participantIds: subjects.ids,
         snapshot: json(snapshot),
         assessmentCompletedAt: completedAt,
         inputHash,
@@ -511,6 +546,10 @@ export async function createGeneratedReport(
       },
       select: metadata,
     });
+    await tx.auditLog.create({ data: {
+      organizationId: orgId(ctx), actorId: ctx.user.id, action: "generated_report.requested", entityId: row.id,
+      detail: json({ kind: data.kind, automatic }),
+    } });
     return { row, created: true };
   });
   if (outcome.created) {
@@ -525,16 +564,9 @@ export async function createGeneratedReport(
     } catch {
       await makeFallbackAvailable(outcome.row.id);
     }
-    await audit(
-      orgId(ctx),
-      ctx.user.id,
-      "generated_report.requested",
-      outcome.row.id,
-      { kind: data.kind, automatic },
-    );
   }
   const { participantIds, ...row } = outcome.row;
-  return { ...row, participantCount: (participantIds as string[]).length };
+  return { ...row, participantCount: subjects.peopleIds.length };
 }
 
 export async function generateReport(id: string, attempt = 0, attempts = 2) {
@@ -545,6 +577,30 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
     report.generationMode === "expert"
   )
     return;
+  const organization = await db.organization.findUnique({ where: { id: report.organizationId } });
+  if (!organization || organization.purpose === "pilot") {
+    await db.generatedReport.updateMany({
+      where: { id, readyAt: null },
+      data: { status: "failed", error: "В пилоте выпуск PDF отключён; организация недоступна для формирования отчёта." },
+    });
+    return;
+  }
+  if (!await ignoreUnavailableReport(() => assertReportSubjectsAvailable(report))) return;
+  const change = (data: Prisma.GeneratedReportUpdateManyMutationInput, unready = false) =>
+    ignoreUnavailableReport(() => withReportSubjectFence(report, async tx => tx.generatedReport.updateMany({
+      where: { id, organizationId: report.organizationId, ...(unready ? { readyAt: null } : {}) }, data,
+    })));
+  const workerAudit = (action: string, detail?: unknown) =>
+    ignoreUnavailableReport(() => withReportSubjectFence(report, async tx => tx.auditLog.create({ data: {
+      organizationId: report.organizationId, actorId: null, action, entityId: id,
+      ...(detail === undefined ? {} : { detail: json(detail) }),
+    } })));
+  // Re-check the current policy for jobs queued before consent/privacy changed.
+  // No provider settings, data serialization, budget or network access precedes it.
+  if (!externalAiAllowed(organization)) {
+    await makeFallbackAvailable(id);
+    return;
+  }
   const settings = await db.platformSettings.findUnique({
     where: { id: "default" },
   });
@@ -584,20 +640,15 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
     ],
   });
   if (!key || Buffer.byteLength(body) > 60000) {
-    await db.generatedReport.updateMany({
-      where: { id, readyAt: null },
-      data: {
-        status: "failed",
-        error: !key
-          ? "AI временно не настроен"
-          : "Объём данных превышает лимит генерации отчёта",
-      },
-    });
+    await change({
+      status: "failed",
+      error: !key ? "AI временно не настроен" : "Объём данных превышает лимит генерации отчёта",
+    }, true);
     await makeFallbackAvailable(id);
     return;
   }
   // At most 60 KB input + 8500 output tokens, capped at $20/M: reserve $2 per paid attempt.
-  const reserved = await db.$transaction(async (tx) => {
+  const reserved = await ignoreUnavailableReport(() => withReportSubjectFence(report, async (tx) => {
     await tx.$queryRawUnsafe(
       "SELECT id FROM organizations WHERE id = $1 FOR UPDATE",
       report.organizationId,
@@ -634,20 +685,19 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
         })
       ).count > 0
     );
-  });
+  }));
   if (!reserved) {
-    await db.generatedReport.updateMany({
-      where: { id, readyAt: null },
-      data: {
-        status: "failed",
-        error: "Лимит AI-расходов исчерпан или организация приостановлена",
-      },
-    });
+    await change({ status: "failed", error: "Лимит AI-расходов исчерпан или организация приостановлена" }, true);
     await makeFallbackAvailable(id);
     return;
   }
   let refund = false;
   try {
+    if (!externalAiAllowed(await db.organization.findUnique({ where: { id: report.organizationId } }))) {
+      await change({ cost: { decrement: 2 } });
+      await makeFallbackAvailable(id);
+      return;
+    }
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -664,19 +714,13 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
     if (!response.ok) {
       refund = true;
       const upstream = await response.json().catch(() => ({}));
-      await audit(
-        report.organizationId,
-        null,
-        "generated_report.upstream_error",
-        id,
-        {
+      await workerAudit("generated_report.upstream_error", {
           httpStatus: response.status,
           message: String(upstream?.error?.message || "")
             .replace(/sk-or-\S+/g, "[redacted]")
             .slice(0, 1000),
           code: upstream?.error?.code,
-        },
-      );
+      });
       throw new Error("OpenRouter HTTP " + response.status);
     }
     const answer = (await response.json()) as any;
@@ -685,9 +729,7 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
       typeof value === "number" && Number.isSafeInteger(value) && value >= 0
         ? value
         : 0;
-    await db.generatedReport.updateMany({
-      where: { id },
-      data: {
+    await change({
         ...(typeof cost === "number" && Number.isFinite(cost) && cost >= 0
           ? { cost: { increment: cost - 2 } }
           : {}),
@@ -695,7 +737,6 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
         completionTokens: {
           increment: tokenCount(answer.usage?.completion_tokens),
         },
-      },
     });
     const content = generatedContentSchema.parse(
       JSON.parse(answer.choices?.[0]?.message?.content),
@@ -710,19 +751,9 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
         })
       )?.status === "completed"
     )
-      await audit(
-        report.organizationId,
-        null,
-        "generated_report.completed",
-        id,
-      );
+      await workerAudit("generated_report.completed");
   } catch (error) {
-    await audit(
-      report.organizationId,
-      null,
-      "generated_report.validation_failed",
-      id,
-      {
+    await workerAudit("generated_report.validation_failed", {
         attempt: attempt + 1,
         issues:
           error instanceof z.ZodError
@@ -733,23 +764,18 @@ export async function generateReport(id: string, attempt = 0, attempts = 2) {
               }))
             : [],
         category: error instanceof Error ? error.name : "unknown",
-      },
-    );
+    });
     const message =
       error instanceof z.ZodError
         ? "Не удалось проверить структуру ответа AI. Повторите генерацию."
         : error instanceof Error && error.message.startsWith("OpenRouter HTTP")
           ? "Сервис AI вернул ошибку. Повторите генерацию."
           : "Не удалось завершить анализ. Повторите генерацию.";
-    await db.generatedReport.updateMany({
-      where: { id, readyAt: null },
-      data: {
-        status: attempt + 1 >= attempts ? "failed" : "pending",
-        error: message,
-        ...(refund ? { cost: { decrement: 2 } } : {}),
-      },
-    });
-    await makeFallbackAvailable(id);
+    await change({
+      status: attempt + 1 >= attempts ? "failed" : "pending", error: message,
+      ...(refund ? { cost: { decrement: 2 } } : {}),
+    }, true);
+    await ignoreUnavailableReport(() => makeFallbackAvailable(id));
   }
 }
 export function startReportWorker() {

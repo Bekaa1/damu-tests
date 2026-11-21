@@ -1,7 +1,51 @@
 import type { ReportLanguage, ReportPerson, ReportSnapshot } from "./reporting";
 import { percentageLevel, testScoreSummary } from "./test-levels";
+import { HOLDING_COMPETENCIES, HOLDING_SJT_CASES, HOLDING_SINGLE_CASE_NOTE } from "./holding";
 
-export const REPORT_POLICY_VERSION = "customer-2026-11-19.1";
+export const REPORT_POLICY_VERSION = "holding-2026-11-21.1";
+export const PERSONALITY_CAVEAT_RU = "Балл по шкале опросника от 1 до 5. Это не сравнение с населением Казахстана. Нормативных данных по Казахстану нет";
+export const SJT_CAVEAT_RU = "28 из 28 — полное совпадение с экспертным ключом, а не оценка поведения на работе";
+export const HOLDING_SINGLE_CASE_NOTE_RU = HOLDING_SINGLE_CASE_NOTE;
+export const INTERNAL_PERCENTILE_CAVEAT_RU = "выборка не представительна для Казахстана";
+export const HOLDING_PROFILE_UNAVAILABLE_RU = "профиль по модели Холдинга не рассчитан";
+export type HoldingReportRow = {
+  code: string;
+  name: { ru: string; kk?: string };
+  total: number;
+  maximum: number;
+  caseCount: number;
+  showSeparate: boolean;
+};
+/** Consume the saved same-source score only. Old competency aggregates cannot
+ * recover the Holding case profile and must never be substituted for it. */
+export function holdingReportProfile(score: any): HoldingReportRow[] | null {
+  const rows = score?.holdingProfile;
+  if (!Array.isArray(rows) || rows.length !== 8) return null;
+  const codes = HOLDING_COMPETENCIES.map((c) => c.id);
+  const cases = codes.map((code) => HOLDING_SJT_CASES.filter((c) => c.competencyCode === code).length);
+  if (new Set(rows.map((r: any) => r?.code)).size !== 8) return null;
+  const ordered = codes.map((code) => rows.find((r: any) => r?.code === code));
+  if (ordered.some((r: any, i) => !r || r.name?.ru !== HOLDING_COMPETENCIES[i].name.ru || (r.name?.kk && r.name.kk !== HOLDING_COMPETENCIES[i].name.kk) ||
+    r.caseCount !== cases[i] || r.maximum !== cases[i] * 2 ||
+    r.showSeparate !== ["C2", "C3", "C4", "C7"].includes(r.code) ||
+    !Number.isInteger(r.total) || r.total < 0 || r.total > r.maximum)) return null;
+  if (score.maximum !== 28 || ordered.reduce((n, r) => n + r.total, 0) !== score.total) return null;
+  return ordered.map((r: HoldingReportRow) => ({ code: r.code, name: { ...r.name }, total: r.total, maximum: r.maximum, caseCount: r.caseCount, showSeparate: r.showSeparate }));
+}
+export function internalPercentile(score: any, snapshot: ReportSnapshot) {
+  const p = score?.cohortPercentile, norm = snapshot.norm;
+  if (!norm || p?.scope !== "frozen" || p.normId !== norm.id ||
+    !Number.isInteger(p.n) || p.n < 30 || !Number.isFinite(p.value) || p.value < 0 || p.value > 100) return null;
+  return {
+    value: p.value as number,
+    sampleN: p.n as number,
+    country: norm.country || null,
+    period: norm.period || (snapshot.campaign.startsAt && snapshot.campaign.endsAt
+      ? { startsAt: snapshot.campaign.startsAt, endsAt: snapshot.campaign.endsAt } : null),
+    method: norm.method || null,
+    normId: norm.id,
+  };
+}
 export const roundReport = (n: number) =>
   Math.round((n + Number.EPSILON) * 10) / 10;
 export const reportText = (v: any, language: ReportLanguage) =>
@@ -338,7 +382,9 @@ export function paragraphIssues(
   text: string,
   path = "paragraph",
 ): ReportIssue[] {
-  return (text.match(/(?<![\p{L}\d])[-−]?\d+(?:[.,]\d+)?/gu) || []).length > 2
+  // A provenance period contains dates, not six independent measurements.
+  const measurements = text.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/gu, "");
+  return (measurements.match(/(?<![\p{L}\d])[-−]?\d+(?:[.,]\d+)?/gu) || []).length > 2
     ? [
         {
           code: "too_many_numbers",

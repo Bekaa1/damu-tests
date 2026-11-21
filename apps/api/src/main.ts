@@ -1,5 +1,5 @@
 import { initializeCompetencies } from "./competencies";
-import { startPilotRetention } from "./pilot-retention";
+import { startParticipantRetention } from "./pilot-retention";
 import { repairHistoricalResults } from "./result-repair";
 import { updateMethodMetadata } from "./method-metadata";
 import { startReportWatchdog } from "./report-lifecycle";
@@ -94,12 +94,12 @@ const reportWatchdog = startReportWatchdog();
 const worker = startAiWorker();
 const reportWorker = startReportWorker();
 const attemptSweeper = startAttemptSweeper();
-const pilotRetention = startPilotRetention();
-await app.listen(Number(process.env.API_PORT || 4000), "0.0.0.0");
+const participantRetention = startParticipantRetention();
+await app.listen(Number(process.env.API_PORT || 4000), process.env.API_HOST || "0.0.0.0");
 console.log("AssessFlow API ready on port " + (process.env.API_PORT || 4000));
 async function shutdown() {
   clearInterval(attemptSweeper);
-  clearInterval(pilotRetention);
+  clearInterval(participantRetention);
   clearInterval(reportWatchdog);
   await reportWorker.close();
   await reportsQueue.close();

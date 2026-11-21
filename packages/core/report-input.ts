@@ -7,6 +7,11 @@ import {
   levelText,
   roundReportInput,
   averagePersonalitySummary,
+  holdingReportProfile,
+  HOLDING_SINGLE_CASE_NOTE_RU,
+  HOLDING_PROFILE_UNAVAILABLE_RU,
+  PERSONALITY_CAVEAT_RU,
+  SJT_CAVEAT_RU,
 } from "./report-policy";
 import { teamTestReportData } from "./team-reporting";
 
@@ -20,7 +25,7 @@ export const REPORT_PROMPT = [
   "If personality.overviewText (individual) or personalityOverview (team) is supplied, use that exact sentence as the sole statement in the personality section. Do not paraphrase it, enumerate the five average scales again, or repeat the same personality finding in summary or strengths. Never write «описывает себя средним образом». Without the supplied overview, describe the actual domain differences concisely and without repetition.",
   "Competencies are assessed by the expert in a separate conclusion. This is a test-results report. Always set competencies=[], potential=[], risks=[]. Do not infer expert ratings or observed workplace behavior from test scores.",
   "Describe abilities using the supplied level and label. The PDF renderer adds exact scores, percentages, calculations and the common legend. Do not repeat numerical calculations in the narrative or invent percentiles. Levels use the exact percentage: <40=1, <55=2, <70=3, <85=4, otherwise 5; display rounding does not change the level. Never use older absolute score bands.",
-  "For motivation describe only the supplied top three and bottom three priorities, without numeric scores. For SJT describe only the overall level, never infer competencies or workplace behavior from individual cases. Include: «Тест не измеряет поведение в реальной работе» in Russian, or its Kazakh translation.",
+  "For motivation describe only the supplied top three and bottom three priorities, without numeric scores. For SJT use only the saved Holding profile: C2/C3/C4/C7 are raw matching scores over their own maximum, NOT final competency ratings or numeric targets. C1/C5/C6/C8 are supplemental text only. Never infer competencies or workplace behavior from cases; never substitute legacy competency names. An unavailable profile requires a new calculation, not reconstruction. The renderer supplies the exact caveats.",
   "Round every reported decimal to one decimal. At most two numeric values in each paragraph. Do not discuss differences below ten percentage points in ability/SJT results. Do not compare different forms or keys.",
   "For a team use only supplied aggregates. The overall score is a GROUP MEDIAN, not one person's result or a sum of all scores. Never mention names, individual profiles or individual scores, and never compare separate branches. Null/suppressed cells and samples smaller than five must not be described or reconstructed by subtraction. Compare HQ with all branches only where a supplied comparison is present.",
   "Team personality bands summarize the median of the group. Team motivation priorities use median factor scores with the selected-card adjustment. Do not infer that every participant has the group's priorities. All questionnaire numeric values are omitted from this report.",
@@ -41,6 +46,7 @@ export function reportAiInput(
         kind,
         language,
         ...data,
+        caveats: { personality: PERSONALITY_CAVEAT_RU, sjt: SJT_CAVEAT_RU },
         personalityOverview: averagePersonalitySummary(
           data.personality.map((s) => s.band?.band ?? null),
           language,
@@ -50,6 +56,7 @@ export function reportAiInput(
       evidence: new Set([
         "coverage",
         ...data.methods.map((m) => m.id),
+        ...(data.holdingProfile?.numeric.map((m) => m.id) || []),
         ...data.personality.map((m) => m.id),
         ...data.motivation.flatMap((m) =>
           [...m.top, ...m.bottom].map((s) => s.id),
@@ -65,6 +72,8 @@ export function reportAiInput(
         (!s.reportNorm || s.reportNorm.sten !== null),
     );
     const motivation = motivationProfile(p, language);
+    const sjt = p.results.find((r) => r.testId === "situations" && !r.score?.reviewRequired);
+    const holding = holdingReportProfile(sjt?.score);
     const levels = (ids: string[]) =>
       p.results
         .filter((r) => ids.includes(r.testId) && testLevel(r.score) !== null)
@@ -93,10 +102,14 @@ export function reportAiInput(
         bottom: motivation.bottom.map((s) => s.name),
       },
       management: levels(["situations"]),
+      ...(sjt ? { holdingProfile: holding ? {
+        numeric: holding.filter((r) => r.showSeparate).map((r) => ({ code: r.code, name: reportText(r.name, language), total: r.total, maximum: r.maximum })),
+        supplemental: holding.filter((r) => !r.showSeparate).map((r) => ({ code: r.code, name: reportText(r.name, language), note: HOLDING_SINGLE_CASE_NOTE_RU })),
+      } : { unavailable: HOLDING_PROFILE_UNAVAILABLE_RU } } : {}),
     };
   });
   return {
-    input: roundReportInput({ kind, language, profiles }),
+    input: roundReportInput({ kind, language, profiles, caveats: { personality: PERSONALITY_CAVEAT_RU, sjt: SJT_CAVEAT_RU } }),
     evidence: new Set([
       "coverage",
       ...profiles.map((p) => p.id),

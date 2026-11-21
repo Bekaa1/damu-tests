@@ -6,8 +6,9 @@ import { createPerson, listPeople } from "./people";
 import { getReport } from "./assessment";
 import { orgId, requireRole, type Context } from "./access";
 import { db, audit } from "./db";
-import { getGeneratedReport } from "./generated-reports";
+import { withGeneratedReportAccess } from "./generated-reports";
 import { REPORT_POLICY_VERSION } from "../../../packages/core/report-policy";
+import { resolveProfileBinding } from "../../../packages/core/profile-binding";
 import { reportCss, sanitizePdfText } from "./report-layout";
 import { paginateProfessionalReport } from "./report-pagination";
 import {
@@ -51,6 +52,9 @@ export async function exportPeople(ctx: Context, campaignId: string) {
     { header: "Назначено", key: "total", width: 12 },
     { header: "Статус", key: "status", width: 18 },
     { header: "Отчёт", key: "report", width: 18 },
+    { header: "Номер профиля", key: "profileRow", width: 16 },
+    { header: "Блок", key: "block", width: 10 },
+    { header: "Целевой уровень модели", key: "targetLevelModel", width: 22 },
   ];
   for (const p of people.filter((p) => p.role === "employee"))
     sheet.addRow({
@@ -58,6 +62,9 @@ export async function exportPeople(ctx: Context, campaignId: string) {
       email: csvSafe(p.user.email),
       position: csvSafe(p.position),
       unit: csvSafe(p.unit),
+      profileRow: p.profileRow,
+      block: p.block,
+      targetLevelModel: p.targetLevelModel,
       completed: p.completed,
       total: p.total,
       status: participantStatusRu[p.status] || "Неизвестно",
@@ -72,7 +79,7 @@ export async function exportPeople(ctx: Context, campaignId: string) {
     fgColor: { argb: "FF142635" },
   };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
-  sheet.autoFilter = { from: "A1", to: "H1" };
+  sheet.autoFilter = { from: "A1", to: "K1" };
   const results = w.addWorksheet("Первичные результаты");
   results.columns = [
     { header: "Участник", key: "name", width: 30 },
@@ -171,17 +178,18 @@ export async function importPeople(ctx: Context, input: unknown) {
   if (rows.length > 501)
     throw new BadRequestException("Максимум 500 сотрудников за импорт");
   const headers = rows.shift()?.map((v) => v.trim().toLowerCase()) || [];
-  if (!["name", "email", "unit"].every((h) => headers.includes(h)))
-    throw new BadRequestException("Нужны заголовки name, email, unit");
+  if (!["name", "email"].every((h) => headers.includes(h)) || !headers.some((h) => ["profile_row", "profilerow"].includes(h)))
+    throw new BadRequestException("Нужны заголовки name, email, profile_row. Подразделение и должность берутся из исходного профиля.");
   const created: any[] = [],
     errors: { row: number; message: string }[] = [];
   for (const [i, row] of rows.entries()) {
     if (!row.some(Boolean)) continue;
     try {
       const person = Object.fromEntries(
-        headers.map((h, j) => [h, row[j]?.trim() || undefined]),
+        headers.map((h, j) => [h, ["profile_row", "profilerow"].includes(h) ? row[j] : row[j]?.trim() || undefined]),
       );
-      created.push(await createPerson(ctx, { ...person, role: "employee" }));
+      const binding = resolveProfileBinding(person.profile_row ?? person.profilerow, { unit: person.unit, position: person.position });
+      created.push(await createPerson(ctx, { ...person, ...binding, role: "employee" }));
     } catch (e) {
       errors.push({ row: i + 2, message: (e as Error).message });
     }
@@ -280,44 +288,31 @@ export async function exportTeamPdf(ctx: Context, campaignId: string) {
   return exportGeneratedPdf(ctx, current.id);
 }
 export async function exportGeneratedPdf(ctx: Context, id: string) {
-  const report = await getGeneratedReport(ctx, id);
-  const sourceIds = ((report.snapshot as any)?.people || []).flatMap((p: any) =>
-    (p.results || [])
-      .filter((r: any) => r.score && r.resultId)
-      .map((r: any) => r.resultId),
-  );
-  const invalidSources = await db.testResult.count({
-    where: {
-      organizationId: orgId(ctx),
-      id: { in: sourceIds },
-      OR: [
+  const read = () => withGeneratedReportAccess(ctx, id, async (tx, report) => {
+    const sourceIds = ((report.snapshot as any)?.people || []).flatMap((p: any) =>
+      (p.results || []).filter((r: any) => r.score && r.resultId).map((r: any) => r.resultId),
+    );
+    const invalidSources = await tx.testResult.count({ where: {
+      organizationId: orgId(ctx), id: { in: sourceIds }, OR: [
         { result: { path: ["validity", "eligible"], equals: false } },
         { result: { path: ["excluded"], equals: true } },
       ],
-    },
+    } });
+    if (invalidSources) throw new BadRequestException("Отчёт содержит тест с недостаточным числом ответов. После повторного прохождения сформируйте новый отчёт.");
+    if (report.status !== "completed") throw new BadRequestException("Отчёт ещё не готов");
+    if (report.policyVersion !== REPORT_POLICY_VERSION) throw new BadRequestException("Этот файл создан по прежним правилам. Сформируйте новую версию отчёта.");
+    const artifact = await tx.reportArtifact.findUnique({ where: { reportId: id } });
+    if (!artifact) return { report, bytes: null };
+    await tx.auditLog.create({ data: { organizationId: orgId(ctx), actorId: ctx.user.id, action: "generated_report.pdf_exported", entityId: id } });
+    return { report, bytes: Buffer.from(artifact.bytes) };
   });
-  if (invalidSources)
-    throw new BadRequestException(
-      "Отчёт содержит тест с недостаточным числом ответов. После повторного прохождения сформируйте новый отчёт.",
-    );
-  if (report.status !== "completed")
-    throw new BadRequestException("Отчёт ещё не готов");
-  if (report.policyVersion !== REPORT_POLICY_VERSION)
-    throw new BadRequestException(
-      "Этот файл создан по прежним правилам. Сформируйте новую версию отчёта.",
-    );
-  const artifact = await db.reportArtifact.findUnique({
-    where: { reportId: id },
-  });
-  if (artifact) {
-    await audit(orgId(ctx), ctx.user.id, "generated_report.pdf_exported", id);
-    return Buffer.from(artifact.bytes);
-  }
+  let prepared = await read();
+  if (prepared.bytes) return prepared.bytes;
+  // Browser rendering is intentionally outside the DB fence. Reacquire all
+  // current subject/policy locks before returning bytes or recording export.
   const { persistReportPdf } = await import("./report-lifecycle");
-  await persistReportPdf(id, generatedContentSchema.parse(report.content));
-  const bytes = await db.reportArtifact.findUniqueOrThrow({
-    where: { reportId: id },
-  });
-  await audit(orgId(ctx), ctx.user.id, "generated_report.pdf_exported", id);
-  return Buffer.from(bytes.bytes);
+  await persistReportPdf(id, generatedContentSchema.parse(prepared.report.content));
+  prepared = await read();
+  if (!prepared.bytes) throw new BadRequestException("Отчёт ещё не готов");
+  return prepared.bytes;
 }

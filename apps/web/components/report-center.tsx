@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ReportReviewAction } from "./report-review";
-import { REPORT_POLICY_VERSION } from "../../../packages/core/report-policy";
+import { REPORT_POLICY_VERSION, invalidProfile } from "../../../packages/core/report-policy";
 import {
   FileText,
   Users,
@@ -77,6 +77,8 @@ function ReportState({ report }: { report?: ReportRow }) {
     return (
       <span className="text-muted">{t("Не сформирован", "Жасалмаған")}</span>
     );
+  if (report.kind === "team" && report.participantCount < 5)
+    return <span className="text-muted">{t("Командный отчёт скрыт: менее 5 участников", "Командалық есеп жасырылған: 5 қатысушыдан аз")}</span>;
   if (
     report.status === "completed" &&
     report.policyVersion !== REPORT_POLICY_VERSION
@@ -142,7 +144,7 @@ function ReportState({ report }: { report?: ReportRow }) {
 function PdfActions({ report }: { report: ReportRow }) {
   const { t, notify } = useApp();
   const [busy, setBusy] = useState(false);
-  const currentPolicy = report.policyVersion === REPORT_POLICY_VERSION;
+  const currentPolicy = report.policyVersion === REPORT_POLICY_VERSION && (report.kind !== "team" || report.participantCount >= 5);
   const open = async (preview: boolean) => {
     setBusy(true);
     try {
@@ -217,6 +219,7 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
     (p) => p.role === "employee" && p.total > 0,
   );
   const ready = participants.filter((p) => p.status === "completed").length;
+  const eligibleTeam = participants.filter((p) => p.status === "completed" && !invalidProfile(p)).length;
   const withScores = participants.filter((p) =>
     p.results?.some((r: any) => r.score),
   ).length;
@@ -323,8 +326,8 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
               <p>
                 {kind === "team"
                   ? t(
-                      "Профили компетенций, распределения результатов по уровням и программа развития группы.",
-                      "Құзыреттер бейіні, нәтижелердің деңгейлер бойынша үлестірімі және топтың даму бағдарламасы.",
+                      "Краткий отчёт по тестам: групповые результаты и дополнительные источники по модели Холдинга. Не заменяет интегрированный экспертный отчёт по упражнениям и интервью.",
+                      "Тесттер бойынша қысқаша есеп: топтық нәтижелер және Холдинг моделі бойынша қосымша дереккөздер. Жаттығулар мен сұхбатқа негізделген біріктірілген сараптамалық есепті алмастырмайды.",
                     )
                   : t(
                       "Графики по тестам, сильные стороны, зоны развития и индивидуальный план с конкретными действиями и сроками.",
@@ -374,6 +377,7 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
                             "AI қатысушылардың қолжетімді нәтижелері бойынша қорытындылар мен ұсыныстар дайындайды.",
                           )}
                     </p>
+                    {eligibleTeam < 5 ? <p className="text-muted">{t("менее 5 участников — командные результаты не раскрываются", "5 қатысушыдан аз — командалық нәтижелер ашылмайды")}</p> : null}
                     {current?.status === "failed" ? (
                       <p role="alert">{current.error}</p>
                     ) : null}
@@ -391,7 +395,7 @@ export function ReportCenter({ kind }: { kind: "individual" | "team" }) {
                         }
                         busy={busyId === "team"}
                         disabled={
-                          !withScores ||
+                          eligibleTeam < 5 ||
                           inProgress(current) ||
                           current?.status === "manual_review"
                         }

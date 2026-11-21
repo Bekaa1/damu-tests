@@ -8,6 +8,8 @@ import {
   personalityProfile,
   personalityBand,
   levelText,
+  holdingReportProfile,
+  HOLDING_SINGLE_CASE_NOTE_RU,
 } from "./report-policy";
 import { testScoreSummary } from "./test-levels";
 
@@ -54,13 +56,24 @@ export function jobGroup(p: ReportPerson): string | null {
       : null;
 }
 export function distribution(values: number[]) {
-  return [1, 2, 3, 4, 5].map((level) => ({
+  const rows = [1, 2, 3, 4, 5].map((level) => ({
     level,
     count: values.filter((v) => v === level).length,
   }));
+  // Suppress the whole chart, not a bar reconstructible from its total.
+  return values.length < 5 || rows.some((r) => r.count > 0 && r.count < 5) ? [] : rows;
 }
-export function summaryStats(values: number[], suppress = true) {
-  if (suppress && values.length < 5) return { suppressed: true as const };
+const sparsePartition = (people: ReportPerson[]) => {
+  const counts = new Map<string, number>();
+  for (const p of people) {
+    const key = jobGroup(p) || "unclassified";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.values()].some((n) => n < 5);
+};
+export function summaryStats(values: number[], _legacySuppress = true) {
+  // Team confidentiality is mandatory; a legacy flag cannot disable it.
+  if (values.length < 5) return { suppressed: true as const };
   if (!values.length) return { suppressed: true as const };
   const sorted = [...values].sort((a, b) => a - b),
     middle = Math.floor(sorted.length / 2);
@@ -81,7 +94,7 @@ export function teamReportData(
   language: ReportLanguage,
 ) {
   const valid = snapshot.people.filter(
-    (p) => p.status === "completed" && !invalidProfile(p),
+    (p, i, all) => p.status === "completed" && !invalidProfile(p) && all.findIndex((x) => x.id === p.id) === i,
   );
   const passport = {
     id: "coverage",
@@ -98,7 +111,7 @@ export function teamReportData(
     id: g.id,
     name: g[language],
     participants: summaryStats(
-      valid.filter((p) => jobGroup(p) === g.id).map(() => 1),
+      sparsePartition(valid) ? [] : valid.filter((p) => jobGroup(p) === g.id).map(() => 1),
     ),
   }));
   const metrics = new Map<
@@ -127,7 +140,7 @@ export function teamReportData(
       if (!r.score || r.score.reviewRequired) continue;
       const score = r.score,
         base = `${r.testVersionId}:${r.scoringKeyId || ""}:${r.language || "ru"}`;
-      const entries: [string, any][] = score.scales
+      const entries: [string, any][] = score.scales && r.testId !== "situations" && score.algorithm !== "sjt"
         ? Object.entries(score.scales)
         : [["total", null]];
       for (const [id, raw] of entries) {
@@ -214,7 +227,7 @@ export function teamReportData(
           : null,
       groupTotals: JOB_GROUPS.map((g) => {
         const rows = m.values.filter((v) => jobGroup(v.p) === g.id);
-        return rows.length >= 5 && m.percentage
+        return !sparsePartition(m.values.map((v) => v.p)) && rows.length >= 5 && m.percentage
           ? median(rows.map((v) => v.total!))
           : null;
       }),
@@ -239,7 +252,7 @@ export function teamReportData(
       groups: JOB_GROUPS.map((g) => ({
         id: g.id,
         ...summaryStats(
-          m.values.filter((v) => jobGroup(v.p) === g.id).map((v) => v.value),
+          sparsePartition(m.values.map((v) => v.p)) ? [] : m.values.filter((v) => jobGroup(v.p) === g.id).map((v) => v.value),
         ),
       })),
       distribution:
@@ -279,7 +292,7 @@ export function teamReportData(
         name: reportText(c.name, language),
         values: [] as { p: ReportPerson; value: number; target?: number }[],
       };
-      item.values.push({
+      if (!item.values.some((v) => v.p.id === p.id)) item.values.push({
         p,
         value: rating.value,
         target: model.status === "approved" ? role?.targets[c.id] : undefined,
@@ -300,13 +313,13 @@ export function teamReportData(
       const below = approved.filter((v) => v.value < v.target!).length;
       return {
         id: g.id,
-        ...summaryStats(values.map((v) => v.value)),
+        ...summaryStats(sparsePartition(c.values.map((v) => v.p)) ? [] : values.map((v) => v.value)),
         below:
-          approved.length >= 5
+          !sparsePartition(c.values.map((v) => v.p)) && approved.length >= 5
             ? roundReport((100 * below) / approved.length)
             : null,
         color:
-          approved.length < 5
+          sparsePartition(c.values.map((v) => v.p)) || approved.length < 5
             ? null
             : (100 * below) / approved.length < 20
               ? "green"
@@ -321,9 +334,10 @@ export function teamReportData(
         : null,
   }));
   return {
+    suppressed: valid.length < 5,
     passport,
     groups,
-    unclassified: summaryStats(valid.filter((p) => !jobGroup(p)).map(() => 1)),
+    unclassified: summaryStats(sparsePartition(valid) ? [] : valid.filter((p) => !jobGroup(p)).map(() => 1)),
     methods,
     competencies: competencyStats,
   };
@@ -337,6 +351,28 @@ export function teamTestReportData(
   language: ReportLanguage,
 ) {
   const data = teamReportData(snapshot, language);
+  const holding = new Map<string, { row: NonNullable<ReturnType<typeof holdingReportProfile>>[number]; formKey: string; values: number[]; people: Set<string> }>();
+  if (!data.suppressed) for (const p of snapshot.people) {
+    if (p.status !== "completed" || invalidProfile(p)) continue;
+    for (const r of p.results.filter((r) => r.testId === "situations" && !r.score?.reviewRequired)) {
+      for (const row of holdingReportProfile(r.score) || []) {
+        const base = JSON.stringify([r.testVersionId, r.scoringKeyId, r.language || "ru", row.code, row.maximum]);
+        const item = holding.get(base) || { row, formKey: `${r.testVersionId}:${r.scoringKeyId || ""}:${r.language || "ru"}`, values: [], people: new Set<string>() };
+        if (!item.people.has(p.id)) { item.people.add(p.id); item.values.push(row.total); }
+        holding.set(base, item);
+      }
+    }
+  }
+  const eligibleHolding = [...holding.entries()].filter(([, v]) => v.people.size >= 5);
+  const holdingProfile = {
+    available: eligibleHolding.length > 0,
+    numeric: eligibleHolding.filter(([, v]) => v.row.showSeparate).map(([key, v], i) => ({
+      id: `holding-team-${i + 1}`, comparableKey: key, formKey: v.formKey, code: v.row.code, name: reportText(v.row.name, language), total: median(v.values), maximum: v.row.maximum, n: v.people.size,
+    })),
+    supplemental: eligibleHolding.filter(([, v]) => !v.row.showSeparate).map(([, v]) => ({
+      formKey: v.formKey, code: v.row.code, name: reportText(v.row.name, language), note: HOLDING_SINGLE_CASE_NOTE_RU,
+    })),
+  };
   const summary = (
     total: number | null,
     maximum: number | null,
@@ -355,6 +391,7 @@ export function teamTestReportData(
       name: m.name,
       testId: m.testId,
       overall: summary(m.medianTotal, m.maximum, m.overall),
+      comparableKey: m.comparableKey,
       groups: m.groups.map((g, i) => ({
         id: g.id,
         name: JOB_GROUPS[i][language],
@@ -394,5 +431,5 @@ export function teamTestReportData(
       bottom: sorted.slice(-3).reverse().map(compact),
     };
   });
-  return { passport: data.passport, methods, personality, motivation };
+  return { suppressed: data.suppressed, passport: data.passport, methods: data.suppressed ? [] : methods, personality: data.suppressed ? [] : personality, motivation: data.suppressed ? [] : motivation, ...(data.suppressed ? {} : { holdingProfile }) };
 }

@@ -1,4 +1,5 @@
 import { CONSENT_TEXT, CONSENT_VERSION } from "./assessment-policy";
+import { participantDeletionDate, participantDataExpired } from "./data-policy";
 
 export const PILOT_CONSENT_VERSION = "pilot-2026-11-20-retention";
 export const PILOT_CONSENT_TEXT = {
@@ -6,24 +7,15 @@ export const PILOT_CONSENT_TEXT = {
   kk: "Пилотқа қатысу ерікті. Мен аты-жөнімді, байланыс деректерімді, жауаптарымды, нәтижелерімді және тесттен өту кезіндегі техникалық оқиғаларды тек AssessFlow тесттерінің сапасын тексеру үшін өңдеуге келісемін. Бұл менің жұмысымды бағалау емес, сынақ тестілеу. Жеке жауаптар мен нәтижелер жұмыс берушіге және компаниямның басшылығына берілмейді және кадрлық шешімдер үшін пайдаланылмайды. Деректер тек платформаны тексеруге уәкілетті топқа қолжетімді және Даму қызметкерлерін бағалау деректерінен бөлек сақталады. Қатысушының платформадағы деректері пилотта тіркелген күнінен бастап 3 күнтізбелік айдан кейін жойылады. Қайта кіру немесе қайта келісім беру бұл мерзімді ұзартпайды. Пилотта деректерді сыртқы AI-талдау сервистеріне жіберу өшірілген. Мен қатысудан бас тарта аламын, тесттен өтуді тоқтата аламын немесе келісімді қайтарып алу және деректерімді мерзімінен бұрын жою үшін пилот ұйымдастырушысына жүгіне аламын.",
 };
 
-// UTC calendar arithmetic, including month-end clamping (Nov 30 -> Feb 28/29).
-export function pilotDeletionDate(createdAt: Date | string) {
-  const registered = new Date(createdAt);
-  if (!Number.isFinite(registered.getTime())) throw Error("Invalid registration date");
-  const deadline = new Date(registered);
-  deadline.setUTCDate(1);
-  deadline.setUTCMonth(deadline.getUTCMonth() + 3);
-  const lastDay = new Date(Date.UTC(deadline.getUTCFullYear(), deadline.getUTCMonth() + 1, 0)).getUTCDate();
-  deadline.setUTCDate(Math.min(registered.getUTCDate(), lastDay));
-  return deadline;
-}
+// Compatibility API: its scope is still pilot-only.
+export const pilotDeletionDate = participantDeletionDate;
 
 export function pilotDataExpired(
   member: { role: string; createdAt: Date | string } | null | undefined,
   organization: { purpose?: string } | null | undefined,
   now = new Date(),
 ) {
-  return Boolean(member?.role === "employee" && organization?.purpose === "pilot" && pilotDeletionDate(member.createdAt) <= now);
+  return organization?.purpose === "pilot" && participantDataExpired(member, organization, now);
 }
 
 export function consentPolicy(organization?: { purpose?: string } | null) {

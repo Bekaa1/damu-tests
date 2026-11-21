@@ -15,7 +15,7 @@ import {
   verifyEffectivenessCalibration,
 } from "../packages/core/sjt-calibration";
 import { calculateScore } from "../packages/core/scoring";
-import { DEFAULT_COMPETENCIES } from "../packages/core/competencies";
+import { LEGACY_COMPETENCIES } from "../packages/core/competencies";
 import { dataReport } from "../packages/core/report-fallback";
 import { customerReportTemplate } from "../apps/api/src/customer-report";
 describe("Customer report policy 17.11", () => {
@@ -95,14 +95,14 @@ describe("Customer report policy 17.11", () => {
       scales: ["N1"],
     });
     profile.consensus.scores.ratings[0] = {
-      competencyId: "analysis",
+      competencyId: profile.model.content.competencies[0].id,
       value: 2,
       reason: "Наблюдалось отсутствие проверки данных.",
       evidenceIds: ["exercise-1", "personality-result"],
     };
     profile.cards = [
       {
-        id: "analysis",
+        id: profile.model.content.competencies[0].id,
         sources: [
           {
             id: "personality-result",
@@ -179,7 +179,7 @@ describe("Weighted SJT calibration", () => {
           competencyId:
             draft.review.coverage &&
             Object.entries(draft.config.items).find(([id]) => id === q.id) &&
-            DEFAULT_COMPETENCIES.competencies.find(
+            LEGACY_COMPETENCIES.competencies.find(
               (c) => c.name.ru === draft.config.items[q.id].competency.ru,
             )!.id,
           options: Object.fromEntries(

@@ -1,4 +1,13 @@
 import { Queue, Worker } from "bullmq";
+import {
+  externalAiAllowed,
+  EXTERNAL_AI_DISABLED_STATUS,
+  EXTERNAL_AI_DISABLED_CODE,
+  EXTERNAL_AI_DISABLED_ERROR,
+} from "../../../packages/core/data-policy";
+function disabledByPolicy() {
+  return { status: EXTERNAL_AI_DISABLED_STATUS, code: EXTERNAL_AI_DISABLED_CODE, error: EXTERNAL_AI_DISABLED_ERROR };
+}
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { db, audit, json } from "./db";
@@ -31,6 +40,9 @@ export async function queueAi(
   regenerate = false,
   oncePerCampaign = false,
 ) {
+  // All automatic/manual/regenerate callers fail closed before snapshots,
+  // provider configuration, budget reservation or Redis job creation.
+  if (!externalAiAllowed()) return disabledByPolicy();
   const pilot = await db.organization.findUnique({
     where: { id: organizationId },
     select: { purpose: true },
@@ -153,6 +165,18 @@ export async function generateAi(
   attemptsMade = 0,
   maxAttempts = 1,
 ) {
+  if (!externalAiAllowed()) {
+    // Jobs queued before the policy change (including retries) must recheck the
+    // current policy, not rely on a queue-time authorization snapshot.
+    const existing = await db.aiReport.findUnique({ where: { id: reportId }, select: { status: true } });
+    if (!existing) return { status: "erased" };
+    if (existing.status === "completed") return { status: "completed" }; // historical, not newly generated
+    await db.aiReport.updateMany({
+      where: { id: reportId, status: { not: "completed" } },
+      data: { status: EXTERNAL_AI_DISABLED_STATUS, error: EXTERNAL_AI_DISABLED_ERROR },
+    });
+    return { id: reportId, ...disabledByPolicy() };
+  }
   const report = await db.aiReport.findUniqueOrThrow({
     where: { id: reportId },
   });

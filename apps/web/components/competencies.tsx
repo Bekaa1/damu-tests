@@ -1,7 +1,35 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useApp, useData, post, Panel, Button, Field, LoadState } from "./ui";
-import type { CompetencyConfig } from "../../../packages/core/competencies";
+import { DEFAULT_COMPETENCIES, type CompetencyConfig } from "../../../packages/core/competencies";
+import { HOLDING_COMPETENCIES, HOLDING_PROFILES, HOLDING_MODEL_VERSION, HOLDING_PROVENANCE, holdingProfile } from "../../../packages/core/holding";
+
+/** Shared read-only source reference, reachable from expert setup and admin participant cards. */
+export function HoldingModelReference() {
+  return <Panel title="Модель компетенций Холдинга · C1–C8">
+    <div className="panel-body form-stack" lang="ru" data-source-language="ru">
+      <p className="notice">Исходный язык: RU. Перевод KK не предоставлен; показан исходный русский текст.</p>
+      <p>Целевой уровень модели: В. Целевой балл не согласован — пусто (NULL).</p>
+      <p>Критичность — не вес и не требуемый балл: 1 / 2 / 3 используются только как информация о должностном профиле.</p>
+      <p>Не наблюдалось — отдельный статус, не оценка 1. Оценки разных ассессоров сохраняются отдельно.</p>
+      <details><summary>Источник и версия: {HOLDING_MODEL_VERSION}</summary>
+        <p>{HOLDING_PROVENANCE.competencies.file} · {HOLDING_PROVENANCE.competencies.sheet} · {HOLDING_PROVENANCE.competencies.range}</p>
+        <code>{HOLDING_PROVENANCE.competencies.sha256}</code>
+        <p>{HOLDING_PROVENANCE.profiles.file} · {HOLDING_PROVENANCE.profiles.sheet} · {HOLDING_PROVENANCE.profiles.range}</p>
+        <code>{HOLDING_PROVENANCE.profiles.sha256}</code>
+      </details>
+      {HOLDING_COMPETENCIES.map(c=><details key={c.id} className="competency-config"><summary>{c.id} · {c.name.ru}</summary>
+        <p>{c.block}</p><ul>{c.indicators.map(i=><li key={i.id} data-indicator-id={i.id}><strong>{i.id}</strong> · {i.text.ru}</li>)}</ul>
+      </details>)}
+      <details><summary>Номерные должностные профили: 65 (не реестр участников)</summary>
+        <p>Профили 55/56 и 58/59 различаются номером, даже когда подразделение и должность совпадают. ФИО и email не предоставлены в реестре профилей.</p>
+        <div className="table-wrap"><table><thead><tr><th>№ профиля</th><th>Блок</th><th>Подразделение</th><th>Должность</th>{HOLDING_COMPETENCIES.map(c=><th key={c.id}>{c.id} · критичность</th>)}<th>Уровень</th><th>Целевой балл</th></tr></thead>
+          <tbody>{HOLDING_PROFILES.map(p=><tr key={p.profileRow} data-profile-row={p.profileRow}><td>{p.profileRow}</td><td>{p.block}</td><td>{p.unit}</td><td>{p.position}</td>{HOLDING_COMPETENCIES.map(c=><td key={c.id}>{p.criticality[c.id]}</td>)}<td>{p.targetLevelModel}</td><td>—</td></tr>)}</tbody>
+        </table></div>
+      </details>
+    </div>
+  </Panel>;
+}
 export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
   const { t, loc, notify } = useApp(),
     model = useData<any>("/competency-model");
@@ -27,6 +55,14 @@ export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
       setBusy(false);
     }
   }
+  if (content?.holdingModelVersion === HOLDING_MODEL_VERSION) return <>
+    <HoldingModelReference />
+    <Panel title="Версия модели Холдинга"><div className="panel-body form-stack">
+      <p>Дословные компетенции, индикаторы, профили и критичность защищены от изменений. Наблюдения и согласования сохраняются новыми версиями, история не переписывается.</p>
+      <p>Статус: {model.data?.status === "approved" ? "утверждена экспертом" : "черновик"}. Источники упражнений доступны как возможности наблюдения, а не как автоматически подтверждённые оценки.</p>
+      <div className="row"><Button busy={busy} onClick={()=>void save(false)}>Сохранить новую версию</Button><Button variant="secondary" busy={busy} onClick={()=>void save(true)}>Утвердить модель Холдинга</Button></div>
+    </div></Panel>
+  </>;
   return (
     <Panel
       title={t(
@@ -37,6 +73,8 @@ export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
       <LoadState loading={model.loading} error={model.error}>
         {content && (
           <div className="panel-body form-stack">
+            <p className="notice">Историческая модель сохранена для прежних оценок. Новые версии используют модель Холдинга.</p>
+            <Button onClick={()=>setContent(structuredClone(DEFAULT_COMPETENCIES))}>Перейти на модель Холдинга C1–C8 / 65 профилей</Button>
             <p className="notice">
               {model.data?.status === "approved"
                 ? t("Модель утверждена экспертом", "Модельді сарапшы бекітті")
@@ -270,7 +308,7 @@ export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
                             min={1}
                             max={5}
                             aria-label={`${loc(c.name)} · ${loc(r.name)}`}
-                            value={r.targets[c.id]}
+                            value={r.targets[c.id] ?? ""}
                             onChange={(e) => {
                               r.targets[c.id] = Number(e.target.value);
                               update();
@@ -381,7 +419,7 @@ export function CompetencyConsensus({
             <Field label={t("Должностной профиль", "Лауазымдық бейін")}>
               <select
                 required
-                disabled={!editable}
+                disabled={!editable || Boolean(evidence.data.member?.profileRow)}
                 value={roleId}
                 onChange={(e) => setRoleId(e.target.value)}
               >
@@ -395,9 +433,12 @@ export function CompetencyConsensus({
                 ))}
               </select>
             </Field>
+            {config.holdingModelVersion && <p className="notice" lang="ru">Исходный язык: RU · Целевой уровень модели: В · Целевой балл не согласован. Критичность — не вес и не требуемый балл.</p>}
             {evidence.data.cards.map((c: any) => {
               const rating = ratings[c.id] || {
                 value: null,
+                notObserved: false,
+                evidenceText: "",
                 reason: "",
                 evidenceIds: [],
               };
@@ -408,12 +449,13 @@ export function CompetencyConsensus({
                 }));
               const selectedMethods = new Set(
                 c.sources
-                  .filter((s: any) => rating.evidenceIds.includes(s.id))
+                  .filter((s: any) => rating.evidenceIds.includes(s.id) && !s.notObserved)
                   .map((s: any) => s.method),
               ).size;
               return (
                 <section className="consensus-card" key={c.id}>
-                  <h3>{loc(c.name)}</h3>
+                  <h3>{c.id} · {loc(c.name)}</h3>
+                  {config.holdingModelVersion && <p lang="ru">Критичность: {holdingProfile(config.roles.find(r=>r.id===roleId)?.profileRow ?? 0)?.criticality[c.id] ?? "—"} · Целевой уровень: В · Целевой балл: —</p>}
                   <p
                     className={
                       selectedMethods < 2 ? "notice warning" : "text-muted"
@@ -449,7 +491,7 @@ export function CompetencyConsensus({
                           <p>{s.notes}</p>
                           {s.scores.map((v: any) => (
                             <p key={v.id}>
-                              {v.name}: {v.score}/5 — {v.example}
+                              {v.name}: {v.notObserved ? "Не наблюдалось" : `${v.score}/5`} — {v.example}
                             </p>
                           ))}
                         </>
@@ -476,22 +518,23 @@ export function CompetencyConsensus({
                       </label>
                     </details>
                   ))}
+                  <Field label="Пример поведения (факт, без оценочных слов)"><textarea disabled={!editable} value={rating.evidenceText || ""} onChange={e=>set({evidenceText:e.target.value})}/></Field>
                   <div className="form-grid">
                     <Field label={t("Итоговая оценка", "Қорытынды баға")}>
                       <select
                         disabled={!editable}
-                        value={rating.value ?? ""}
+                        value={rating.notObserved ? "not_observed" : rating.value ?? ""}
                         onChange={(e) =>
                           set({
-                            value: e.target.value
-                              ? Number(e.target.value)
-                              : null,
+                            notObserved: e.target.value === "not_observed",
+                            value: e.target.value && e.target.value !== "not_observed" ? Number(e.target.value) : null,
                           })
                         }
                       >
                         <option value="">
                           {t("Не оценено", "Бағаланбаған")}
                         </option>
+                        <option value="not_observed">Не наблюдалось (отдельный статус)</option>
                         {config.scale.map((s) => (
                           <option key={s.value} value={s.value}>
                             {s.value} · {loc(s.description)}

@@ -93,8 +93,8 @@ describe("Professional reports", () => {
         })),
       })),
     );
-    expect(reportMetrics(s, "ru")).toHaveLength(4);
-    expect(reportMetrics(s, "ru").every((m) => m.n === 1)).toBe(true);
+    expect(reportMetrics(s, "ru", "individual")).toHaveLength(4);
+    expect(reportMetrics(s, "ru", "individual").every((m) => m.n === 1)).toBe(true);
   });
   it("calculates department means using observed values, preserving real zeros", () => {
     const s = snapshot();
@@ -114,7 +114,7 @@ describe("Professional reports", () => {
       id: "p3",
       results: [{ ...s.people[0].results[0], score: null }],
     });
-    const [m] = reportMetrics(s, "ru");
+    const [m] = reportMetrics(s, "ru", "individual");
     expect(m.mean).toBe(1);
     expect(m.n).toBe(2);
     expect(m.units.find((u) => u.name === "Филиал")?.mean).toBe(0);
@@ -141,7 +141,7 @@ describe("Professional reports", () => {
       },
     ];
     expect(
-      reportMetrics(s, "ru").filter((m) => m.testId === "expert"),
+      reportMetrics(s, "ru", "individual").filter((m) => m.testId === "expert"),
     ).toHaveLength(0);
   });
   it("keeps SJT distinct and uses its actual maximum, not a hardcoded 16", () => {
@@ -151,7 +151,7 @@ describe("Professional reports", () => {
       testId: "situations",
       score: { algorithm: "sjt", total: 12, maximum: 32 },
     };
-    const [m] = reportMetrics(s, "ru");
+    const [m] = reportMetrics(s, "ru", "individual");
     expect(m.testId).toBe("sjt");
     expect(m.max).toBe(32);
   });

@@ -31,6 +31,8 @@ export type Session = {
   organization: any;
   organizations: { id: string; name: string }[];
   demo: boolean;
+  externalAiAllowed?: boolean;
+  dataDeletionAt?: string | null;
 };
 type AppContext = {
   me: Session;

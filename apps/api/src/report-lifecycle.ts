@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { db, audit, json } from "./db";
+import { db, json } from "./db";
+import { assertReportSubjectsAvailable, withReportSubjectFence } from "./report-subject";
 import { type Context } from "./access";
+import { participantDataExpired } from "../../../packages/core/data-policy";
 import {
   REPORT_POLICY_VERSION,
   reportContentIssues,
@@ -24,9 +26,9 @@ export async function persistReportPdf(
 ) {
   if (rendering.has(id)) return rendering.get(id);
   const task = (async () => {
-    const report = await db.generatedReport.findUniqueOrThrow({
-      where: { id },
-    });
+    const report = await db.generatedReport.findUnique({ where: { id } });
+    if (!report) return;
+    await assertReportSubjectsAvailable(report);
     if (
       report.readyAt ||
       (report.generationMode === "expert" && mode !== "expert")
@@ -38,8 +40,9 @@ export async function persistReportPdf(
       snapshot,
       report.kind as "individual" | "team",
     );
-    const hold = async (error: ReportReviewRequired) => {
-      await db.generatedReport.updateMany({
+    const hold = async (error: ReportReviewRequired) => withReportSubjectFence(report, async (tx, current) => {
+      if (current.readyAt || (current.generationMode === "expert" && mode !== "expert")) return;
+      await tx.generatedReport.updateMany({
         where: {
           id,
           readyAt: null,
@@ -54,14 +57,12 @@ export async function persistReportPdf(
           error: "Нужна проверка формулировок экспертом. PDF пока недоступен.",
         },
       });
-      await audit(
-        report.organizationId,
-        null,
-        "generated_report.review_required",
-        id,
-        { issues: error.issues },
-      );
-    };
+      await tx.auditLog.create({ data: {
+        organizationId: current.organizationId, actorId: null,
+        action: "generated_report.review_required", entityId: id,
+        detail: json({ issues: error.issues }),
+      } });
+    });
     if (issues.length) {
       await hold(new ReportReviewRequired(issues));
       return;
@@ -104,11 +105,8 @@ export async function persistReportPdf(
       throw error;
     }
     const readyAt = new Date();
-    await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM generated_reports WHERE id = ${id} FOR UPDATE`;
-      const current = await tx.generatedReport.findUniqueOrThrow({
-        where: { id },
-      });
+    // Rendering owns no DB lock; the final fresh fence decides publication.
+    await withReportSubjectFence(report, async (tx, current) => {
       if (
         current.readyAt ||
         (current.generationMode === "expert" && mode !== "expert")
@@ -168,6 +166,7 @@ export async function makeFallbackAvailable(id: string) {
     report.generationMode === "expert"
   )
     return;
+  await assertReportSubjectsAvailable(report);
   await persistReportPdf(
     id,
     dataReport(
@@ -193,11 +192,16 @@ export async function queueCompletedAssessment(
     where: { id: membershipId, organizationId },
     include: { organization: true, user: true },
   });
-  if (!member || member.organization.purpose === "pilot") return;
+  if (!member || member.organization.purpose === "pilot" || member.role !== "employee" || member.status !== "active" || participantDataExpired(member, member.organization)) return;
+  // This is a scoped internal job, not an elevated end-user session. In
+  // particular, demo-only employee credentials must never gain an admin role.
+  const epoch = new Date(0);
   const ctx: Context = {
     org: member.organization,
-    user: member.user,
-    member,
+    user: { id: "system-report-lifecycle", name: "AssessFlow report service", email: "system-report-lifecycle@assessflow.invalid",
+      emailVerified: false, image: null, platformAdmin: false, demoOnly: false, mustChangePassword: false,
+      locale: "ru", createdAt: epoch, updatedAt: epoch },
+    member: null,
     role: "admin",
   };
   const { createGeneratedReport } = await import("./generated-reports");

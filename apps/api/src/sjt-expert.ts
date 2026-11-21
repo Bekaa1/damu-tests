@@ -4,7 +4,8 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { db, json, audit } from "./db";
 import { orgId, requireRole, type Context } from "./access";
-import { DEFAULT_COMPETENCIES } from "../../../packages/core/competencies";
+import { LEGACY_COMPETENCIES } from "../../../packages/core/competencies";
+import { HOLDING_MODEL_VERSION, HOLDING_SJT_CASES } from "../../../packages/core/holding";
 import { compileEffectivenessKey } from "../../../packages/core/sjt-calibration";
 import { calculateScore } from "../../../packages/core/scoring";
 const definition = async () =>
@@ -16,6 +17,13 @@ const definition = async () =>
   );
 export async function getSjtExpertKey(ctx: Context) {
   requireRole(ctx, "expert");
+  const model = await db.competencyModel.findFirst({ where: { organizationId: orgId(ctx) }, orderBy: { version: "desc" } });
+  if ((model?.content as any)?.holdingModelVersion === HOLDING_MODEL_VERSION) {
+    const forms = JSON.parse(await readFile(resolve(process.cwd(), "data/new-forms.json"), "utf8"));
+    const form = forms.find((f: any) => f.id === "situations");
+    return { questions: form.questions, cases: HOLDING_SJT_CASES, version: 0, ratings: {}, status: "unapproved",
+      holdingModelVersion: HOLDING_MODEL_VERSION, keyPanelLabel: "Ключ не утверждён экспертной панелью" };
+  }
   const d = await definition(),
     row = await db.sjtExpertKey.findFirst({
       where: { organizationId: orgId(ctx) },
@@ -30,6 +38,9 @@ export async function getSjtExpertKey(ctx: Context) {
 }
 export async function saveSjtExpertKey(ctx: Context, body: unknown) {
   requireRole(ctx, "expert");
+  const model = await db.competencyModel.findFirst({ where: { organizationId: orgId(ctx) }, orderBy: { version: "desc" } });
+  if ((model?.content as any)?.holdingModelVersion === HOLDING_MODEL_VERSION)
+    throw new BadRequestException("Ключ Холдинга остаётся черновым до утверждения экспертной панелью. Формула 28 баллов не заменяется весами; изменения оформляются новой версией с журналом.");
   const data = z
     .object({
       version: z.number().int().min(0),
@@ -106,7 +117,7 @@ function expertPanel(d: any, ratings: any, name: string) {
       d.questions.map((q: any) => [
         q.id,
         {
-          competencyId: DEFAULT_COMPETENCIES.competencies.find(
+          competencyId: LEGACY_COMPETENCIES.competencies.find(
             (c) => c.name.ru === d.config.items[q.id].competency.ru,
           )!.id,
           options: Object.fromEntries(

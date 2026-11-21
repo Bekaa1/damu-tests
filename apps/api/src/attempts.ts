@@ -7,8 +7,10 @@ import {
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
+import { withParticipantWriteFence } from "./participant-write";
 import { answerWithinWindow } from "../../../packages/core/assessment-policy";
-import { hasCurrentConsent, pilotCanStart, pilotDeletionDate } from "../../../packages/core/pilot";
+import { hasCurrentConsent, pilotCanStart } from "../../../packages/core/pilot";
+import { participantDeletionDate } from "../../../packages/core/data-policy";
 import { queueCompletedAssessment } from "./report-lifecycle";
 import { assessmentCompletion } from "../../../packages/core/result-validity";
 import { orgId, requireRole, participant, type Context } from "./access";
@@ -362,8 +364,8 @@ export async function getAttempt(ctx: Context, id: string) {
     serverTime: new Date(),
     delivery: version.delivery,
     campaignId: attempt.assignment.campaignId,
-    dataDeletionAt: ctx.org?.purpose === "pilot" && ctx.member?.role === "employee"
-      ? pilotDeletionDate(ctx.member.createdAt).toISOString() : null,
+    dataDeletionAt: ctx.member?.role === "employee"
+      ? participantDeletionDate(ctx.member.createdAt).toISOString() : null,
     name: version.test.name,
     instructions: version.instructions,
     questions: version.questions.map(questionDTO).map((q) => ({
@@ -741,50 +743,65 @@ export async function submitAttempt(ctx: Context, id: string) {
 }
 export async function recalculate(ctx: Context, id: string, keyId: string) {
   requireRole(ctx, "superadmin");
-  const attempt = await db.testAttempt.findFirst({
-    where: { id, organizationId: orgId(ctx), status: "completed" },
-    include: {
-      answers: true,
-      assignment: {
-        include: {
-          testVersion: {
-            include: { questions: { include: { options: true } } },
+  const organizationId = orgId(ctx);
+  // Discover scope only. Erasure or a changed attempt must win before the
+  // final reread, scoring, append-only output and its receipt under one fence.
+  const discovered = await db.testAttempt.findFirst({
+    where: { id, organizationId, status: "completed" },
+    select: { assignmentId: true, assignment: { select: { membershipId: true, campaignId: true } } },
+  });
+  if (!discovered) throw new NotFoundException();
+  return withParticipantWriteFence(organizationId, [discovered.assignment.membershipId], async tx => {
+    const attempt = await tx.testAttempt.findFirst({
+      where: {
+        id, organizationId, status: "completed", assignmentId: discovered.assignmentId,
+        assignment: { membershipId: discovered.assignment.membershipId, campaignId: discovered.assignment.campaignId },
+      },
+      include: {
+        answers: true,
+        assignment: {
+          include: {
+            testVersion: {
+              include: { questions: { orderBy: { position: "asc" }, include: { options: { orderBy: { position: "asc" } } } } },
+            },
           },
         },
       },
-    },
+    });
+    if (!attempt) throw new NotFoundException();
+    const key = await tx.scoringKey.findFirst({
+      where: { id: keyId, testVersionId: attempt.assignment.testVersionId },
+    });
+    if (!key) throw new BadRequestException("Ключ не относится к методике");
+    const result = calculateScore(
+      key.algorithm,
+      key.config as ScoringConfig,
+      attempt.assignment.testVersion.questions.map(questionDTO),
+      Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.value])),
+      {
+        allowMissing: Boolean(attempt.assignment.testVersion.timeLimitSeconds),
+        durations: Object.fromEntries(
+          attempt.answers.map((a) => [a.questionId, a.durationMs]),
+        ),
+      },
+    );
+    const created = await tx.testResult.upsert({
+      where: { attemptId_scoringKeyId: { attemptId: id, scoringKeyId: keyId } },
+      update: {},
+      create: {
+        organizationId,
+        attemptId: id,
+        scoringKeyId: keyId,
+        result: json(result),
+        reason: "manual_recalculation",
+        calculatedBy: ctx.user.id,
+      },
+    });
+    await tx.auditLog.create({ data: {
+      organizationId, actorId: ctx.user.id, action: "result.recalculated", entityId: created.id,
+    } });
+    return created;
   });
-  if (!attempt) throw new NotFoundException();
-  const key = await db.scoringKey.findFirst({
-    where: { id: keyId, testVersionId: attempt.assignment.testVersionId },
-  });
-  if (!key) throw new BadRequestException("Ключ не относится к методике");
-  const result = calculateScore(
-    key.algorithm,
-    key.config as ScoringConfig,
-    attempt.assignment.testVersion.questions.map(questionDTO),
-    Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.value])),
-    {
-      allowMissing: Boolean(attempt.assignment.testVersion.timeLimitSeconds),
-      durations: Object.fromEntries(
-        attempt.answers.map((a) => [a.questionId, a.durationMs]),
-      ),
-    },
-  );
-  const created = await db.testResult.upsert({
-    where: { attemptId_scoringKeyId: { attemptId: id, scoringKeyId: keyId } },
-    update: {},
-    create: {
-      organizationId: orgId(ctx),
-      attemptId: id,
-      scoringKeyId: keyId,
-      result: json(result),
-      reason: "manual_recalculation",
-      calculatedBy: ctx.user.id,
-    },
-  });
-  await audit(orgId(ctx), ctx.user.id, "result.recalculated", created.id);
-  return created;
 }
 export async function reviewResult(ctx: Context, id: string, input: unknown) {
   requireRole(ctx, "expert");

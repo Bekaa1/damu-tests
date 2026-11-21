@@ -10,6 +10,13 @@ import {
   levelText,
   roundReport,
   averagePersonalitySummary,
+  PERSONALITY_CAVEAT_RU,
+  SJT_CAVEAT_RU,
+  HOLDING_SINGLE_CASE_NOTE_RU,
+  HOLDING_PROFILE_UNAVAILABLE_RU,
+  INTERNAL_PERCENTILE_CAVEAT_RU,
+  holdingReportProfile,
+  internalPercentile,
 } from "../../../packages/core/report-policy";
 import { testScoreSummary } from "../../../packages/core/test-levels";
 import { teamTestReportData } from "../../../packages/core/team-reporting";
@@ -31,10 +38,10 @@ export function customerReportTemplate(
     collectText?: (text: string) => void;
   },
 ) {
-  const e = (s: unknown) => {
+  const e = (s: unknown, editable = false) => {
     const original = String(s ?? "");
     options.collectText?.(original);
-    return sanitizePdfText(options.presentationEdits?.[original] ?? original)
+    return sanitizePdfText((editable && options.presentationEdits?.[original]) || original)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
@@ -52,7 +59,7 @@ export function customerReportTemplate(
     `<section class="report-page">${brand}<div class="kicker">${e(label)}</div><h1>${e(title)}</h1><p class="subtitle">${e(subtitle)}</p>${body}</section>`;
   const section = (title: string, rows: { text: string }[]) =>
     rows.length
-      ? `<h2>${e(title)}</h2>${rows.map((r) => `<p>${e(r.text)}</p>`).join("")}`
+      ? `<h2>${e(title)}</h2>${rows.map((r) => `<p>${e(r.text, true)}</p>`).join("")}`
       : "";
   const table = (headers: string[], rows: string[][]) =>
     `<table><thead><tr>${headers.map((h) => `<th>${e(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
@@ -75,13 +82,22 @@ export function customerReportTemplate(
         e(range),
       ]),
     )}<p class="note">${t("Уровень определяется по точной доле верных ответов до округления процента для отображения.", "Деңгей көрсетілетін пайызды дөңгелектеуге дейін дұрыс жауаптардың нақты үлесі бойынша анықталады.")}</p></div>`;
-  const sjtRule = `<p class="note">${t("Ситуационный тест: +1 за совпадение с ключом по «наиболее вероятно» и +1 по «наименее вероятно». В 14 кейсах максимум 28 баллов.", "Жағдаяттық тест: «ең ықтимал» таңдауының кілтпен сәйкестігіне +1 және «ең ықтимал емес» таңдауының сәйкестігіне +1. 14 кейсте ең көбі 28 балл.")}</p>`;
+  const sjtRule = `<p class="note">${e(t("Ситуационный тест: +1 за совпадение с ключом по «наиболее вероятно» и +1 по «наименее вероятно».", "Жағдаяттық тест: «ең ықтимал» таңдауының кілтпен сәйкестігіне +1 және «ең ықтимал емес» таңдауының сәйкестігіне +1."))}</p><p class="note">${e(t("В 14 кейсах максимум 28 баллов.", "14 кейсте ең көбі 28 балл."))}</p><p class="note">${e(t(SJT_CAVEAT_RU, "28-ден 28 — сараптамалық кілтпен толық сәйкестік, жұмыстағы мінез-құлық бағасы емес"))}</p>`;
+  const personalityCaveat = `<p class="note">${e(t(PERSONALITY_CAVEAT_RU, "Сауалнама шкаласының балы 1-ден 5-ке дейін. Бұл Қазақстан халқымен салыстыру емес. Қазақстан бойынша нормативтік деректер жоқ"))}</p>`;
+  const holdingTable = (data: { numeric: { code: string; name: string; total: number; maximum: number; n?: number }[]; supplemental: { code: string; name: string }[] } | null) => {
+    if (!data?.numeric.length) return `<p class="note">${e(t(HOLDING_PROFILE_UNAVAILABLE_RU, "Холдинг моделі бойынша бейін есептелмеген"))}. ${e(t("Требуется новый расчёт и новая версия отчёта.", "Жаңа есептеу және есептің жаңа нұсқасы қажет."))}</p>`;
+    return `<h2>${e(t("Совпадения с ключом по модели Холдинга", "Холдинг моделі бойынша кілтпен сәйкестіктер"))}</h2><p class="note">${e(t("Дополнительный источник оценки; не итоговые оценки компетенций. Целевые числовые баллы и веса не применяются.", "Бағалаудың қосымша дереккөзі; құзыреттердің қорытынды бағасы емес. Нысаналы сандық балдар мен салмақтар қолданылмайды."))}</p><table><thead><tr><th>${e(t("Компетенция", "Құзырет"))}</th><th>${e(t(team ? "Медиана совпадений / максимум" : "Совпадения / максимум", team ? "Сәйкестіктер медианасы / максимум" : "Сәйкестіктер / максимум"))}</th>${team ? `<th>${e(t("Участников", "Қатысушылар"))}</th>` : ""}</tr></thead><tbody>${data.numeric.map((r) => `<tr data-holding-code="${e(r.code)}"><td>${e(`${r.code} · ${r.name}`)}</td><td>${e(`${n(r.total, lang)} / ${n(r.maximum, lang)}`)}</td>${team ? `<td>${e(r.n)}</td>` : ""}</tr>`).join("")}</tbody></table>${data.supplemental.map((r) => `<p class="note">${e(`${r.code} · ${r.name}: ${t(HOLDING_SINGLE_CASE_NOTE_RU, "бір кейс — қосымша дереккөз; негізгі бағалау — жаттығулар мен сұхбат бойынша")}`)}</p>`).join("")}`;
+  };
   const priorities = (top: { name: string }[], bottom: { name: string }[]) =>
     `<div class="grid-2"><div><h2>${t("3 ведущих фактора", "3 жетекші фактор")}</h2>${top.map((s) => `<p>${e(s.name)}</p>`).join("")}</div><div><h2>${t("3 наименее важных фактора", "Маңыздылығы ең төмен 3 фактор")}</h2>${bottom.map((s) => `<p>${e(s.name)}</p>`).join("")}</div></div>`;
+  if (team && teamTestReportData(snapshot, lang).suppressed) return {
+    label,
+    html: page(t("Командный отчёт не раскрывается", "Командалық есеп ашылмайды"), snapshot.campaign.name, `<p>${e(t("менее 5 участников — результаты и персональные списки не раскрываются", "5 қатысушыдан аз — нәтижелер мен жеке тізімдер ашылмайды"))}</p>`),
+  };
   const plan = content.developmentPlan
     .map(
       (p, i) =>
-        `<div class="plan-card"><div class="plan-number">${t("НАПРАВЛЕНИЕ", "БАҒЫТ")} ${i + 1}</div><h3>${e(p.focus)}</h3><p>${e(p.action)}</p><div class="plan-meta"><div><b>${t("Формат", "Формат")}</b><p>${e(p.format)}</p></div><div><b>${t("Срок", "Мерзім")}</b><p>${e(p.timeframe)}</p></div></div><p><b>${t("Критерий результата", "Нәтиже критерийі")}</b></p><p>${e(p.success)}</p></div>`,
+        `<div class="plan-card"><div class="plan-number">${t("НАПРАВЛЕНИЕ", "БАҒЫТ")} ${i + 1}</div><h3>${e(p.focus, true)}</h3><p>${e(p.action, true)}</p><div class="plan-meta"><div><b>${t("Формат", "Формат")}</b><p>${e(p.format, true)}</p></div><div><b>${t("Срок", "Мерзім")}</b><p>${e(p.timeframe, true)}</p></div></div><p><b>${t("Критерий результата", "Нәтиже критерийі")}</b></p><p>${e(p.success, true)}</p></div>`,
     )
     .join("");
   const development = page(
@@ -92,9 +108,8 @@ export function customerReportTemplate(
       plan,
   );
   const normInfo = snapshot.norm
-    ? `<div class="callout"><p>${t("Фиксированная внутренняя группа сравнения", "Бекітілген ішкі салыстыру тобы")}: ${snapshot.norm.expectedCount}. ${t("Исключено недостоверных профилей", "Сенімсіз бейіндер алынып тасталды")}: ${snapshot.norm.excludedCount}.</p><p>${t("Норма зафиксирована", "Норма бекітілді")}: ${e(new Date(snapshot.norm.createdAt).toLocaleDateString(lang === "ru" ? "ru-RU" : "kk-KZ"))}.</p></div>`
-    : "";
-  const cover = `<section class="report-page report-cover">${brand}<div class="cover-main"><div class="kicker">${e(snapshot.campaign.name)}</div><h1>${e(label)}</h1><div class="cover-rule"></div>${!team ? `<p class="cover-person">${e(snapshot.people[0]?.name)}</p><p>${e(snapshot.people[0]?.position)}</p>` : ""}<p>${t("Результаты оценки и программа развития", "Бағалау нәтижелері және даму бағдарламасы")}</p></div><div class="cover-meta"><p>${e(snapshot.organization.name)}</p><p>${e(new Date(options.createdAt).toLocaleDateString(lang === "ru" ? "ru-RU" : "kk-KZ"))}</p></div></section>`;
+    ? `<div class="callout"><p>${e(t("Фиксированная внутренняя группа сравнения. Размер фактической выборки указан отдельно для каждого показателя.", "Бекітілген ішкі салыстыру тобы. Нақты іріктеме көлемі әр көрсеткіш үшін бөлек берілген."))}</p></div>` : "";
+  const cover = `<section class="report-page report-cover">${brand}<div class="cover-main"><div class="kicker">${e(snapshot.campaign.name)}</div><h1>${e(label)}</h1><div class="cover-rule"></div>${!team ? `<p class="cover-person">${e(snapshot.people[0]?.name)}</p><p>${e(snapshot.people[0]?.position)}</p>` : ""}<p>${t("Краткий отчёт по результатам тестов", "Тест нәтижелері бойынша қысқаша есеп")}</p></div><div class="cover-meta"><p>${e(snapshot.organization.name)}</p><p>${e(new Date(options.createdAt).toLocaleDateString(lang === "ru" ? "ru-RU" : "kk-KZ"))}</p></div></section>`;
 
   if (team) {
     const data = teamTestReportData(snapshot, lang),
@@ -102,6 +117,7 @@ export function customerReportTemplate(
         "Недостаточно данных для группового вывода",
         "Топтық қорытынды үшін дерек жеткіліксіз",
       );
+    if (data.suppressed) return { label, html: cover + page(t("Командный отчёт не раскрывается", "Командалық есеп ашылмайды"), snapshot.campaign.name, `<p>${e(t("менее 5 участников — результаты и персональные списки не раскрываются", "5 қатысушыдан аз — нәтижелер мен жеке тізімдер ашылмайды"))}</p>`) };
     const passport = table(
       [t("Показатель", "Көрсеткіш"), t("Количество", "Саны")],
       [
@@ -152,7 +168,7 @@ export function customerReportTemplate(
               ? `<p>${t("Медиана ГО", "Бас кеңсе медианасы")}: ${n((m.comparison.hq as any).median, lang)}%. ${t("Медиана филиалов", "Филиалдар медианасы")}: ${n((m.comparison.branches as any).median, lang)}%.</p>`
               : "") +
             (m.testId === "situations" && m.overall?.maximum === 28
-              ? sjtRule
+              ? sjtRule + holdingTable(data.holdingProfile ? { numeric: data.holdingProfile.numeric.filter((r) => r.formKey === m.comparableKey), supplemental: data.holdingProfile.supplemental.filter((r) => r.formKey === m.comparableKey) } : null)
               : "") +
             legend(),
         );
@@ -203,7 +219,7 @@ export function customerReportTemplate(
             "Пять основных шкал — медианный уровень группы",
             "Бес негізгі шкала — топтың медианалық деңгейі",
           ),
-          personality +
+          personalityCaveat + personality +
             section(
               t("Особенности самоописания", "Өзіндік сипаттау ерекшеліктері"),
               personalityOverview
@@ -231,12 +247,14 @@ export function customerReportTemplate(
     .map((r) => {
       const score = testScoreSummary(r.score);
       if (!score) return "";
-      const percentile = r.score.cohortPercentile;
+      const percentile = internalPercentile(r.score, snapshot);
+      const date = (v: Date | string) => new Date(v).toLocaleDateString(lang === "ru" ? "ru-RU" : "kk-KZ");
+      const profile = r.testId === "situations" ? holdingReportProfile(r.score) : null;
       return `<div class="keep">${bar(reportText(r.name, lang), levelText(score.level, lang), score.level)}<div class="score-calculation">${e(formula(score))}</div>${
-        snapshot.norm && percentile?.scope === "frozen" && percentile?.n >= 30
-          ? `<p class="note">${t("Процентиль внутри сопоставимой группы", "Салыстырмалы топ ішіндегі процентиль")}: ${n(percentile.value, lang)}${r.score.reportNorm?.sten != null ? `. ${t("Стен", "Стен")}: ${r.score.reportNorm.sten}` : ""}.</p>`
+        percentile
+          ? `<p class="note">${e(t("Процентиль внутри фиксированной группы", "Бекітілген топ ішіндегі процентиль"))}: ${n(percentile.value, lang)}.</p><p class="note">${e(t("Фактическая выборка", "Нақты іріктеме"))}: ${percentile.sampleN}</p><p class="note">${e(t("Страна выборки", "Іріктеме елі"))}: ${e(percentile.country || t("не указана", "көрсетілмеген"))}</p><p class="note">${e(t("Период выборки", "Іріктеме кезеңі"))}: ${e(percentile.period ? `${date(percentile.period.startsAt)} — ${date(percentile.period.endsAt)}` : t("не указан", "көрсетілмеген"))}</p><p class="note">${e(t("Метод", "Әдіс"))}: ${e(percentile.method || t("не указан", "көрсетілмеген"))}</p><p class="note">${e(t(INTERNAL_PERCENTILE_CAVEAT_RU, "іріктеме Қазақстан үшін репрезентативті емес"))}</p>`
           : ""
-      }</div>`;
+      }</div>${r.testId === "situations" ? holdingTable(profile ? { numeric: profile.filter((r) => r.showSeparate).map((r) => ({ ...r, name: reportText(r.name, lang) })), supplemental: profile.filter((r) => !r.showSeparate).map((r) => ({ code: r.code, name: reportText(r.name, lang) })) } : null) : ""}`;
     })
     .join("");
   const domains = personalityProfile(person, lang).filter(
@@ -256,7 +274,7 @@ export function customerReportTemplate(
         person.position,
         normInfo +
           section(
-            t("Интегрированные выводы", "Біріктірілген қорытындылар"),
+            t("Выводы по результатам тестов", "Тест нәтижелері бойынша қорытындылар"),
             content.summary,
           ) +
           section(t("Сильные стороны", "Күшті жақтар"), content.strengths) +
@@ -291,7 +309,7 @@ export function customerReportTemplate(
           "Пять основных шкал самоописания",
           "Өзіндік сипаттаудың бес негізгі шкаласы",
         ),
-        domains
+        personalityCaveat + domains
           .map((s) =>
             bar(
               reportText(s.name, lang),

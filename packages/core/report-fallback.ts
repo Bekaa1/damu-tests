@@ -10,6 +10,8 @@ import {
   personalityProfile,
   motivationProfile,
   averagePersonalitySummary,
+  PERSONALITY_CAVEAT_RU,
+  SJT_CAVEAT_RU,
 } from "./report-policy";
 import { teamTestReportData } from "./team-reporting";
 export function dataReport(
@@ -26,8 +28,8 @@ export function dataReport(
     summary: [
       statement(
         t(
-          "Отчёт объединяет сохранённые результаты оценки и практическую программу развития.",
-          "Есеп сақталған бағалау нәтижелері мен практикалық даму бағдарламасын біріктіреді.",
+          "Краткий отчёт по сохранённым результатам тестов. Интегрированный итоговый отчёт требует наблюдений по упражнениям, интервью и экспертного заключения.",
+          "Сақталған тест нәтижелері бойынша қысқаша есеп. Біріктірілген қорытынды есепке жаттығуларды бақылау, сұхбат және сараптамалық қорытынды қажет.",
         ),
       ),
     ],
@@ -42,10 +44,15 @@ export function dataReport(
     risks: [],
     recommendations: [],
     developmentPlan: [],
-    limitations: [],
+    limitations: language === "ru" ? [PERSONALITY_CAVEAT_RU, SJT_CAVEAT_RU] : [],
   };
   if (kind === "team") {
     const data = teamTestReportData(snapshot, language);
+    if (data.suppressed) {
+      result.summary = [statement(t("менее 5 участников — командные результаты не раскрываются", "5 қатысушыдан аз — командалық нәтижелер ашылмайды"))];
+      result.recommendations = [statement(t("Сформируйте командный отчёт после появления достаточной сопоставимой группы.", "Жеткілікті салыстырмалы топ болғанда командалық есеп жасаңыз."))];
+      return result;
+    }
     const overview = averagePersonalitySummary(
       data.personality.map((s) => s.band?.band ?? null),
       language,

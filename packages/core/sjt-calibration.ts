@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { QuestionInput, ScoringConfig } from "./scoring";
-import { DEFAULT_COMPETENCIES } from "./competencies";
+import { LEGACY_COMPETENCIES } from "./competencies";
 export const panelSchema = z
   .object({
     approvedBy: z.string().trim().min(3),
@@ -41,7 +41,8 @@ export function compileEffectivenessKey(
     const row = panel.cases[q.id];
     if (!row || Object.keys(row.options).length !== q.options.length)
       throw Error("Оцените каждый вариант каждой ситуации");
-    const competency = DEFAULT_COMPETENCIES.competencies.find(
+    // This archived 16-case effectiveness form is not the Holding 14-case key.
+    const competency = LEGACY_COMPETENCIES.competencies.find(
       (c) => c.id === row.competencyId,
     );
     if (!competency) throw Error("Указана неизвестная компетенция");

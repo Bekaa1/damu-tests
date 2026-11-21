@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { responseQuality } from "./response-quality";
 import { percentageLevel } from "./test-levels";
+import { HOLDING_MODEL_VERSION, HOLDING_SJT_CASES, holdingSjtProfile } from "./holding";
 
 export const localized = z.object({
   ru: z.string().min(1),
@@ -29,6 +30,7 @@ export type Answer =
   | { most: string; least: string }
   | { top: string[]; bottom: string[] };
 export type ScoringConfig = {
+  holdingModelVersion?: string;
   mode?: "effectiveness";
   calibration?: unknown;
   items: Record<
@@ -43,6 +45,9 @@ export type ScoringConfig = {
       control?: string;
       ranking?: boolean;
       competency?: { ru: string; kk: string };
+      competencyCode?: string;
+      indicatorCode?: string;
+      additionalIndicatorCode?: string;
       effectiveness?: Record<string, number>;
     }
   >;
@@ -57,6 +62,8 @@ export type ScoringConfig = {
   quality?: string;
 };
 export type Score = {
+  holdingModelVersion?: string;
+  holdingProfile?: ReturnType<typeof holdingSjtProfile>;
   algorithm: string;
   total?: number;
   maximum?: number;
@@ -335,6 +342,16 @@ export function calculateScore(
     elapsedMs?: number;
   } = {},
 ): Score {
+  if (config.holdingModelVersion !== undefined) {
+    const ids = new Set(questions.map((q) => q.id));
+    if (
+      config.holdingModelVersion !== HOLDING_MODEL_VERSION ||
+      algorithm !== "sjt" ||
+      config.mode === "effectiveness" ||
+      questions.length !== HOLDING_SJT_CASES.length ||
+      HOLDING_SJT_CASES.some((c) => !ids.has(c.questionId))
+    ) throw new Error("Кейсы не соответствуют версии модели Холдинга");
+  }
   // Controls and the priority task are required, but never enter scale sums.
   for (const q of questions)
     if (config.items[q.id]?.control || config.items[q.id]?.ranking) {
@@ -571,6 +588,12 @@ export function calculateScore(
   result.qualityFlags = [...qualityFlags];
   if (config.quality === "personality")
     result.reviewRequired = qualityFlags.size >= 2;
+  if (config.holdingModelVersion === HOLDING_MODEL_VERSION) {
+    result.holdingModelVersion = HOLDING_MODEL_VERSION;
+    result.holdingProfile = holdingSjtProfile(result.details);
+    // Old display-name buckets are not a Holding competency assessment.
+    delete result.competencies;
+  }
   return result;
 }
 export function verifyScoringConfig(

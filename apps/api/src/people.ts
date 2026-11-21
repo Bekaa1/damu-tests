@@ -1,3 +1,4 @@
+import { resolveProfileBinding } from "../../../packages/core/profile-binding";
 import {
   DEFAULT_COMPETENCIES,
   exerciseCriteria,
@@ -14,6 +15,7 @@ import { db, audit, json } from "./db";
 import { orgId, requireRole, participant, type Context } from "./access";
 import { defaultMatrix } from "../../../packages/core/contracts";
 import { usableAttempt } from "../../../packages/core/result-validity";
+import { participantDataExpired } from "../../../packages/core/data-policy";
 export async function createOrganization(ctx: Context, input: unknown) {
   requireRole(ctx, "superadmin");
   const d = z
@@ -21,6 +23,7 @@ export async function createOrganization(ctx: Context, input: unknown) {
       name: z.string().min(2).max(150),
       slug: z.string().regex(/^[a-z0-9-]{3,50}$/),
       purpose: z.enum(["assessment", "pilot"]).default("assessment"),
+      dataMode: z.enum(["real", "synthetic"]).default("real"),
       adminName: z.string().min(3).max(150),
       adminEmail: z.email().transform((s) => s.toLowerCase()),
     })
@@ -33,6 +36,7 @@ export async function createOrganization(ctx: Context, input: unknown) {
         name: d.name,
         slug: d.slug,
         purpose: d.purpose,
+        dataMode: d.dataMode,
         showPreliminary: true,
         showApproved: true,
         matrixConfig: json(defaultMatrix),
@@ -104,11 +108,22 @@ export async function createOrganization(ctx: Context, input: unknown) {
 export const personSchema = z.object({
   name: z.string().trim().min(3).max(150),
   email: z.email().transform((s) => s.toLowerCase()),
-  position: z.string().max(150).default(""),
-  unit: z.string().min(1).max(100),
+  position: z.string().max(300).default(""),
+  unit: z.string().max(300).default(""),
+  profileRow: z.preprocess(v => v === "" || v == null ? undefined : typeof v === "string" && /^(?:[1-9]|[1-5][0-9]|6[0-5])$/.test(v) ? Number(v) : v, z.number().int().min(1).max(65).optional()),
   category: z.string().max(100).default("Руководитель"),
   locale: z.enum(["ru", "kk"]).default("ru"),
   role: z.enum(["employee", "expert", "admin"]).default("employee"),
+}).superRefine((p,ctx)=>{
+  if(p.profileRow===undefined && !p.unit.trim()) ctx.addIssue({code:"custom",path:["unit"],message:"Укажите подразделение или номер профиля"});
+}).transform((p,ctx)=>{
+  try {
+    const profile=p.profileRow===undefined ? undefined : resolveProfileBinding(p.profileRow,{unit:p.unit,position:p.position});
+    return {...p, ...profile, block:profile?.block ?? null, targetLevelModel:profile?.targetLevelModel ?? "В"};
+  } catch(error) {
+    ctx.addIssue({code:"custom",path:["profileRow"],message:error instanceof Error ? error.message : "Некорректный должностной профиль"});
+    return z.NEVER;
+  }
 });
 export async function createPerson(ctx: Context, input: unknown) {
   requireRole(ctx, "admin");
@@ -155,6 +170,9 @@ export async function createPerson(ctx: Context, input: unknown) {
         organizationId,
         userId: user.id,
         role: data.role,
+        profileRow: data.profileRow ?? null,
+        block: data.block,
+        targetLevelModel: data.targetLevelModel,
         position: data.position,
         unit: data.unit,
         category: data.category,
@@ -222,6 +240,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
   const members = await db.membership.findMany({
     where: {
       organizationId,
+      status: "active",
       ...(assigned ? { id: { in: assigned.map((a) => a.membershipId) } } : {}),
     },
     include: {
@@ -232,6 +251,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
           email: true,
           locale: true,
           mustChangePassword: true,
+          platformAdmin: true,
         },
       },
     },
@@ -267,7 +287,13 @@ export async function listPeople(ctx: Context, campaignId?: string) {
         orderBy: { createdAt: "desc" },
       })
     : [];
-  return members.map((m) => {
+  // Deny disclosure even when storage cleanup has not yet erased the rows.
+  const eligibilityTime = new Date();
+  const eligibleMembers = members.filter(
+    (m) => m.user.platformAdmin || !participantDataExpired(m, ctx.org, eligibilityTime),
+  );
+  return eligibleMembers.map((m) => {
+    const { platformAdmin: _platformAdmin, ...user } = m.user;
     const tasks = assignments.filter((a) => a.membershipId === m.id);
     const done = tasks.filter((a) => usableAttempt(a.attempts[0])).length;
     const now = Date.now();
@@ -282,6 +308,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
     const report = reports.find((r) => r.membershipId === m.id);
     return {
       ...m,
+      user,
       total: tasks.length,
       completed: done,
       progress: tasks.length ? Math.round((done / tasks.length) * 100) : 0,
@@ -328,6 +355,7 @@ export async function createCampaign(ctx: Context, input: unknown) {
     .object({
       name: z.string().min(3).max(150),
       description: z.string().max(1000).default(""),
+      country: z.preprocess(v=>typeof v === "string" && !v.trim() ? undefined : v, z.string().trim().min(2).max(100).nullable().optional()),
       endsAt: z.iso.datetime(),
     })
     .parse(input);

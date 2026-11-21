@@ -207,11 +207,9 @@ describe("Customer report revisions 19.11", () => {
         .every((m) => m.overall === null),
     ).toBe(true);
     const small = teamTestReportData(reportSummaryFixture(4), "ru");
-    expect(small.personality.every((m) => m.band === null)).toBe(true);
-    expect(small.motivation[0]).toEqual({
-      available: false,
-      top: [],
-      bottom: [],
-    });
+    expect(small.suppressed).toBe(true);
+    expect(small.personality).toEqual([]);
+    expect(small.methods).toEqual([]);
+    expect(small.motivation).toEqual([]);
   });
 });

@@ -444,7 +444,7 @@ export function Participant({ id }: { id: string }) {
                   <Button
                     variant="secondary"
                     busy={busy}
-                    disabled={!data.allDone}
+                    disabled={!data.allDone || !me.externalAiAllowed}
                     onClick={async () => {
                       setBusy(true);
                       try {
@@ -453,7 +453,9 @@ export function Participant({ id }: { id: string }) {
                           campaignId: campaign,
                         });
                         notify(
-                          r.status === "awaiting_configuration"
+                          r.status === "disabled_pending_approval" || r.status === "disabled_by_policy"
+                            ? t("Внешний AI-анализ отключён до письменного согласования Фонда", "Сыртқы AI-талдау Қордың жазбаша келісіміне дейін өшірілген")
+                            : r.status === "awaiting_configuration"
                             ? t(
                                 "Для генерации подключите OpenRouter в настройках платформы",
                                 "Генерация үшін платформа баптауларында OpenRouter қосыңыз",
@@ -477,6 +479,9 @@ export function Participant({ id }: { id: string }) {
                 }
               >
                 <div className="panel-body">
+                  {!me.externalAiAllowed && <div className="notice warning">
+                    {t("Внешний AI-анализ отключён до письменного согласования Фонда. Расчёт баллов и отчёты по данным работают без внешнего сервиса.", "Сыртқы AI-талдау Қордың жазбаша келісіміне дейін өшірілген. Ұпайлар мен деректер есебі сыртқы сервиссіз жасалады.")}
+                  </div>}
                   {data.ai?.[0]?.status === "completed" ? (
                     <div className="stack">
                       {Object.entries(data.ai[0].content).map(

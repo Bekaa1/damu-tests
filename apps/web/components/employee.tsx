@@ -390,8 +390,8 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
                 />
                 <span className="text-small">
                   {t(
-                    "Я согласен на обработку результатов оценки моей организацией и подготовку предварительного AI-анализа обезличенных показателей.",
-                    "Ұйымымның бағалау нәтижелерін өңдеуіне және иесіздендірілген көрсеткіштер бойынша алдын ала AI-талдау дайындауына келісемін.",
+                    consentPolicy(me.organization).text.ru,
+                    consentPolicy(me.organization).text.kk,
                   )}
                 </span>
               </label>

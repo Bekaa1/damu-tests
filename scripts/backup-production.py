@@ -1,10 +1,10 @@
-"""AssessFlow database backups with pilot-data expiry. Run on the VPS.
+"""AssessFlow database backups with participant-data expiry. Run on the VPS.
 
 create NAME: pg_dump + verified archive + expiry manifest (root access only).
 expire: remove ONLY explicitly registered archives at their expiry, no recursive delete.
-The earliest pilot participant deadline limits the entire backup, including
-copies made after that participant joined. Restore only unexpired archives;
-start the API retention sweep before opening access after any restore.
+The earliest employee participant deadline limits the entire backup (assessment,
+pilot and synthetic fixtures); no staff/platform-admin deadline is applied.
+Restore only unexpired archives; start the retention sweep before opening access.
 """
 import datetime as dt
 import json
@@ -27,18 +27,19 @@ def create(name):
     target.mkdir(mode=0o700)  # never overwrite an existing archive
     # Read the deadline before the dump. A participant registered concurrently
     # will have a later deadline; 7 days is an additional upper bound for backups.
-    query = """SELECT min(m.\"createdAt\" + interval '3 months') AT TIME ZONE 'UTC'
+    query = """SET TIME ZONE 'UTC';
+      SELECT min(m.\"createdAt\" + interval '3 months')
       FROM memberships m JOIN organizations o ON o.id=m.\"organizationId\"
       JOIN users u ON u.id=m.\"userId\"
-      WHERE o.purpose='pilot' AND m.role='employee' AND NOT u.\"platformAdmin\";"""
-    deadline = subprocess.check_output(['docker','exec','assessflow-postgres-1','psql','-U','assessflow','-d','assessflow','-Atc',query],text=True).strip()
+      WHERE m.role='employee' AND NOT u.\"platformAdmin\";"""
+    deadline = subprocess.check_output(['docker','exec','assessflow-postgres-1','psql','-U','assessflow','-d','assessflow','-qAtc',query],text=True).strip()
     expiry = now() + dt.timedelta(days=7)
     if deadline:
         expiry = min(expiry,dt.datetime.fromisoformat(deadline).replace(tzinfo=dt.timezone.utc))
     if expiry <= now():
-        raise RuntimeError('Expired pilot data remain. Run retention before backing up.')
+        raise RuntimeError('Expired participant data remain. Run retention before backing up.')
     # Write expiry first: even a failed/incomplete dump remains covered by cleanup.
-    (target/'retention.json').write_text(json.dumps({'expiresAt':expiry.isoformat(),'files':['database.dump','database-list.txt'],'policy':'seven_days_or_earliest_pilot_deadline'}))
+    (target/'retention.json').write_text(json.dumps({'expiresAt':expiry.isoformat(),'files':['database.dump','database-list.txt'],'policy':'seven_days_or_earliest_participant_deadline'}))
     with (target/'database.dump').open('wb') as stream:
         subprocess.run(['docker','exec','assessflow-postgres-1','pg_dump','-U','assessflow','-Fc','assessflow'],stdout=stream,check=True)
     with (target/'database.dump').open('rb') as source, (target/'database-list.txt').open('wb') as listing:

@@ -1,7 +1,7 @@
 "use client";
 import { Consent, ConsentRecord, AnswerRecovery } from "./consent";
 import { hasCurrentConsent } from "../../../packages/core/pilot";
-import { clearExpiredPilotCache } from "../../../packages/core/pilot-cache";
+import { clearExpiredParticipantCache } from "../../../packages/core/pilot-cache";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -65,7 +65,7 @@ export function Application() {
     [help, setHelp] = useState(false);
   const t = (ru: string, kk: string) => (locale === "kk" ? kk : ru);
   const reload = useCallback(async () => {
-    try { clearExpiredPilotCache(localStorage); } catch {}
+    try {    clearExpiredParticipantCache(localStorage); } catch {}
     try {
       const session = await api<Session>("/me");
       setMe(session);

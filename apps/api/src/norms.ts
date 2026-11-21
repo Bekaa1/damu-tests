@@ -72,9 +72,13 @@ export const normMetadata = (norm: any) =>
         createdAt: norm.createdAt,
         expectedCount: norm.expectedCount,
         excludedCount: norm.excludedCount,
-        method: norm.metrics.method,
-        languageMode: norm.metrics.languageMode,
+        method: norm.metrics?.method,
+        languageMode: norm.metrics?.languageMode,
         sourceHash: norm.sourceHash,
+        country: norm.metrics?.provenance?.country || null,
+        period: norm.metrics?.provenance?.period || null,
+        provenance: norm.metrics?.provenance || null,
+        actualN: Object.fromEntries((norm.metrics?.metrics || []).map((m: any) => [m.key, m.n])),
       }
     : null;
 export async function getNormStatus(ctx: Context, campaignId: string) {
@@ -104,7 +108,8 @@ export async function freezeNorm(
   input: unknown,
 ) {
   requireRole(ctx, "expert");
-  await getCampaign(ctx, campaignId);
+  const campaign = await getCampaign(ctx, campaignId);
+  if (!campaign) throw new BadRequestException("Кампания не найдена");
   const data = z
     .object({
       confirm: z.literal(true),
@@ -150,7 +155,16 @@ export async function freezeNorm(
           throw new BadRequestException(
             "Сначала завершите проверку качества проблемных опросников",
           );
-        const metrics = buildFrozenPayload(roster.rows, data.languageMode);
+        const metrics = {
+          ...buildFrozenPayload(roster.rows, data.languageMode),
+          provenance: {
+            source: "campaign",
+            // Country is an explicit source-sample attribute, never inferred
+            // from the organization, host location, or interface language.
+            country: (campaign as any).country || null,
+            period: campaign.startsAt && campaign.endsAt ? { startsAt: campaign.startsAt.toISOString(), endsAt: campaign.endsAt.toISOString() } : null,
+          },
+        };
         if (!metrics.metrics.some((m) => m.n >= 30))
           throw new BadRequestException(
             "Нет минимум 30 сопоставимых достоверных результатов для расчёта нормы",
@@ -160,6 +174,7 @@ export async function freezeNorm(
             JSON.stringify({
               method: metrics.method,
               languageMode: data.languageMode,
+              provenance: metrics.provenance,
               rows: [...roster.rows].sort((a, b) =>
                 a.resultId.localeCompare(b.resultId),
               ),

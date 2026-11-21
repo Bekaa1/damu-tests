@@ -1,88 +1,95 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { z } from "zod";
-import { db, audit } from "./db";
+import { db } from "./db";
+import { withParticipantWriteFence } from "./participant-write";
 import { orgId, participant, requireRole, type Context } from "./access";
-import { removeStoredFiles } from "./storage";
+import { eraseParticipantData } from "./pilot-retention";
 export async function exportPersonalData(ctx: Context, id: string) {
   requireRole(ctx, "admin");
   const organizationId = orgId(ctx);
-  const member = await participant(ctx, id);
-  const user = await db.user.findUniqueOrThrow({
-    where: { id: member.userId },
-    select: { name: true, email: true, locale: true, createdAt: true },
-  });
-  const assignments = await db.testAssignment.findMany({
-    where: { organizationId, membershipId: id },
-    include: {
-      testVersion: {
+  await participant(ctx, id);
+  return withParticipantWriteFence(organizationId, [id], async tx => {
+    const member = await tx.membership.findUniqueOrThrow({ where: { id, organizationId } });
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: member.userId },
+      select: { name: true, email: true, locale: true, createdAt: true },
+    });
+    const assignments = await tx.testAssignment.findMany({
+      where: { organizationId, membershipId: id },
+      include: {
+        testVersion: {
+          select: {
+            id: true,
+            version: true,
+            test: { select: { name: true, source: true } },
+          },
+        },
+        attempts: { include: { answers: true, results: true } },
+      },
+    });
+    const reports = await tx.finalReport.findMany({
+        where: { organizationId, membershipId: id },
+      }),
+      observations = await tx.expertObservation.findMany({
+        where: { organizationId, membershipId: id },
+      }),
+      ai = await tx.aiReport.findMany({
+        where: { organizationId, membershipId: id },
         select: {
           id: true,
-          version: true,
-          test: { select: { name: true, source: true } },
+          campaignId: true,
+          status: true,
+          content: true,
+          model: true,
+          promptVersion: true,
+          resultIds: true,
+          createdAt: true,
         },
+      });
+    const files = await tx.fileAsset.findMany({
+      where: { organizationId, membershipId: id },
+      select: {
+        id: true,
+        name: true,
+        contentType: true,
+        size: true,
+        createdAt: true,
       },
-      attempts: { include: { answers: true, results: true } },
-    },
-  });
-  const reports = await db.finalReport.findMany({
-      where: { organizationId, membershipId: id },
-    }),
-    observations = await db.expertObservation.findMany({
-      where: { organizationId, membershipId: id },
-    }),
-    ai = await db.aiReport.findMany({
+    });
+    const generatedReports = await tx.generatedReport.findMany({
       where: { organizationId, membershipId: id },
       select: {
         id: true,
         campaignId: true,
         status: true,
         content: true,
-        model: true,
-        promptVersion: true,
-        resultIds: true,
+        snapshot: true,
         createdAt: true,
       },
     });
-  const files = await db.fileAsset.findMany({
-    where: { organizationId, membershipId: id },
-    select: {
-      id: true,
-      name: true,
-      contentType: true,
-      size: true,
-      createdAt: true,
-    },
+    const exported = {
+      exportedAt: new Date(),
+      member,
+      user,
+      assignments,
+      reports,
+      observations,
+      ai,
+      files,
+      generatedReports,
+      groupAssignments: await tx.participantGroup.findMany({
+        where: { organizationId, membershipId: id },
+        include: { scheme: true },
+      }),
+      competencyConsensus: await tx.competencyConsensus.findMany({
+        where: { organizationId, membershipId: id },
+      }),
+    };
+    await tx.auditLog.create({ data: {
+      organizationId, actorId: ctx.user.id, action: "personal_data.exported", entityId: id,
+    } });
+    return exported;
   });
-  const generatedReports = await db.generatedReport.findMany({
-    where: { organizationId, membershipId: id },
-    select: {
-      id: true,
-      campaignId: true,
-      status: true,
-      content: true,
-      snapshot: true,
-      createdAt: true,
-    },
-  });
-  await audit(organizationId, ctx.user.id, "personal_data.exported", id);
-  return {
-    exportedAt: new Date(),
-    member,
-    user,
-    assignments,
-    reports,
-    observations,
-    ai,
-    files,
-    generatedReports,
-    groupAssignments: await db.participantGroup.findMany({
-      where: { organizationId, membershipId: id },
-      include: { scheme: true },
-    }),
-    competencyConsensus: await db.competencyConsensus.findMany({
-      where: { organizationId, membershipId: id },
-    }),
-  };
 }
 export async function erasePersonalData(
   ctx: Context,
@@ -106,51 +113,9 @@ export async function erasePersonalData(
     );
   if (confirmEmail.toLowerCase() !== user.email.toLowerCase())
     throw new BadRequestException("Email подтверждения не совпадает");
-  // Block access first. A storage failure leaves a blocked, recoverable database record.
-  await db.membership.update({ where: { id }, data: { status: "blocked" } });
-  await db.session.deleteMany({ where: { userId: user.id } });
-  await removeStoredFiles(organizationId, id);
-  await db.$transaction(async (tx) => {
-    const tasks = await tx.testAssignment.findMany({
-      where: { organizationId, membershipId: id },
-      select: { id: true },
-    });
-    const attempts = await tx.testAttempt.findMany({
-        where: { organizationId, assignmentId: { in: tasks.map((t) => t.id) } },
-        select: { id: true },
-      }),
-      ids = attempts.map((a) => a.id);
-    await tx.userAnswer.deleteMany({
-      where: { organizationId, attemptId: { in: ids } },
-    });
-    await tx.testResult.deleteMany({
-      where: { organizationId, attemptId: { in: ids } },
-    });
-    await tx.testAttempt.deleteMany({
-      where: { organizationId, id: { in: ids } },
-    });
-    await tx.testAssignment.deleteMany({
-      where: { organizationId, membershipId: id },
-    });
-    await tx.aiReport.deleteMany({
-      where: { organizationId, membershipId: id },
-    });
-    await tx.generatedReport.deleteMany({
-      where: { organizationId, participantIds: { array_contains: [id] } },
-    });
-    await tx.finalReport.deleteMany({
-      where: { organizationId, membershipId: id },
-    });
-    await tx.expertObservation.deleteMany({
-      where: { organizationId, membershipId: id },
-    });
-    await tx.fileAsset.deleteMany({
-      where: { organizationId, membershipId: id },
-    });
-    await tx.membership.delete({ where: { id } });
-    if ((await tx.membership.count({ where: { userId: user.id } })) === 0)
-      await tx.user.delete({ where: { id: user.id } });
-  });
-  await audit(organizationId, ctx.user.id, "personal_data.erased", id);
+  // Shared tenant-scoped path handles report snapshots, file references, audit
+  // PII and SQL cascades. Never revoke a shared user's global sessions here.
+  const erased = await eraseParticipantData(organizationId, id);
+  if (!erased) throw new ForbiddenException("Участник недоступен для удаления");
   return { ok: true };
 }

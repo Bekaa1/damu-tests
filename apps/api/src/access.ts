@@ -1,4 +1,5 @@
-import { hasCurrentConsent, pilotDataExpired } from "../../../packages/core/pilot";
+import { hasCurrentConsent } from "../../../packages/core/pilot";
+import { participantDataExpired } from "../../../packages/core/data-policy";
 import {
   CanActivate,
   ExecutionContext,
@@ -33,6 +34,7 @@ export class AccessGuard implements CanActivate {
     const user = await db.user.findUniqueOrThrow({
       where: { id: session.user.id },
     });
+    const platformAccess = user.platformAdmin && !user.demoOnly;
     if (
       user.mustChangePassword &&
       !["/api/me", "/api/me/password", "/api/me/consent"].includes(req.path)
@@ -51,15 +53,19 @@ export class AccessGuard implements CanActivate {
       orderBy: { createdAt: "asc" },
     });
     const orgId = selected ?? member?.organizationId;
-    if (!user.platformAdmin && !member)
+    if (!platformAccess && !member)
       throw new ForbiddenException("Нет доступа к организации");
     const org = orgId
       ? await db.organization.findUnique({ where: { id: orgId } })
       : null;
-    if (!user.platformAdmin && org?.status !== "active")
+    // Demo credentials cannot become real-data credentials through an old
+    // membership, a forged org header or the platform-admin role bypass.
+    if (user.demoOnly && org?.dataMode !== "synthetic")
+      throw new ForbiddenException("Демонстрационная учётная запись доступна только в демонстрационной организации");
+    if (!platformAccess && org?.status !== "active")
       throw new ForbiddenException("Доступ организации приостановлен");
-    if (pilotDataExpired(member, org))
-      throw new ForbiddenException("Срок хранения данных пилота истёк. Обратитесь к организатору.");
+    if (!user.platformAdmin && participantDataExpired(member, org))
+      throw new ForbiddenException("Срок хранения данных участника истёк. Обратитесь к организатору.");
     if (
       member?.role === "employee" &&
       !hasCurrentConsent(member, org) &&
@@ -77,13 +83,16 @@ export class AccessGuard implements CanActivate {
       user,
       member,
       org,
-      role: user.platformAdmin ? "superadmin" : member!.role,
+      role: platformAccess ? "superadmin" : member!.role,
     };
     return true;
   }
 }
 export function requireRole(ctx: Context, ...roles: string[]) {
-  if (ctx.role !== "superadmin" && !roles.includes(ctx.role))
+  const role = ctx.user?.demoOnly ? ctx.member?.role : ctx.role;
+  if ((ctx.user?.demoOnly && roles.includes("superadmin")) ||
+      (role !== "superadmin" && (!role || !roles.includes(role))) ||
+      (ctx.user?.demoOnly && role === "superadmin"))
     throw new ForbiddenException("Недостаточно прав");
 }
 export function orgId(ctx: Context) {
@@ -95,12 +104,15 @@ export async function participant(
   id: string,
   campaignId?: string,
 ) {
+  if (ctx.user?.demoOnly && ctx.org?.dataMode !== "synthetic")
+    throw new ForbiddenException("Демонстрационная учётная запись доступна только в демонстрационной организации");
   const member = await db.membership.findFirst({
     where: { id, organizationId: orgId(ctx) },
+    include: { user: { select: { platformAdmin: true } } },
   });
   if (!member) throw new ForbiddenException("Участник недоступен");
-  if (pilotDataExpired(member, ctx.org))
-    throw new ForbiddenException("Срок хранения данных участника пилота истёк");
+  if (!member.user.platformAdmin && participantDataExpired(member, ctx.org))
+    throw new ForbiddenException("Срок хранения данных участника истёк");
   if (ctx.role === "employee" && ctx.member?.id !== id)
     throw new ForbiddenException("Участник недоступен");
   if (ctx.role === "expert") {
@@ -117,5 +129,6 @@ export async function participant(
     });
     if (!assigned) throw new ForbiddenException("Участник не назначен вам");
   }
-  return member;
+  const { user: _user, ...participantMember } = member;
+  return participantMember;
 }
