@@ -48,6 +48,9 @@ export class AccessGuard implements CanActivate {
       where: {
         userId: user.id,
         ...(selected ? { organizationId: selected } : {}),
+        // A restricted login may retain an older real membership for history.
+        // It must bootstrap from an active synthetic scope, never the oldest real one.
+        ...(user.demoOnly ? { organization: { dataMode: "synthetic" } } : {}),
         status: "active",
       },
       orderBy: { createdAt: "asc" },

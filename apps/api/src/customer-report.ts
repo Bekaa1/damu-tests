@@ -21,6 +21,26 @@ import {
 import { testScoreSummary } from "../../../packages/core/test-levels";
 import { teamTestReportData } from "../../../packages/core/team-reporting";
 import { sanitizePdfText } from "./report-layout";
+import {
+  frozenHoldingPositionReference,
+  teamHoldingPositionReferences,
+  holdingPendingPanel,
+  HOLDING_PENDING_PANEL_RU,
+  type HoldingPositionReference,
+} from "../../../packages/core/holding-report";
+import { invalidProfile } from "../../../packages/core/report-policy";
+
+/** Reference fields are not test results or invented expert assessments. */
+export function holdingPositionReferenceHtml(
+  reference: HoldingPositionReference | null,
+  language: ReportLanguage,
+  e: (value: unknown) => string,
+) {
+  if (!reference) return "";
+  const t = (ru: string, kk: string) => language === "ru" ? ru : kk;
+  const observations = reference.rows.some(r => r.notObserved);
+  return `<h2>${e(t(`Должностной профиль № ${reference.profileRow}`, `Лауазымдық бейін № ${reference.profileRow}`))}</h2><p>${e(reference.unit)} · ${e(reference.position)}</p><p class="note">${e(t("Справочные поля сохранённого профиля; критичность не является весом и не изменяет тестовые баллы. Целевой числовой балл не утверждён и оставлен пустым.", "Сақталған бейіннің анықтамалық өрістері; маңыздылық салмақ емес және тест балдарын өзгертпейді. Нысаналы сандық балл бекітілмеген және бос қалдырылған."))}</p><table><thead><tr><th>${e(t("Компетенция", "Құзырет"))}</th><th>${e(t("Критичность (1/2/3)", "Маңыздылық (1/2/3)"))}</th><th>${e(t("Целевой уровень модели", "Модельдің нысаналы деңгейі"))}</th><th>${e(t("Целевой числовой балл (target_score)", "Нысаналы сандық балл (target_score)"))}</th>${observations ? `<th>${e(t("Статус наблюдения", "Бақылау мәртебесі"))}</th>` : ""}</tr></thead><tbody>${reference.rows.map(r => `<tr data-profile-code="${e(r.code)}"><td>${e(`${r.code} · ${reportText(r.name, language)}`)}</td><td>${e(r.criticality)}</td><td>${e(r.targetLevelModel)}</td><td data-target-score=""></td>${observations ? `<td>${r.notObserved ? e(t("Не наблюдалось", "Бақыланбады")) : ""}</td>` : ""}</tr>`).join("")}</tbody></table><p class="note">${e(t("«Не наблюдалось» — отдельный статус отсутствия наблюдения, не оценка 1. Отсутствие данных не заменяется экспертной оценкой.", "«Бақыланбады» — бақылаудың болмауының жеке мәртебесі, 1 бағасы емес. Деректердің жоқтығы сараптамалық бағамен алмастырылмайды."))}</p>${language === "kk" ? `<p class="note">${e("Атаулар орыс тіліндегі дереккөзден берілген (source_ru_fallback); аударма емес.")}</p>` : ""}`;
+}
 
 const n = (v: number, lang: ReportLanguage) =>
   roundReport(v).toLocaleString(lang === "ru" ? "ru-RU" : "kk-KZ", {
@@ -87,6 +107,13 @@ export function customerReportTemplate(
   const holdingTable = (data: { numeric: { code: string; name: string; total: number; maximum: number; n?: number }[]; supplemental: { code: string; name: string }[] } | null) => {
     if (!data?.numeric.length) return `<p class="note">${e(t(HOLDING_PROFILE_UNAVAILABLE_RU, "Холдинг моделі бойынша бейін есептелмеген"))}. ${e(t("Требуется новый расчёт и новая версия отчёта.", "Жаңа есептеу және есептің жаңа нұсқасы қажет."))}</p>`;
     return `<h2>${e(t("Совпадения с ключом по модели Холдинга", "Холдинг моделі бойынша кілтпен сәйкестіктер"))}</h2><p class="note">${e(t("Дополнительный источник оценки; не итоговые оценки компетенций. Целевые числовые баллы и веса не применяются.", "Бағалаудың қосымша дереккөзі; құзыреттердің қорытынды бағасы емес. Нысаналы сандық балдар мен салмақтар қолданылмайды."))}</p><table><thead><tr><th>${e(t("Компетенция", "Құзырет"))}</th><th>${e(t(team ? "Медиана совпадений / максимум" : "Совпадения / максимум", team ? "Сәйкестіктер медианасы / максимум" : "Сәйкестіктер / максимум"))}</th>${team ? `<th>${e(t("Участников", "Қатысушылар"))}</th>` : ""}</tr></thead><tbody>${data.numeric.map((r) => `<tr data-holding-code="${e(r.code)}"><td>${e(`${r.code} · ${r.name}`)}</td><td>${e(`${n(r.total, lang)} / ${n(r.maximum, lang)}`)}</td>${team ? `<td>${e(r.n)}</td>` : ""}</tr>`).join("")}</tbody></table>${data.supplemental.map((r) => `<p class="note">${e(`${r.code} · ${r.name}: ${t(HOLDING_SINGLE_CASE_NOTE_RU, "бір кейс — қосымша дереккөз; негізгі бағалау — жаттығулар мен сұхбат бойынша")}`)}</p>`).join("")}`;
+  };
+  const panelNotice = (pending: boolean) => pending
+    ? `<p class="note">${e(t(HOLDING_PENDING_PANEL_RU, "Кілт сараптамалық панельмен бекітілмеген"))}</p>` : "";
+  const teamPanelNotice = (formKey: string) => {
+    const people = snapshot.people.filter((p, i, all) => p.status === "completed" && !invalidProfile(p) && all.findIndex(x => x.id === p.id) === i);
+    const results = people.flatMap(p => p.results.filter(r => r.testId === "situations" && !r.score?.reviewRequired && `${r.testVersionId}:${r.scoringKeyId || ""}:${r.language || "ru"}` === formKey).slice(0, 1));
+    return panelNotice(results.length >= 5 && results.every(holdingPendingPanel));
   };
   const priorities = (top: { name: string }[], bottom: { name: string }[]) =>
     `<div class="grid-2"><div><h2>${t("3 ведущих фактора", "3 жетекші фактор")}</h2>${top.map((s) => `<p>${e(s.name)}</p>`).join("")}</div><div><h2>${t("3 наименее важных фактора", "Маңыздылығы ең төмен 3 фактор")}</h2>${bottom.map((s) => `<p>${e(s.name)}</p>`).join("")}</div></div>`;
@@ -168,7 +195,7 @@ export function customerReportTemplate(
               ? `<p>${t("Медиана ГО", "Бас кеңсе медианасы")}: ${n((m.comparison.hq as any).median, lang)}%. ${t("Медиана филиалов", "Филиалдар медианасы")}: ${n((m.comparison.branches as any).median, lang)}%.</p>`
               : "") +
             (m.testId === "situations" && m.overall?.maximum === 28
-              ? sjtRule + holdingTable(data.holdingProfile ? { numeric: data.holdingProfile.numeric.filter((r) => r.formKey === m.comparableKey), supplemental: data.holdingProfile.supplemental.filter((r) => r.formKey === m.comparableKey) } : null)
+              ? sjtRule + teamPanelNotice(m.comparableKey) + holdingTable(data.holdingProfile ? { numeric: data.holdingProfile.numeric.filter((r) => r.formKey === m.comparableKey), supplemental: data.holdingProfile.supplemental.filter((r) => r.formKey === m.comparableKey) } : null)
               : "") +
             legend(),
         );
@@ -206,6 +233,7 @@ export function customerReportTemplate(
           snapshot.campaign.name,
           normInfo +
             passport +
+            teamHoldingPositionReferences(snapshot.people).map(reference => holdingPositionReferenceHtml(reference, lang, e)).join("") +
             section(
               t("Выводы по группе", "Топ бойынша қорытындылар"),
               content.summary,
@@ -254,7 +282,7 @@ export function customerReportTemplate(
         percentile
           ? `<p class="note">${e(t("Процентиль внутри фиксированной группы", "Бекітілген топ ішіндегі процентиль"))}: ${n(percentile.value, lang)}.</p><p class="note">${e(t("Фактическая выборка", "Нақты іріктеме"))}: ${percentile.sampleN}</p><p class="note">${e(t("Страна выборки", "Іріктеме елі"))}: ${e(percentile.country || t("не указана", "көрсетілмеген"))}</p><p class="note">${e(t("Период выборки", "Іріктеме кезеңі"))}: ${e(percentile.period ? `${date(percentile.period.startsAt)} — ${date(percentile.period.endsAt)}` : t("не указан", "көрсетілмеген"))}</p><p class="note">${e(t("Метод", "Әдіс"))}: ${e(percentile.method || t("не указан", "көрсетілмеген"))}</p><p class="note">${e(t(INTERNAL_PERCENTILE_CAVEAT_RU, "іріктеме Қазақстан үшін репрезентативті емес"))}</p>`
           : ""
-      }</div>${r.testId === "situations" ? holdingTable(profile ? { numeric: profile.filter((r) => r.showSeparate).map((r) => ({ ...r, name: reportText(r.name, lang) })), supplemental: profile.filter((r) => !r.showSeparate).map((r) => ({ code: r.code, name: reportText(r.name, lang) })) } : null) : ""}`;
+      }</div>${r.testId === "situations" ? panelNotice(holdingPendingPanel(r)) + holdingTable(profile ? { numeric: profile.filter((r) => r.showSeparate).map((r) => ({ ...r, name: reportText(r.name, lang) })), supplemental: profile.filter((r) => !r.showSeparate).map((r) => ({ code: r.code, name: reportText(r.name, lang) })) } : null) : ""}`;
     })
     .join("");
   const domains = personalityProfile(person, lang).filter(
@@ -273,6 +301,7 @@ export function customerReportTemplate(
         t("Результаты оценки", "Бағалау нәтижелері"),
         person.position,
         normInfo +
+          holdingPositionReferenceHtml(frozenHoldingPositionReference(person.competencyProfile), lang, e) +
           section(
             t("Выводы по результатам тестов", "Тест нәтижелері бойынша қорытындылар"),
             content.summary,

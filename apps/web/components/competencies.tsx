@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useApp, useData, post, Panel, Button, Field, LoadState } from "./ui";
 import { DEFAULT_COMPETENCIES, type CompetencyConfig } from "../../../packages/core/competencies";
 import { HOLDING_COMPETENCIES, HOLDING_PROFILES, HOLDING_MODEL_VERSION, HOLDING_PROVENANCE, holdingProfile } from "../../../packages/core/holding";
@@ -8,6 +9,7 @@ import { HOLDING_COMPETENCIES, HOLDING_PROFILES, HOLDING_MODEL_VERSION, HOLDING_
 export function HoldingModelReference() {
   return <Panel title="Модель компетенций Холдинга · C1–C8">
     <div className="panel-body form-stack" lang="ru" data-source-language="ru">
+      <p>8 компетенций · 24 поведенческих индикатора · 65 номерных должностных профилей.</p>
       <p className="notice">Исходный язык: RU. Перевод KK не предоставлен; показан исходный русский текст.</p>
       <p>Целевой уровень модели: В. Целевой балл не согласован — пусто (NULL).</p>
       <p>Критичность — не вес и не требуемый балл: 1 / 2 / 3 используются только как информация о должностном профиле.</p>
@@ -18,21 +20,43 @@ export function HoldingModelReference() {
         <p>{HOLDING_PROVENANCE.profiles.file} · {HOLDING_PROVENANCE.profiles.sheet} · {HOLDING_PROVENANCE.profiles.range}</p>
         <code>{HOLDING_PROVENANCE.profiles.sha256}</code>
       </details>
-      {HOLDING_COMPETENCIES.map(c=><details key={c.id} className="competency-config"><summary>{c.id} · {c.name.ru}</summary>
+      {HOLDING_COMPETENCIES.map(c=><details key={c.id} className="competency-config" open><summary>{c.id} · {c.name.ru}</summary>
         <p>{c.block}</p><ul>{c.indicators.map(i=><li key={i.id} data-indicator-id={i.id}><strong>{i.id}</strong> · {i.text.ru}</li>)}</ul>
       </details>)}
       <details><summary>Номерные должностные профили: 65 (не реестр участников)</summary>
         <p>Профили 55/56 и 58/59 различаются номером, даже когда подразделение и должность совпадают. ФИО и email не предоставлены в реестре профилей.</p>
-        <div className="table-wrap"><table><thead><tr><th>№ профиля</th><th>Блок</th><th>Подразделение</th><th>Должность</th>{HOLDING_COMPETENCIES.map(c=><th key={c.id}>{c.id} · критичность</th>)}<th>Уровень</th><th>Целевой балл</th></tr></thead>
-          <tbody>{HOLDING_PROFILES.map(p=><tr key={p.profileRow} data-profile-row={p.profileRow}><td>{p.profileRow}</td><td>{p.block}</td><td>{p.unit}</td><td>{p.position}</td>{HOLDING_COMPETENCIES.map(c=><td key={c.id}>{p.criticality[c.id]}</td>)}<td>{p.targetLevelModel}</td><td>—</td></tr>)}</tbody>
+        <p>Значения C1–C8 в таблице — критичность (справочно).</p>
+        <div className="table-wrap"><table><thead><tr><th>№ профиля</th><th>Блок</th><th>Подразделение</th><th>Должность</th>{HOLDING_COMPETENCIES.map(c=><th key={c.id} title={`${c.id} · критичность`} style={{ padding: "12px 6px" }}>{c.id}</th>)}<th>Уровень</th><th>Целевой балл</th></tr></thead>
+          <tbody>{HOLDING_PROFILES.map(p=><tr key={p.profileRow} data-profile-row={p.profileRow}><td>{p.profileRow}</td><td>{p.block}</td><td>{p.unit}</td><td>{p.position}</td>{HOLDING_COMPETENCIES.map(c=><td key={c.id} style={{ padding: "12px 6px" }}>{p.criticality[c.id]}</td>)}<td>{p.targetLevelModel}</td><td aria-label="Целевой балл не согласован (NULL)"></td></tr>)}</tbody>
         </table></div>
       </details>
     </div>
   </Panel>;
 }
+export function HoldingParticipantProfile({ profileRow }: { profileRow?: number | null }) {
+  const profile = profileRow == null ? undefined : holdingProfile(profileRow);
+  return <Panel title="Должностной профиль Холдинга">
+    <div className="panel-body form-stack" lang="ru" data-bound-profile={profile?.profileRow}>
+      {profile ? <>
+        <h3>№ {profile.profileRow} · {profile.position}</h3>
+        <p>{profile.block} · {profile.unit}</p>
+        <p className="notice">Привязка участника: номерной профиль № {profile.profileRow}. Совпадающие названия должностей не объединяют профили.</p>
+        <p>Критичность — не вес и не требуемый балл. Целевой уровень модели: В. Целевой балл не согласован — пусто (NULL).</p>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Компетенция</th><th>Критичность (справочно)</th><th>Целевой уровень модели</th><th>Целевой балл</th></tr></thead>
+          <tbody>{HOLDING_COMPETENCIES.map(c => <tr key={c.id} data-profile-competency={c.id}>
+            <td>{c.id} · {c.name.ru}</td><td>{profile.criticality[c.id]}</td><td>{profile.targetLevelModel}</td><td aria-label="Целевой балл не согласован (NULL)"></td>
+          </tr>)}</tbody>
+        </table></div>
+      </> : <p className="notice warning">Номерной должностной профиль участника не привязан. Профиль нельзя определить только по названию должности; автоматическая привязка не выполняется.</p>}
+      <Link href="/model" className="text-link">Модель компетенций · C1–C8 · 24 индикатора · 65 профилей</Link>
+    </div>
+  </Panel>;
+}
 export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
-  const { t, loc, notify } = useApp(),
+  const { t, loc, me, notify } = useApp(),
     model = useData<any>("/competency-model");
+  const editable = me?.role === "expert" || me?.role === "superadmin";
   const [content, setContent] = useState<CompetencyConfig | null>(null),
     [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -40,7 +64,7 @@ export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
   }, [model.data]);
   const update = () => setContent(content ? structuredClone(content) : null);
   async function save(approve: boolean) {
-    if (!content) return;
+    if (!content || !editable) return;
     setBusy(true);
     try {
       await post("/competency-model", { content, approve });
@@ -60,9 +84,21 @@ export function CompetencyModelEditor({ onSaved }: { onSaved: () => void }) {
     <Panel title="Версия модели Холдинга"><div className="panel-body form-stack">
       <p>Дословные компетенции, индикаторы, профили и критичность защищены от изменений. Наблюдения и согласования сохраняются новыми версиями, история не переписывается.</p>
       <p>Статус: {model.data?.status === "approved" ? "утверждена экспертом" : "черновик"}. Источники упражнений доступны как возможности наблюдения, а не как автоматически подтверждённые оценки.</p>
-      <div className="row"><Button busy={busy} onClick={()=>void save(false)}>Сохранить новую версию</Button><Button variant="secondary" busy={busy} onClick={()=>void save(true)}>Утвердить модель Холдинга</Button></div>
+      {!editable && <p className="notice">Режим просмотра для администратора. Сохранять и утверждать модель может только эксперт.</p>}
+      {editable && <div className="row"><Button busy={busy} onClick={()=>void save(false)}>Сохранить новую версию</Button><Button variant="secondary" busy={busy} onClick={()=>void save(true)}>Утвердить модель Холдинга</Button></div>}
     </div></Panel>
   </>;
+  if (!editable) return <Panel title={t("Модель компетенций", "Құзыреттер моделі")}>
+    <LoadState loading={model.loading} error={model.error}>
+      <div className="panel-body form-stack">
+        <p className="notice">Режим просмотра для администратора. Сохранять и утверждать модель может только эксперт.</p>
+        {content ? <>
+          <p>Историческая модель · версия {model.data?.version}. Модель Холдинга не активирована; исторические оценки не изменяются.</p>
+          {content.competencies.map(c => <details key={c.id}><summary>{c.id} · {loc(c.name)}</summary><ul>{c.indicators.map(i => <li key={i.id}>{loc(i.text)}</li>)}</ul></details>)}
+        </> : !model.loading && !model.error && <p>Модель компетенций не настроена.</p>}
+      </div>
+    </LoadState>
+  </Panel>;
   return (
     <Panel
       title={t(

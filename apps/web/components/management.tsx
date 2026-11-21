@@ -5,6 +5,7 @@ import {
   CompetencyConsensus,
   AttemptIncidents,
   AssessorAssignment,
+  HoldingParticipantProfile,
 } from "./competencies";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -53,6 +54,7 @@ import { QualityReview } from "./quality-review";
 import { ConsentRecord } from "./consent";
 import { RetakeAction, AttemptHistory } from "./retakes";
 import { displayAttemptStatus } from "../../../packages/core/assessment-policy";
+import { holdingReportProfile, HOLDING_SINGLE_CASE_NOTE_RU, HOLDING_PROFILE_UNAVAILABLE_RU } from "../../../packages/core/report-policy";
 export function Participant({ id }: { id: string }) {
   const router = useRouter();
   const [removeOpen, setRemoveOpen] = useState(false),
@@ -158,6 +160,7 @@ export function Participant({ id }: { id: string }) {
             <div className="tabs">
               {[
                 ["results", t("Результаты тестов", "Тест нәтижелері")],
+                ["profile", t("Должностной профиль", "Лауазымдық бейін")],
                 ["ai", t("AI-анализ", "AI-талдау")],
                 ["exercises", t("Практическая оценка", "Практикалық бағалау")],
                 [
@@ -230,6 +233,7 @@ export function Participant({ id }: { id: string }) {
                 </div>
               </Modal>
             )}
+            {tab === "profile" && <HoldingParticipantProfile profileRow={data.member.profileRow} />}
             {tab === "results" && (
               <div className="stack">
                 <div className="notice">
@@ -360,6 +364,7 @@ export function Participant({ id }: { id: string }) {
                                 </p>
                               </div>
                             </div>
+                            {s.algorithm === "sjt" && <HoldingSjtResult score={s} />}
                             {s.algorithm === "sjt" && (
                               <div className="table-wrap mt">
                                 <table>
@@ -685,6 +690,20 @@ export function Participant({ id }: { id: string }) {
     </>
   );
 }
+function HoldingSjtResult({ score }: { score: any }) {
+  const rows = holdingReportProfile(score);
+  return <section className="form-stack mt" lang="ru">
+    <h3>Профиль SJT по модели Холдинга · C1–C8</h3>
+    <p>Совпадение выбора с ключом — дополнительный источник, не оценка поведения на работе и не итоговый балл компетенции.</p>
+    {rows ? <div className="table-wrap"><table>
+      <thead><tr><th>Компетенция</th><th>Совпадение / источник</th></tr></thead>
+      <tbody>{rows.map(row => <tr key={row.code} data-sjt-profile-code={row.code}>
+        <td>{row.code} · {row.name.ru}</td>
+        <td>{row.showSeparate ? `${row.total} / ${row.maximum}` : HOLDING_SINGLE_CASE_NOTE_RU}</td>
+      </tr>)}</tbody>
+    </table></div> : <p className="notice">{HOLDING_PROFILE_UNAVAILABLE_RU}. Исторические данные не восстанавливаются из прежних агрегатов.</p>}
+  </section>;
+}
 function ObservationEditor({
   memberId,
   data,
@@ -787,6 +806,7 @@ function ObservationEditor({
                     type="button"
                     disabled={!editable}
                     className={scores[c.id] === null ? "selected" : ""}
+                    aria-pressed={scores[c.id] === null}
                     onClick={() => setScores({ ...scores, [c.id]: null })}
                   >
                     {t("Не наблюдалось", "Бақыланбады")}
@@ -814,8 +834,8 @@ function ObservationEditor({
               <p className="text-small text-muted mt">
                 {scores[c.id] === null
                   ? t(
-                      "Исключается из расчётов, не является нулём.",
-                      "Есептеуден шығарылады, нөл болып саналмайды.",
+                      "Не наблюдалось — отдельный статус, не оценка 1. Исключается из расчётов, не является нулём.",
+                      "Бақыланбады — бөлек мәртебе, 1 бағасы емес. Есептеуден шығарылады, нөл болып саналмайды.",
                     )
                   : c.scale.find((s: any) => s.value === scores[c.id])
                       ?.description}
@@ -1448,6 +1468,12 @@ export function SettingsPage() {
           "\u04b0\u0439\u044b\u043c\u043d\u044b\u04a3 \u043d\u0435\u0433\u0456\u0437\u0433\u0456 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043b\u0435\u0440\u0456.",
         )}
       />
+      <Panel title={t("Модель компетенций", "Құзыреттер моделі")}>
+        <div className="panel-body form-stack">
+          <p>{t("Справочник C1–C8, 24 индикатора и 65 номерных профилей. Просмотр не изменяет модель или привязку участников.", "C1–C8 анықтамалығы, 24 индикатор және 65 нөмірлі бейін. Қарау модельді немесе қатысушылардың байланысын өзгертпейді.")}</p>
+          <Link href="/model" className="text-link">{t("Модель компетенций · открыть справочник", "Құзыреттер моделі · анықтамалықты ашу")}</Link>
+        </div>
+      </Panel>
       <form
         className="stack"
         onSubmit={async (e) => {

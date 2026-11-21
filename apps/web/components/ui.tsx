@@ -17,6 +17,8 @@ import {
   Search,
   ArrowUpRight,
 } from "lucide-react";
+import { bootstrapSession as fetchBootstrapSession } from "../lib/session-bootstrap";
+export { SessionBootstrapError } from "../lib/session-bootstrap";
 export type Locale = "ru" | "kk";
 export type Session = {
   user: {
@@ -47,6 +49,9 @@ type AppContext = {
 };
 export const AppCtx = createContext<AppContext>(null as any);
 export const useApp = () => useContext(AppCtx);
+export function bootstrapSession<T extends Session = Session>(): Promise<T> {
+  return fetchBootstrapSession<T>(fetch, localStorage);
+}
 export async function api<T = any>(
   path: string,
   options: RequestInit = {},

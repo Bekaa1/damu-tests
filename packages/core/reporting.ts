@@ -19,6 +19,8 @@ export type ReportPerson = {
     testVersionId: string;
     version: string;
     scoringKeyId?: string;
+    /** Additive frozen source metadata; absent in historical snapshots means unknown. */
+    scoringKeyStatus?: string;
     language?: string;
     name: any;
     score: any;

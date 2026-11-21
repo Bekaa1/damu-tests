@@ -3,9 +3,13 @@ type Passport = {
   source: Text;
   structure: Text;
   rights: Text;
+  rightsTranslationStatus?: "source_language_fallback";
   validation: Text;
   links: { label: string; url: string }[];
 };
+export const SJT_PASSPORT_REVISION = "2026-11-21-sjt-authorship";
+export const CANONICAL_SJT_SOURCE = "Авторская разработка исполнителя — Управленческие ситуации (14 кейсов)";
+const sjtRightsText = "Авторская разработка исполнителя, права принадлежат исполнителю";
 const authorRights = {
   ru: "Материалы предоставлены в документах заказчика от 26.10.2026. Публичная лицензия на эти тексты не заявлена; права на использование и распространение согласуются с правообладателем.",
   kk: "Материалдар тапсырыс берушінің 26.10.2026 құжаттарында берілген. Бұл мәтіндерге ашық лицензия жарияланбаған; пайдалану және тарату құқықтары құқық иесімен келісіледі.",
@@ -108,7 +112,9 @@ export const METHOD_PASSPORTS: Record<string, Passport> = {
       ru: "14 кейсов. В каждом выбираются наиболее и наименее вероятные действия. Сравнение с ключом текущей версии; калибровку эффективности вариантов утверждает эксперт. Лимит 30 минут.",
       kk: "14 кейс. Әрқайсысында ең ықтимал және ықтималдығы ең аз әрекеттер таңдалады. Ағымдағы нұсқа кілтімен салыстырылады; нұсқалардың тиімділігін сарапшы бекітеді. Уақыт 30 минут.",
     },
-    rights: authorRights,
+    // The client supplied the Russian authorship statement, not a new approved translation.
+    rights: { ru: sjtRightsText, kk: sjtRightsText },
+    rightsTranslationStatus: "source_language_fallback",
     validation: {
       ru: `${pilot.ru} Протокол согласования ключа экспертной панелью проверяется отдельно. Тест не измеряет поведение в реальной работе.`,
       kk: `${pilot.kk} Сарапшылар тобының кілтті келісу хаттамасы бөлек тексеріледі. Тест нақты жұмыстағы мінез-құлықты өлшемейді.`,

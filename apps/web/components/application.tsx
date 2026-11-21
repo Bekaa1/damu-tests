@@ -2,6 +2,8 @@
 import { Consent, ConsentRecord, AnswerRecovery } from "./consent";
 import { hasCurrentConsent } from "../../../packages/core/pilot";
 import { clearExpiredParticipantCache } from "../../../packages/core/pilot-cache";
+import { alignOfflineSession, cacheOfflineSession, clearOfflineSession, restoreOfflineSession } from "./offline-session";
+import { CompetencyModelEditor } from "./competencies";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,6 +33,7 @@ import {
 import {
   AppCtx,
   api,
+  bootstrapSession,
   post,
   patch,
   Button,
@@ -65,10 +68,11 @@ export function Application() {
     [help, setHelp] = useState(false);
   const t = (ru: string, kk: string) => (locale === "kk" ? kk : ru);
   const reload = useCallback(async () => {
+    setLoading(true);
     try {    clearExpiredParticipantCache(localStorage); } catch {}
     try {
-      const session = await api<Session>("/me");
-      setMe(session);
+      const session = await bootstrapSession<Session>();
+      alignOfflineSession(localStorage, session);
       setLocale(
         (localStorage.getItem("assessflow.locale") as Locale) ||
           session.user.locale ||
@@ -81,32 +85,29 @@ export function Application() {
       ) {
         const cs = session.organization ? await api<any[]>("/campaigns") : [];
         setCampaigns(cs);
-        if (session.role === "employee")
-          localStorage.setItem(
-            "assessflow.offline-session",
-            JSON.stringify({ session, campaigns: cs }),
-          );
-        else localStorage.removeItem("assessflow.offline-session");
+        if (session.role === "employee") cacheOfflineSession(localStorage, session, cs);
+        else clearOfflineSession(localStorage);
         setCampaignState((prev) =>
           cs.some((c) => c.id === prev) ? prev : cs[0]?.id || "",
         );
+      } else {
+        clearOfflineSession(localStorage);
       }
+      // Publish the session only with the campaign set authorized for its scope.
+      // Otherwise old React campaign state could issue new-tenant requests.
+      setMe(session);
       setError("");
     } catch (e) {
-      if (!navigator.onLine) {
-        try {
-          const cached = JSON.parse(
-            localStorage.getItem("assessflow.offline-session") || "null",
-          );
-          if (cached?.session.role === "employee") {
-            setMe(cached.session);
-            setLocale(cached.session.user.locale || "ru");
-            setCampaigns(cached.campaigns || []);
-            setCampaignState((prev) => prev || cached.campaigns?.[0]?.id || "");
-            return;
-          }
-        } catch {}
-      }
+      try {
+        const cached = restoreOfflineSession(localStorage, e, navigator.onLine);
+        if (cached) {
+          setMe(cached.session);
+          setLocale(cached.session.user.locale || "ru");
+          setCampaigns(cached.campaigns);
+          setCampaignState((prev) => cached.campaigns.some(c => c.id === prev) ? prev : cached.campaigns[0]?.id || "");
+          return;
+        }
+      } catch {}
       setMe(null);
       if (path !== "/login") router.replace("/login");
     } finally {
@@ -211,6 +212,11 @@ export function Application() {
             icon: BookOpen,
           },
           {
+            href: "/model",
+            label: t("Модель компетенций", "Құзыреттер моделі"),
+            icon: SlidersHorizontal,
+          },
+          {
             href: "/analytics",
             label: t("Аналитика", "Талдау"),
             icon: ChartNoAxesCombined,
@@ -311,6 +317,8 @@ export function Application() {
       <Campaigns />
     ) : path === "/library" ? (
       <Library />
+    ) : path === "/model" ? (
+      <div className="stack"><CompetencyModelEditor key={me.organization?.id} onSaved={() => {}} /></div>
     ) : path === "/analytics" ? (
       <Analytics />
     ) : path === "/groups" ? (
@@ -495,6 +503,7 @@ export function Application() {
                   title={t("Выйти", "Шығу")}
                   onClick={async () => {
                     await post("/auth/sign-out");
+                    clearOfflineSession(localStorage);
                     setMe(null);
                     router.push("/login");
                   }}
@@ -639,7 +648,7 @@ function Login({
     setError("");
     try {
       localStorage.removeItem("assessflow.org");
-      localStorage.removeItem("assessflow.offline-session");
+      clearOfflineSession(localStorage);
       await post("/auth/sign-in/email", { email, password });
       await onSuccess();
     } catch (err) {

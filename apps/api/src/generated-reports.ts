@@ -87,7 +87,7 @@ async function captureReport(
         ),
       },
     },
-    select: { id: true, config: true },
+    select: { id: true, config: true, status: true },
   });
   const [observations, conclusions] = await Promise.all([
     db.expertObservation.findMany({
@@ -145,14 +145,14 @@ async function captureReport(
             const { details, ...score } = (ranks.get(r.resultId) ||
               r.score ||
               {}) as Record<string, unknown>;
+            const key = keys.find((k) => k.id === r.scoringKeyId);
             return {
               ...r,
+              ...(key ? { scoringKeyStatus: key.status } : {}),
               score: r.score
                 ? {
                     ...score,
-                    bandThresholds: (
-                      keys.find((k) => k.id === r.scoringKeyId)?.config as any
-                    )?.bands,
+                    bandThresholds: (key?.config as any)?.bands,
                   }
                 : null,
             };

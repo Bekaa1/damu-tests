@@ -67,8 +67,8 @@ describe("participant data policy", () => {
   });
   it("versions general consent without changing voluntary pilot rules", () => {
     expect(CONSENT_VERSION).not.toBe("2026-11-17");
-    expect(CONSENT_TEXT.ru).toContain("3 календарных месяца");
-    expect(CONSENT_TEXT.ru).toContain("регистрации в организации");
+    expect(CONSENT_TEXT.ru).toContain("Данные удаляются через 3 месяца после регистрации на платформе.");
+    expect(CONSENT_TEXT.ru).not.toMatch(/UTC|последний день месяца/);
     expect(CONSENT_TEXT.ru).toContain("не продлевают");
     expect(CONSENT_TEXT.kk).toContain("3 күнтізбелік ай");
     expect(CONSENT_TEXT.ru).not.toMatch(/может выполняться внешним|до запроса на удаление/i);
