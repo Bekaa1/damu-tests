@@ -4,7 +4,7 @@ import { HOLDING_COMPETENCIES, HOLDING_SJT_CASES, HOLDING_SINGLE_CASE_NOTE } fro
 
 export const REPORT_POLICY_VERSION = "holding-2026-11-21.1";
 export const PERSONALITY_CAVEAT_RU = "Балл по шкале опросника от 1 до 5. Это не сравнение с населением Казахстана. Нормативных данных по Казахстану нет";
-export const SJT_CAVEAT_RU = "28 из 28 — полное совпадение с экспертным ключом, а не оценка поведения на работе";
+export const SJT_CAVEAT_RU = "Максимальный балл 28 означает полное совпадение с экспертным ключом, а не оценку поведения на работе";
 export const HOLDING_SINGLE_CASE_NOTE_RU = HOLDING_SINGLE_CASE_NOTE;
 export const INTERNAL_PERCENTILE_CAVEAT_RU = "выборка не представительна для Казахстана";
 export const HOLDING_PROFILE_UNAVAILABLE_RU = "профиль по модели Холдинга не рассчитан";

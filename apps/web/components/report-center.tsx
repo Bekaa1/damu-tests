@@ -72,7 +72,7 @@ async function previewPdf(id: string, language: string) {
 }
 
 function ReportState({ report }: { report?: ReportRow }) {
-  const { t } = useApp();
+  const { t, me } = useApp();
   if (!report)
     return (
       <span className="text-muted">{t("Не сформирован", "Жасалмаған")}</span>
@@ -107,7 +107,7 @@ function ReportState({ report }: { report?: ReportRow }) {
           <p className="text-small text-muted">
             {t("Доступен", "Қолжетімді")}:{" "}
             {new Date(report.readyAt).toLocaleString()}
-            {report.assessmentCompletedAt
+            {report.assessmentCompletedAt && me.organization?.dataMode !== "synthetic"
               ? ` · ${Math.round((new Date(report.readyAt).getTime() - new Date(report.assessmentCompletedAt).getTime()) / 1000)} ${t("сек после завершения", "аяқталғаннан кейін сек")}`
               : ""}
           </p>

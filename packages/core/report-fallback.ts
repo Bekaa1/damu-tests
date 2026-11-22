@@ -113,7 +113,7 @@ export function dataReport(
         if ((testLevel(r.score) || 0) >= 4)
           result.strengths.push(
             statement(
-              `${reportText(r.name, language)}: ${t("результат относится к верхним диапазонам формы", "нәтиже нысанның жоғарғы ауқымдарына жатады")}.`,
+              `${reportText(r.name, language)}: ${t("результат выше среднего по шкале теста", "нәтиже нысанның жоғарғы ауқымдарына жатады")}.`,
               evidence,
             ),
           );

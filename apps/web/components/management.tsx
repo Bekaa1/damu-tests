@@ -371,8 +371,8 @@ export function Participant({ id }: { id: string }) {
                                   <thead>
                                     <tr>
                                       <th>{t("СИТУАЦИЯ", "ЖАҒДАЙ")}</th>
-                                      <th>MOST</th>
-                                      <th>LEAST</th>
+                                      <th>{t("Наиболее", "Ең ықтимал")}</th>
+                                      <th>{t("Наименее", "Ең ықтималдығы аз")}</th>
                                       <th>{t("БАЛЛЫ", "БАЛДАР")}</th>
                                     </tr>
                                   </thead>

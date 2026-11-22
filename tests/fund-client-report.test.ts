@@ -74,7 +74,7 @@ describe("Fund client actual report templates", () => {
       }
     }
     expect(html).toContain("Краткий отчёт по результатам тестов");
-    expect(html).toContain("28 из 28 — полное совпадение с экспертным ключом, а не оценка поведения на работе");
+    expect(html).toContain("Максимальный балл 28 означает полное совпадение с экспертным ключом, а не оценку поведения на работе");
     expect(html).toContain("Нормативных данных по Казахстану нет");
     expect(JSON.stringify(s)).toBe(before);
   });
@@ -85,7 +85,8 @@ describe("Fund client actual report templates", () => {
     expect(html).toContain(profile.position);
     expect(html).toContain("Критичность (1/2/3)");
     expect(html).toContain("Целевой уровень модели");
-    expect(html).toContain("target_score");
+    expect(html).toContain("<th>Целевой числовой балл</th>");
+    expect(html).not.toContain("(target_score)");
     for (const [code, criticality] of Object.entries(profile.criticality)) {
       expect(html).toMatch(new RegExp(`data-profile-code="${code}"[^>]*>[^]*?<td[^>]*>${criticality}</td><td[^>]*>В</td><td data-target-score=""></td>`));
     }
