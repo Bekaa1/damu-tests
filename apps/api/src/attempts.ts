@@ -221,7 +221,17 @@ export async function myAssignments(ctx: Context, campaignId?: string) {
     }
   }
   const serverTime = new Date();
-  return assignments.map((a) => ({ ...a, serverTime }));
+  // Presentation order is part of the assessment flow, not assignment creation time.
+  const order = new Map<string, number>(
+    ["verbal", "numerical", "logical", "personality", "motivation", "situations"]
+      .map((testId, index) => [testId, index]),
+  );
+  return [...assignments]
+    .sort((a, b) =>
+      (order.get(a.testVersion.testId) ?? order.size) -
+      (order.get(b.testVersion.testId) ?? order.size),
+    )
+    .map((a) => ({ ...a, serverTime }));
 }
 async function ownedAttempt(ctx: Context, id: string) {
   const attempt = await db.testAttempt.findFirst({
