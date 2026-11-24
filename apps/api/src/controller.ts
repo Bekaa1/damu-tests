@@ -44,6 +44,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { db, audit, json } from "./db";
 import { auth } from "./auth";
+import { setInitialPassword } from "./password-setup";
 import { exportPersonalData, erasePersonalData } from "./privacy";
 import { encryptSecret, openRouterKey } from "./secrets";
 import {
@@ -251,13 +252,21 @@ export class AppController {
   ) {
     const data = z
       .object({
-        currentPassword: z.string(),
+        currentPassword: z.string().optional(),
         newPassword: z.string().min(12).max(128),
       })
       .parse(body);
+    if (data.currentPassword === undefined) {
+      await setInitialPassword(req, data.newPassword);
+      return { ok: true };
+    }
     const changed = await auth.api.changePassword({
       headers: fromNodeHeaders(req.headers),
-      body: { ...data, revokeOtherSessions: true },
+      body: {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+        revokeOtherSessions: true,
+      },
       returnHeaders: true,
     });
     const cookies = changed.headers.getSetCookie();

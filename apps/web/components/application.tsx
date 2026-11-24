@@ -165,7 +165,17 @@ export function Application() {
       </div>
     );
   if (me.user.mustChangePassword)
-    return <ChangePassword onDone={reload} locale={locale} />;
+    return (
+      <ChangePassword
+        onDone={reload}
+        onSignInAgain={async () => {
+          await post("/auth/sign-out");
+          setMe(null);
+          router.replace("/login");
+        }}
+        locale={locale}
+      />
+    );
   if (me.role === "employee" && !hasCurrentConsent(me.member, me.organization))
     return (
       <Consent
@@ -721,16 +731,21 @@ function Login({
 }
 function ChangePassword({
   onDone,
+  onSignInAgain,
   locale,
 }: {
   onDone: () => Promise<void>;
+  onSignInAgain: () => Promise<void>;
   locale: Locale;
 }) {
   const t = (ru: string, kk: string) => (locale === "ru" ? ru : kk);
-  const [current, setCurrent] = useState(""),
-    [next, setNext] = useState(""),
+  const [next, setNext] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const networkError = t(
+    "Не удалось связаться с сервером. Попробуйте ещё раз.",
+    "Сервермен байланысу мүмкін болмады. Қайталап көріңіз.",
+  );
   return (
     <div className="password-page">
       <Brand />
@@ -739,35 +754,20 @@ function ChangePassword({
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
+          setError("");
           try {
-            await post("/me/password", {
-              currentPassword: current,
-              newPassword: next,
-            });
+            await post("/me/password", { newPassword: next });
             await onDone();
           } catch (e) {
-            setError((e as Error).message);
+            setError(
+              e instanceof TypeError ? networkError : (e as Error).message,
+            );
           } finally {
             setBusy(false);
           }
         }}
       >
         <h1>{t("Задайте свой пароль", "Өз құпиясөзіңізді орнатыңыз")}</h1>
-        <p>
-          {t(
-            "Временный пароль нужно заменить перед началом работы.",
-            "Жұмысты бастамас бұрын уақытша құпиясөзді өзгертіңіз.",
-          )}
-        </p>
-        <Field label={t("Временный пароль", "Уақытша құпиясөз")}>
-          <input
-            autoComplete="current-password"
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            required
-          />
-        </Field>
         <Field
           label={t("Новый пароль", "Жаңа құпиясөз")}
           hint={t("Не менее 12 символов", "Кемінде 12 таңба")}
@@ -776,15 +776,35 @@ function ChangePassword({
             autoComplete="new-password"
             type="password"
             minLength={12}
+            maxLength={128}
             value={next}
             onChange={(e) => setNext(e.target.value)}
             required
           />
         </Field>
-        {error && <div className="notice error">{error}</div>}
-        <Button busy={busy}>
+        {error && <div className="notice error" role="alert">{error}</div>}
+        <Button type="submit" busy={busy}>
           {t("Сохранить и продолжить", "Сақтау және жалғастыру")}
         </Button>
+        {error && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onSignInAgain();
+              } catch {
+                setError(networkError);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t("Войти заново", "Қайта кіру")}
+          </Button>
+        )}
       </form>
     </div>
   );

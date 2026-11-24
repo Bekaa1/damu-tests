@@ -19,7 +19,7 @@ export type Context = {
   org: Organization | null;
   role: string;
 };
-export type AuthRequest = Request & { ctx: Context };
+export type AuthRequest = Request & { ctx: Context; authSessionId: string };
 export class AccessGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<AuthRequest>();
@@ -88,6 +88,7 @@ export class AccessGuard implements CanActivate {
       org,
       role: platformAccess ? "superadmin" : member!.role,
     };
+    req.authSessionId = session.session.id;
     return true;
   }
 }

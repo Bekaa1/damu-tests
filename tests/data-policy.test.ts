@@ -93,7 +93,7 @@ describe("participant data policy", () => {
 describe("API access and external AI enforcement", () => {
   it.each([false, true])("denies a direct real-org header for a demo-only user, including platform admin=%s", async platformAdmin => {
     const m = member();
-    fixture.auth.mockResolvedValue({ user: { id: m.userId } });
+    fixture.auth.mockResolvedValue({ user: { id: m.userId }, session: { id: "session" } });
     fixture.db.user.findUniqueOrThrow.mockResolvedValue({ ...m.user, demoOnly: true, platformAdmin });
     fixture.db.membership.findFirst.mockResolvedValue({ ...m, createdAt: now });
     fixture.db.organization.findUnique.mockResolvedValue(m.organization);
@@ -104,7 +104,7 @@ describe("API access and external AI enforcement", () => {
   });
   it("allows demo-only access only to a synthetic organization", async () => {
     const m = member(), organization = { ...m.organization, dataMode: "synthetic" };
-    fixture.auth.mockResolvedValue({ user: { id: m.userId } });
+    fixture.auth.mockResolvedValue({ user: { id: m.userId }, session: { id: "session" } });
     fixture.db.user.findUniqueOrThrow.mockResolvedValue({ ...m.user, demoOnly: true });
     fixture.db.membership.findFirst.mockResolvedValue({ ...m, createdAt: now });
     fixture.db.organization.findUnique.mockResolvedValue(organization);
@@ -113,7 +113,7 @@ describe("API access and external AI enforcement", () => {
   });
   it("normalizes demo-only plus platformAdmin to the actual synthetic membership role", async () => {
     const m = member(), organization = { ...m.organization, dataMode: "synthetic" };
-    fixture.auth.mockResolvedValue({ user: { id: m.userId } });
+    fixture.auth.mockResolvedValue({ user: { id: m.userId }, session: { id: "session" } });
     fixture.db.user.findUniqueOrThrow.mockResolvedValue({ ...m.user, demoOnly: true, platformAdmin: true });
     fixture.db.membership.findFirst.mockResolvedValue({ ...m, role: "expert", createdAt: now });
     fixture.db.organization.findUnique.mockResolvedValue(organization);
@@ -130,7 +130,7 @@ describe("API access and external AI enforcement", () => {
   });
   it("requires an actual synthetic membership even if demo-only platformAdmin is true", async () => {
     const m = member();
-    fixture.auth.mockResolvedValue({ user: { id: m.userId } });
+    fixture.auth.mockResolvedValue({ user: { id: m.userId }, session: { id: "session" } });
     fixture.db.user.findUniqueOrThrow.mockResolvedValue({ ...m.user, demoOnly: true, platformAdmin: true });
     fixture.db.membership.findFirst.mockResolvedValue(null);
     fixture.db.organization.findUnique.mockResolvedValue({ ...m.organization, dataMode: "synthetic" });
@@ -148,7 +148,7 @@ describe("API access and external AI enforcement", () => {
   });
   it("denies expired assessment users before accepting fresh consent", async () => {
     const m = member();
-    fixture.auth.mockResolvedValue({ user: { id: m.userId } });
+    fixture.auth.mockResolvedValue({ user: { id: m.userId }, session: { id: "session" } });
     fixture.db.user.findUniqueOrThrow.mockResolvedValue(m.user);
     fixture.db.membership.findFirst.mockResolvedValue(m);
     fixture.db.organization.findUnique.mockResolvedValue(m.organization);
