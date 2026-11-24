@@ -304,6 +304,13 @@ export function Application() {
           ? "Сарапшы"
           : "Әкімші",
   );
+  const greeting = t(
+    `Здравствуйте, ${me.user.name}`,
+    `Сәлеметсіз бе, ${me.user.name}`,
+  );
+  const greetingDetails = [me.member?.position, me.organization?.name]
+    .filter(Boolean)
+    .join(" · ");
   let page =
     isEmployee && !path.startsWith("/test/") ? (
       <EmployeeHome />
@@ -431,10 +438,10 @@ export function Application() {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            {isEmployee && <ConsentRecord member={me.member} />}
+            {isEmployee && <ConsentRecord member={me.member} inSidebar />}
             <button className="nav-item" onClick={() => setHelp(!help)}>
-              <HelpCircle size={19} />
-              {t("Помощь и поддержка", "Көмек және қолдау")}
+              <HelpCircle size={19} aria-hidden="true" />
+              <span>{t("Помощь и поддержка", "Көмек және қолдау")}</span>
             </button>
           </div>
         </aside>
@@ -450,17 +457,8 @@ export function Application() {
               </button>
               {isEmployee && path === "/cabinet" && (
                 <div className="header-greeting">
-                  <strong>
-                    {t(
-                      `Здравствуйте, ${me.user.name}`,
-                      `Сәлеметсіз бе, ${me.user.name}`,
-                    )}
-                  </strong>
-                  <small>
-                    {[me.member?.position, me.organization?.name]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </small>
+                  <strong title={greeting}>{greeting}</strong>
+                  <small title={greetingDetails}>{greetingDetails}</small>
                 </div>
               )}
             </div>
@@ -470,6 +468,7 @@ export function Application() {
                   <CalendarDays size={15} />
                   <select
                     aria-label={t("Кампания оценки", "Бағалау науқаны")}
+                    title={campaigns.find((item) => item.id === campaign)?.name}
                     value={campaign}
                     onChange={(e) => setCampaignState(e.target.value)}
                   >
@@ -505,7 +504,7 @@ export function Application() {
               <div className="user-menu">
                 <Avatar name={me.user.name} />
                 <div>
-                  <strong>{me.user.name}</strong>
+                  <strong title={me.user.name}>{me.user.name}</strong>
                   <small>{roleLabel}</small>
                 </div>
                 <button

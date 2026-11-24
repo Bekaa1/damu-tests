@@ -1,25 +1,39 @@
 "use client";
 import { useState, useEffect } from "react";
+import { ShieldCheck } from "lucide-react";
 import { consentPolicy, hasCurrentConsent } from "../../../packages/core/pilot";
 import { Button, Modal, useApp, post, type Locale } from "./ui";
-export function ConsentRecord({ member }: { member: any }) {
+export function ConsentRecord({
+  member,
+  inSidebar = false,
+}: {
+  member: any;
+  inSidebar?: boolean;
+}) {
   const { t, locale, me } = useApp();
   const policy = consentPolicy(me.organization);
   const [open, setOpen] = useState(false);
   const current = hasCurrentConsent(member, me.organization);
+  const label = t("Согласие на обработку данных", "Деректерді өңдеуге келісім");
   return (
     <>
-      <Button variant="ghost" onClick={() => setOpen(true)}>
-        {t("Согласие на обработку данных", "Деректерді өңдеуге келісім")}
-      </Button>
-      {open && (
-        <Modal
-          title={t(
-            "Согласие на обработку данных",
-            "Деректерді өңдеуге келісім",
-          )}
-          onClose={() => setOpen(false)}
+      {inSidebar ? (
+        <button
+          type="button"
+          className="nav-item"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
         >
+          <ShieldCheck size={19} aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      ) : (
+        <Button variant="ghost" onClick={() => setOpen(true)}>
+          {label}
+        </Button>
+      )}
+      {open && (
+        <Modal title={label} onClose={() => setOpen(false)}>
           <p>
             {current
               ? t("Согласие подтверждено", "Келісім расталды")
