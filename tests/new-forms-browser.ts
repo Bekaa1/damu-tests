@@ -72,6 +72,16 @@ try {
     path: "output/new-forms-qa/cabinet.png",
     fullPage: true,
   });
+  async function waitForAutosave() {
+    const attemptId = new URL(page.url()).pathname.split("/").pop();
+    assert(attemptId);
+    await page.waitForFunction(
+      (id) =>
+        localStorage.getItem(`assessflow.answers.${id}`) === null &&
+        document.querySelector(".question-footer [role=status]")?.textContent === "",
+      attemptId,
+    );
+  }
   async function open(name: string) {
     await page.goto(base + "/cabinet");
     const card = page
@@ -127,7 +137,7 @@ try {
   await start();
   assert.equal(await page.locator(".new-question .answer-option").count(), 3);
   await page.locator(".new-question .answer-option").first().click();
-  await page.getByText("Изменения сохранены", { exact: true }).waitFor();
+  await waitForAutosave();
   await page.reload();
   await page.locator(".new-question").waitFor();
   await page.locator(".question-dots button").first().click();
@@ -194,7 +204,7 @@ try {
     await cards.nth(i).getByRole("checkbox").first().check();
   for (let i = 3; i < 6; i++)
     await cards.nth(i).getByRole("checkbox").last().check();
-  await page.getByText("Изменения сохранены", { exact: true }).waitFor();
+  await waitForAutosave();
   await page.reload();
   await page.locator(".question-dots button").last().click();
   assert.equal(await page.getByRole("checkbox", { checked: true }).count(), 6);

@@ -975,7 +975,7 @@ export function TestRunner({ id }: { id: string }) {
                             "Есть несохранённые изменения",
                             "Сақталмаған өзгерістер бар",
                           )
-                        : t("Изменения сохранены", "Өзгерістер сақталды")}
+                        : null}
                   </span>
                   {end < data.questions.length ? (
                     <Button onClick={() => go(end)}>
