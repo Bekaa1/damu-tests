@@ -62,7 +62,7 @@ async function captureReport(
   const campaign = await getCampaign(ctx, campaignId);
   if (!campaign) throw new NotFoundException("Кампания не найдена");
   if (membershipId) await participant(ctx, membershipId, campaignId);
-  const people = (await listPeople(ctx, campaignId)).filter(
+  const people = (await listPeople(ctx, campaignId, membershipId)).filter(
     (p) =>
       p.role === "employee" &&
       p.total > 0 &&

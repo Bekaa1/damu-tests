@@ -219,7 +219,7 @@ export async function getCampaign(ctx: Context, id?: string) {
   if (id && !campaign) throw new NotFoundException("Кампания не найдена");
   return campaign;
 }
-export async function listPeople(ctx: Context, campaignId?: string) {
+export async function listPeople(ctx: Context, campaignId?: string, membershipId?: string) {
   requireRole(ctx, "admin", "expert");
   const organizationId = orgId(ctx);
   const campaign = await getCampaign(ctx, campaignId);
@@ -242,6 +242,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
       organizationId,
       status: "active",
       ...(assigned ? { id: { in: assigned.map((a) => a.membershipId) } } : {}),
+      ...(membershipId ? { AND: { id: membershipId } } : {}),
     },
     include: {
       user: {
@@ -259,7 +260,7 @@ export async function listPeople(ctx: Context, campaignId?: string) {
   });
   const assignments = campaign
     ? await db.testAssignment.findMany({
-        where: { organizationId, campaignId: campaign.id },
+        where: { organizationId, campaignId: campaign.id, membershipId },
         include: {
           testVersion: {
             include: { test: true, _count: { select: { questions: true } } },
@@ -277,13 +278,13 @@ export async function listPeople(ctx: Context, campaignId?: string) {
     : [];
   const reports = campaign
     ? await db.finalReport.findMany({
-        where: { organizationId, campaignId: campaign.id },
+        where: { organizationId, campaignId: campaign.id, membershipId },
         orderBy: { version: "desc" },
       })
     : [];
   const ai = campaign
     ? await db.aiReport.findMany({
-        where: { organizationId, campaignId: campaign.id },
+        where: { organizationId, campaignId: campaign.id, membershipId },
         orderBy: { createdAt: "desc" },
       })
     : [];

@@ -19,6 +19,21 @@ import {
 export { dataReport as fallbackReport } from "../../../packages/core/report-fallback";
 import { dataReport } from "../../../packages/core/report-fallback";
 const rendering = new Map<string, Promise<void>>();
+// Each PDF starts a Chromium process. Keep automatic report preparation off the
+// critical path for participants saving answers or submitting their last test.
+const reportWaiters: Array<() => void> = [];
+let activeReportJobs = 0;
+async function withReportSlot<T>(job: () => Promise<T>): Promise<T> {
+  if (activeReportJobs < 2) activeReportJobs++;
+  else await new Promise<void>((resolve) => reportWaiters.push(resolve));
+  try {
+    return await job();
+  } finally {
+    const next = reportWaiters.shift();
+    if (next) next();
+    else activeReportJobs--;
+  }
+}
 export async function persistReportPdf(
   id: string,
   content: GeneratedContent,
@@ -182,6 +197,13 @@ export async function queueCompletedAssessment(
   campaignId: string,
   membershipId: string,
 ) {
+  return withReportSlot(() => generateCompletedAssessment(organizationId, campaignId, membershipId));
+}
+async function generateCompletedAssessment(
+  organizationId: string,
+  campaignId: string,
+  membershipId: string,
+) {
   const tasks = await db.testAssignment.findMany({
     where: { organizationId, campaignId, membershipId },
     include: { attempts: { orderBy: { attemptNumber: "desc" }, take: 1 } },
@@ -246,7 +268,7 @@ export function startReportWatchdog() {
         select: { id: true },
         take: 20,
       });
-      await Promise.allSettled(stuck.map((r) => makeFallbackAvailable(r.id)));
+      await Promise.allSettled(stuck.map((r) => withReportSlot(() => makeFallbackAvailable(r.id))));
       // The completion audit is committed with the score. Recover a trigger lost
       // between that commit and enqueueing (for example during an API restart).
       const recent = await db.auditLog.findMany({

@@ -59,7 +59,27 @@ export async function presence(ctx: Context, id: string, input: unknown) {
       at: z.iso.datetime().optional(),
     })
     .parse(input);
-  const owned = await ownedAttempt(ctx, id);
+  if (!ctx.member) throw new NotFoundException("Прохождение не найдено");
+  const scope = { id, organizationId: orgId(ctx), assignment: { membershipId: ctx.member.id } };
+  if (!eventId && !at && (action === "heartbeat" || action === "return")) {
+    // An ordinary keep-alive has no event to audit. If a return closes an
+    // absence, fall through to the locked path that records its duration.
+    const now = new Date();
+    const [updated] = await db.testAttempt.updateManyAndReturn({
+      where: {
+        ...scope,
+        timerStartedAt: { not: null },
+        ...(action === "return" ? { leftAt: null } : {}),
+      },
+      data: { lastHeartbeatAt: now, pausedAt: null },
+    });
+    if (updated) return { ...updated, serverTime: now };
+  }
+  const owned = await db.testAttempt.findFirst({
+    where: scope,
+    select: { assignment: { select: { testVersion: { select: { timeLimitSeconds: true } } } } },
+  });
+  if (!owned) throw new NotFoundException("Прохождение не найдено");
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
     const a = await tx.testAttempt.findUniqueOrThrow({ where: { id } }),
@@ -142,7 +162,7 @@ export async function presence(ctx: Context, id: string, input: unknown) {
         },
       });
     return { ...updated, serverTime: now };
-  });
+  }, attemptTransactionOptions);
 }
 export function startAttemptSweeper() {
   let busy = false;
@@ -233,7 +253,9 @@ export async function myAssignments(ctx: Context, campaignId?: string) {
     )
     .map((a) => ({ ...a, serverTime }));
 }
-async function ownedAttempt(ctx: Context, id: string) {
+const attemptTransactionOptions = { maxWait: 20_000, timeout: 20_000 };
+
+async function ownedAttempt(ctx: Context, id: string, questionId?: string) {
   const attempt = await db.testAttempt.findFirst({
     where: { id, organizationId: orgId(ctx) },
     include: {
@@ -244,6 +266,7 @@ async function ownedAttempt(ctx: Context, id: string) {
             include: {
               test: true,
               questions: {
+                ...(questionId ? { where: { id: questionId } } : {}),
                 orderBy: { position: "asc" },
                 include: { options: { orderBy: { position: "asc" } } },
               },
@@ -408,7 +431,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       answeredAt: z.iso.datetime().optional(),
     })
     .parse(input);
-  const attempt = await ownedAttempt(ctx, id);
+  const attempt = await ownedAttempt(ctx, id, data.questionId);
   if (!attempt.timerStartedAt)
     throw new BadRequestException("Сначала начните основной тест");
   const question = attempt.assignment.testVersion.questions.find(
@@ -435,7 +458,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
     const current = await tx.testAttempt.findUniqueOrThrow({
       where: { id },
-      include: { answers: true },
+      include: { answers: { where: { questionId: data.questionId } } },
     });
     const latest = await tx.testAttempt.findFirst({
       where: { assignmentId: current.assignmentId },
@@ -501,17 +524,22 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
       },
     });
     if (["completed", "retry_required"].includes(current.status)) {
-      const all = [
-        ...current.answers.filter((a) => a.questionId !== data.questionId),
-        answer,
-      ];
+      // A delayed answer can change a completed result. Re-score against the
+      // entire form and the latest committed answers under the attempt lock.
+      const all = await tx.userAnswer.findMany({ where: { attemptId: id } });
+      const questions = await tx.question.findMany({
+        where: { testVersionId: attempt.assignment.testVersionId },
+        orderBy: { position: "asc" },
+        include: { options: { orderBy: { position: "asc" } } },
+      });
+      const delivered = deliveredQuestions({ ...attempt.assignment.testVersion, questions }, id);
       const previousScore = await tx.testResult.findUniqueOrThrow({
         where: {
           attemptId_scoringKeyId: { attemptId: id, scoringKeyId: key.id },
         },
       });
       const validity = assessmentCompletion(
-        deliveredQuestions(attempt.assignment.testVersion, id),
+        delivered,
         Object.fromEntries(all.map((a) => [a.questionId, a.value])),
         key.config as ScoringConfig,
         key.algorithm === "scales",
@@ -520,7 +548,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
         ? calculateScore(
             key.algorithm,
             key.config as ScoringConfig,
-            deliveredQuestions(attempt.assignment.testVersion, id),
+            delivered,
             Object.fromEntries(all.map((a) => [a.questionId, a.value])),
             {
               allowMissing: true,
@@ -602,7 +630,7 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
         },
       });
     return { revision: answer.revision, savedAt: answer.updatedAt, delayed };
-  });
+  }, attemptTransactionOptions);
   if (["completed", "retry_required"].includes(attempt.status))
     void queueCompletedAssessment(
       attempt.organizationId,
@@ -612,8 +640,6 @@ export async function saveAnswer(ctx: Context, id: string, input: unknown) {
   return saved;
 }
 export async function submitAttempt(ctx: Context, id: string) {
-  await ownedAttempt(ctx, id);
-  await settleClock(id);
   const attempt = await ownedAttempt(ctx, id);
   const result = await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
@@ -742,7 +768,7 @@ export async function submitAttempt(ctx: Context, id: string) {
       campaignId: attempt.assignment.campaignId,
       membershipId: attempt.assignment.membershipId,
     };
-  });
+  }, attemptTransactionOptions);
   if (result.status === "completed")
     void queueCompletedAssessment(
       attempt.organizationId,
