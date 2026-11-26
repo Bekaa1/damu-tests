@@ -1,3 +1,4 @@
+import { needsVideoConsent, videoCampaign } from "./video-scope";
 import { consentPolicy } from "../../../packages/core/pilot";
 import { participantDeletionDate, externalAiAllowed } from "../../../packages/core/data-policy";
 import { resolveProfileBinding } from "../../../packages/core/profile-binding";
@@ -238,6 +239,7 @@ export class AppController {
         },
         select: { id: true, name: true, slug: true },
       }),
+      video: { needsConsent: await needsVideoConsent(req.ctx.member), campaign: videoCampaign(req.ctx.org?.id) },
       consent: consentPolicy(req.ctx.org),
       demo: req.ctx.user.demoOnly || req.ctx.org?.dataMode === "synthetic" || process.env.DEMO_MODE === "true",
       externalAiAllowed: externalAiAllowed(req.ctx.org),

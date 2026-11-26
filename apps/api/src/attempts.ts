@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
+import { requiresCamera } from "./video-scope";
+import { requireRecording } from "./video";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
@@ -52,9 +54,10 @@ export async function settleClock(id: string) {
   return db.testAttempt.findUnique({ where: { id } });
 }
 export async function presence(ctx: Context, id: string, input: unknown) {
-  const { action, eventId, at } = z
+  const { action, eventId, at, videoSession } = z
     .object({
       action: z.enum(["begin", "heartbeat", "leave", "return"]),
+      videoSession: z.uuid().optional(),
       eventId: z.string().max(100).optional(),
       at: z.iso.datetime().optional(),
     })
@@ -77,9 +80,11 @@ export async function presence(ctx: Context, id: string, input: unknown) {
   }
   const owned = await db.testAttempt.findFirst({
     where: scope,
-    select: { assignment: { select: { testVersion: { select: { timeLimitSeconds: true } } } } },
+    select: { assignment: { select: { campaignId: true, testVersion: { select: { timeLimitSeconds: true } } } } },
   });
   if (!owned) throw new NotFoundException("Прохождение не найдено");
+  if (action === "begin" && requiresCamera(orgId(ctx), owned.assignment.campaignId))
+    await requireRecording(ctx, id, videoSession);
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM test_attempts WHERE id = ${id} FOR UPDATE`;
     const a = await tx.testAttempt.findUniqueOrThrow({ where: { id } }),
@@ -389,6 +394,7 @@ export async function getAttempt(ctx: Context, id: string) {
   return {
     id: attempt.id,
     language: attempt.language,
+    videoRequired: requiresCamera(attempt.organizationId, attempt.assignment.campaignId),
     status: attempt.status,
     startedAt: attempt.startedAt,
     expiresAt: attempt.expiresAt,

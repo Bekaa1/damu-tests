@@ -1,4 +1,5 @@
 "use client";
+import { TestCamera } from "./test-camera";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { AssessmentComplete } from "./assessment-complete";
@@ -50,10 +51,11 @@ export function Material({ text }: { text: string }) {
   );
 }
 export function TestRunner({ id }: { id: string }) {
-  const { t, loc } = useApp();
+  const { t, loc, me } = useApp();
   const { data: remoteData, loading, error } = useData<any>(`/attempts/${id}`);
   const [cachedData, setCachedData] = useState<any>(null);
   const data = remoteData || cachedData;
+  const videoRequired = data?.videoRequired || Boolean(me.video?.campaign && me.video.campaign === data?.campaignId);
   const [index, setIndex] = useState(0),
     [answers, setAnswers] = useState<Record<string, any>>({}),
     [saved, setSaved] = useState<Record<string, number>>({}),
@@ -62,6 +64,8 @@ export function TestRunner({ id }: { id: string }) {
     [done, setDone] = useState(false),
     [retryRequired, setRetryRequired] = useState(false),
     [running, setRunning] = useState(false),
+    [cameraRequested, setCameraRequested] = useState(false),
+    [cameraAdmitted, setCameraAdmitted] = useState(false),
     [deadline, setDeadline] = useState<number | null>(null),
     [remaining, setRemaining] = useState<number | null>(null),
     [offline, setOffline] = useState(false),
@@ -472,14 +476,17 @@ export function TestRunner({ id }: { id: string }) {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [deadline, running, done]);
-  async function begin() {
+  async function begin(videoSession?: string) {
+    if (videoRequired && !videoSession) { setCameraRequested(true); return; }
     setBusy(true);
     try {
-      const a = await post(`/attempts/${id}/presence`, { action: "begin" });
+      const a = await post(`/attempts/${id}/presence`, { action: "begin", videoSession });
+      if (videoSession) setCameraAdmitted(true);
       applyLifecycle(a, true);
       opened.current = Date.now();
     } catch (e) {
       setMessage((e as Error).message);
+      if (videoSession) throw e;
     } finally {
       setBusy(false);
     }
@@ -699,7 +706,8 @@ export function TestRunner({ id }: { id: string }) {
             </Link>
             <h2>{loc(data.name)}</h2>
           </div>
-          {!running ? (
+          {videoRequired && remaining !== 0 && (cameraRequested || running) && <TestCamera attempt={id} ready={begin} />}
+          {videoRequired && (cameraRequested || running) && !cameraAdmitted ? null : !running ? (
             <Panel>
               <div className="question-panel">
                 <h1>

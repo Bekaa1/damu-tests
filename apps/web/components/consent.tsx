@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { videoConsentText, videoConsentVersion } from "../../../packages/core/video-policy";
 import { ShieldCheck } from "lucide-react";
 import { consentPolicy, hasCurrentConsent } from "../../../packages/core/pilot";
 import { Button, Modal, useApp, post, type Locale } from "./ui";
@@ -52,6 +53,11 @@ export function ConsentRecord({
             </p>
           )}
           <p>{policy.text[locale]}</p>
+          {member.videoConsentVersion === videoConsentVersion && member.videoConsentAt &&
+            <details><summary>{t("Согласие на видеозапись", "Бейнежазбаға келісім")}</summary>
+              <p>{new Date(member.videoConsentAt).toLocaleString(locale === "kk" ? "kk-KZ" : "ru-KZ")} · {videoConsentVersion}</p>
+              {videoConsentText[locale].split("\n\n").map((part, i) => <p key={i} style={{ whiteSpace: "pre-line" }}>{part}</p>)}
+            </details>}
           <small>
             {t("Текущая редакция", "Қазіргі нұсқа")}: {policy.version}
           </small>
@@ -64,14 +70,16 @@ export function Consent({
   locale,
   onDone,
   organization,
+  video = false,
   onLocaleChange,
 }: {
   locale: Locale;
   onDone: () => Promise<void>;
   organization?: { purpose?: string; name?: string };
+  video?: boolean;
   onLocaleChange: (locale: Locale) => void;
 }) {
-  const policy = consentPolicy(organization);
+  const policy = video ? { text: videoConsentText, version: videoConsentVersion } : consentPolicy(organization);
   const [accepted, setAccepted] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -85,7 +93,8 @@ export function Consent({
           if (!accepted || busy) return;
           setBusy(true);
           try {
-            await post("/me/consent", {
+            await post(video ? "/me/video-consent" : "/me/consent", {
+              locale,
               accepted: true,
               version: policy.version,
             });
@@ -108,14 +117,14 @@ export function Consent({
           </select>
         </label>
         <h1>
-          {organization?.purpose === "pilot"
+          {video ? t("Согласие на видеозапись", "Бейнежазбаға келісім") : organization?.purpose === "pilot"
             ? t("Согласие на участие в пилоте", "Пилотқа қатысуға келісім")
             : t("Согласие на обработку данных", "Деректерді өңдеуге келісім")}
         </h1>
         {organization?.name && (
           <p className="text-muted">{organization.name}</p>
         )}
-        <p>{policy.text[locale]}</p>
+        {policy.text[locale].split("\n\n").map((paragraph, i) => <p key={i} style={{ whiteSpace: "pre-line" }}>{paragraph}</p>)}
         <small>
           {t("Редакция", "Нұсқа")}: {policy.version}
         </small>

@@ -18,6 +18,8 @@ import express from "express";
 import helmet from "helmet";
 import { ZodError } from "zod";
 import { auth } from "./auth";
+import { VideoController } from "./video-controller";
+import { startVideoMaintenance } from "./video";
 import { AppController } from "./controller";
 import { db } from "./db";
 import { startAttemptSweeper } from "./attempts";
@@ -47,7 +49,7 @@ class ApiErrors implements ExceptionFilter {
     res.status(status).json({ message, status });
   }
 }
-@Module({ controllers: [AppController] })
+@Module({ controllers: [AppController, VideoController] })
 class AppModule {}
 if (
   process.env.NODE_ENV === "production" &&
@@ -94,10 +96,12 @@ const reportWatchdog = startReportWatchdog();
 const worker = startAiWorker();
 const reportWorker = startReportWorker();
 const attemptSweeper = startAttemptSweeper();
+const videoMaintenance = startVideoMaintenance();
 const participantRetention = startParticipantRetention();
 await app.listen(Number(process.env.API_PORT || 4000), process.env.API_HOST || "0.0.0.0");
 console.log("AssessFlow API ready on port " + (process.env.API_PORT || 4000));
 async function shutdown() {
+  clearInterval(videoMaintenance);
   clearInterval(attemptSweeper);
   clearInterval(participantRetention);
   clearInterval(reportWatchdog);

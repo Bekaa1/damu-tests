@@ -1452,6 +1452,19 @@ tbody tr:hover {
   max-width: 900px;
   margin: auto;
 }
+.camera-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.camera-panel video {
+  border-radius: .5rem;
+  max-width: 100%;
+}
+.camera-panel p {
+  margin-block: .5rem;
+}
 .test-topline {
   display: flex;
   justify-content: space-between;

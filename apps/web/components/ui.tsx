@@ -33,6 +33,7 @@ export type Session = {
   organization: any;
   organizations: { id: string; name: string }[];
   demo: boolean;
+  video?: { needsConsent: boolean; campaign: string | null };
   externalAiAllowed?: boolean;
   dataDeletionAt?: string | null;
 };

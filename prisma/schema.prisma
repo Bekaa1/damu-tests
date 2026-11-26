@@ -128,6 +128,9 @@ model Membership {
   status String @default("active")
   consentAt DateTime?
   consentVersion String?
+  videoConsentVersion String?
+  videoConsentAt DateTime?
+  videoConsentLocale String?
   createdAt DateTime @default(now())
   @@unique([organizationId,userId])
   @@unique([id,organizationId])
@@ -247,6 +250,7 @@ model TestAssignment {
   @@map("test_assignments")
 }
 model TestAttempt {
+  videoSessions VideoSession[]
   id String @id @default(cuid())
   organizationId String
   assignmentId String
@@ -271,6 +275,23 @@ model TestAttempt {
   @@unique([assignmentId,attemptNumber])
   @@unique([id,organizationId])
   @@map("test_attempts")
+}
+model VideoSession {
+  id String @id @default(uuid())
+  attemptId String?
+  attempt TestAttempt? @relation(fields:[attemptId], references:[id], onDelete:SetNull)
+  organizationId String
+  campaignId String
+  membershipId String
+  state String @default("connecting")
+  egressId String? @unique
+  createdAt DateTime @default(now())
+  endedAt DateTime?
+  expiresAt DateTime?
+  @@index([organizationId,campaignId,createdAt])
+  @@index([attemptId,state])
+  @@index([state,expiresAt])
+  @@map("video_sessions")
 }
 model UserAnswer {
   id String @id @default(cuid())

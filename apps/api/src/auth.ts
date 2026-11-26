@@ -50,10 +50,11 @@ export const auth = betterAuth({
         const key =
           "login-account:" + createHash("sha256").update(email).digest("hex");
         const allowed = await db.$transaction(async (tx) => {
-          await tx.rateLimit.upsert({
-            where: { key },
-            create: { key, count: 0, lastRequest: BigInt(Date.now()) },
-            update: {},
+          // Two browsers can sign in as the same viewer at once. Initialize
+          // the shared counter atomically before taking its existing row lock.
+          await tx.rateLimit.createMany({
+            data: [{ key, count: 0, lastRequest: BigInt(Date.now()) }],
+            skipDuplicates: true,
           });
           await tx.$queryRaw`SELECT id FROM rate_limits WHERE key = ${key} FOR UPDATE`;
           const row = await tx.rateLimit.findUniqueOrThrow({ where: { key } }),

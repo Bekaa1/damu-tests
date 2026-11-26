@@ -1,3 +1,4 @@
+import { needsVideoConsent } from "./video-scope";
 import { hasCurrentConsent } from "../../../packages/core/pilot";
 import { participantDataExpired } from "../../../packages/core/data-policy";
 import {
@@ -43,7 +44,8 @@ export class AccessGuard implements CanActivate {
     const selected =
       typeof req.headers["x-organization-id"] === "string"
         ? req.headers["x-organization-id"]
-        : undefined;
+        : req.method === "GET" && /^\/api\/video\/[\w-]+\/download$/.test(req.path) && typeof req.query.organization === "string"
+          ? req.query.organization : undefined;
     const member = await db.membership.findFirst({
       where: {
         userId: user.id,
@@ -69,12 +71,15 @@ export class AccessGuard implements CanActivate {
       throw new ForbiddenException("Доступ организации приостановлен");
     if (!user.platformAdmin && participantDataExpired(member, org))
       throw new ForbiddenException("Срок хранения данных участника истёк. Обратитесь к организатору.");
+    if (!["/api/me", "/api/me/locale", "/api/me/password", "/api/me/video-consent"].includes(req.path) && await needsVideoConsent(member))
+      throw new ForbiddenException("Подтвердите согласие на видеозапись");
     if (
       member?.role === "employee" &&
       !hasCurrentConsent(member, org) &&
       ![
         "/api/me",
         "/api/me/consent",
+        "/api/me/video-consent",
         "/api/me/password",
         "/api/me/locale",
       ].includes(req.path)

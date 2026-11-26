@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import { Consent, ConsentRecord, AnswerRecovery } from "./consent";
 import { hasCurrentConsent } from "../../../packages/core/pilot";
 import { clearExpiredParticipantCache } from "../../../packages/core/pilot-cache";
@@ -54,6 +55,8 @@ import { Participant, Criteria, SettingsPage, Platform } from "./management";
 import { EmployeeHome, TestRunner } from "./employee";
 import { ReportCenter } from "./report-center";
 import { GroupWorkspace } from "./group-workspace";
+const VideoArchive = dynamic(() => import("./video-archive").then(m => m.VideoArchive));
+
 export function Application() {
   const router = useRouter(),
     path = usePathname();
@@ -81,7 +84,7 @@ export function Application() {
       if (
         !session.user.mustChangePassword &&
         (session.role !== "employee" ||
-          hasCurrentConsent(session.member, session.organization))
+          (!session.video?.needsConsent && hasCurrentConsent(session.member, session.organization)))
       ) {
         const cs = session.organization ? await api<any[]>("/campaigns") : [];
         setCampaigns(cs);
@@ -176,6 +179,11 @@ export function Application() {
         locale={locale}
       />
     );
+  if (me.role === "employee" && me.video?.needsConsent)
+    return (
+      <Consent key="video" video locale={locale} organization={me.organization}
+        onLocaleChange={changeLocale} onDone={reload} />
+    );
   if (me.role === "employee" && !hasCurrentConsent(me.member, me.organization))
     return (
       <Consent
@@ -187,6 +195,7 @@ export function Application() {
     );
   const isEmployee = me.role === "employee",
     isExpert = me.role === "expert";
+  const canViewVideo = me.role === "admin" && Boolean(campaign) && me.video?.campaign === campaign;
   const nav = [
     {
       href: isEmployee ? "/cabinet" : "/",
@@ -226,6 +235,7 @@ export function Application() {
             label: t("Модель компетенций", "Құзыреттер моделі"),
             icon: SlidersHorizontal,
           },
+          ...(canViewVideo ? [{ href: "/video", label: t("Видеозаписи", "Бейнежазбалар"), icon: Eye }] : []),
           {
             href: "/analytics",
             label: t("Аналитика", "Талдау"),
@@ -336,6 +346,8 @@ export function Application() {
       <Library />
     ) : path === "/model" ? (
       <div className="stack"><CompetencyModelEditor key={me.organization?.id} onSaved={() => {}} /></div>
+    ) : path === "/video" ? (
+      canViewVideo ? <VideoArchive key={campaign} /> : <AccessDenied t={t} onHome={() => router.replace("/")} />
     ) : path === "/analytics" ? (
       <Analytics />
     ) : path === "/groups" ? (
