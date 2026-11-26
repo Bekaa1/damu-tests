@@ -123,7 +123,8 @@ describe("Fund-facing canonical SJT copy", () => {
     delete form.delivery.passport.rightsTranslationStatus; delete form.delivery.passportRevision;
     expect(digest(protectedCatalog)).toBe("28dfe3d59d36ff51507bd27d0d03041cad0cc3a3c787c68da4950402b3f9e557");
     expect(digest(Object.fromEntries(Object.entries(METHOD_PASSPORTS).filter(([id]) => id !== "situations")))).toBe("6011c3386c4278e9bc0989f64556e3609c6d446727062a98f7f9da3f07b8467a");
-    expect(createHash("sha256").update(readFileSync("data/review/sjt-16-draft.json")).digest("hex")).toBe("c75aff021d60fa1264ce1a4806e0f195845db9e5928359ce1b054d146f9d5b65");
+    const draft = readFileSync("data/review/sjt-16-draft.json", "utf8").replace(/\r\n/g, "\n");
+    expect(createHash("sha256").update(draft).digest("hex")).toBe("c75aff021d60fa1264ce1a4806e0f195845db9e5928359ce1b054d146f9d5b65");
   });
 });
 

@@ -1,4 +1,5 @@
 import { needsVideoConsent, videoCampaign } from "./video-scope";
+import { readJournal, receiveJournal } from "./attempt-journal";
 import { consentPolicy } from "../../../packages/core/pilot";
 import { participantDeletionDate, externalAiAllowed } from "../../../packages/core/data-policy";
 import { resolveProfileBinding } from "../../../packages/core/profile-binding";
@@ -440,6 +441,14 @@ export class AppController {
     @Body() body: unknown,
   ) {
     return startAttempt(req.ctx, id, body);
+  }
+  @Get("attempts/:id/journal") journal(@Req() req: AuthRequest, @Param("id") id: string) {
+    return readJournal(req.ctx, id);
+  }
+  @Post("attempts/:id/journal") journalEvents(
+    @Req() req: AuthRequest, @Param("id") id: string, @Body() body: unknown,
+  ) {
+    return receiveJournal(req.ctx, id, body);
   }
   @Get("attempts/:id") attempt(
     @Req() req: AuthRequest,

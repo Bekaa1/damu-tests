@@ -1,4 +1,5 @@
 import { initializeCompetencies } from "./competencies";
+import { randomUUID } from "node:crypto";
 import { startParticipantRetention } from "./pilot-retention";
 import { repairHistoricalResults } from "./result-repair";
 import { updateMethodMetadata } from "./method-metadata";
@@ -47,6 +48,12 @@ class ApiErrors implements ExceptionFilter {
       status = 404;
       message = "Запись не найдена";
     } else console.error(error);
+    const req = host.switchToHttp().getRequest();
+    if (status >= 500 && /^\/api\/attempts\/[\w-]+\/(presence|answers|submit|camera)$/.test(req.path)) {
+      const requestId = randomUUID();
+      res.setHeader("X-Request-Id", requestId);
+      console.error(JSON.stringify({ at: new Date().toISOString(), requestId, status, path: req.path }));
+    }
     res.status(status).json({ message, status });
   }
 }
@@ -98,7 +105,8 @@ const worker = startAiWorker();
 const reportWorker = startReportWorker();
 const attemptSweeper = startAttemptSweeper();
 const videoMaintenance = startVideoMaintenance();
-const stopVideoConversion = startVideoConversion();
+const stopVideoConversion = process.env.VIDEO_CONVERSION_WORKER === "external"
+  ? undefined : startVideoConversion();
 const participantRetention = startParticipantRetention();
 await app.listen(Number(process.env.API_PORT || 4000), process.env.API_HOST || "0.0.0.0");
 console.log("AssessFlow API ready on port " + (process.env.API_PORT || 4000));
@@ -107,7 +115,7 @@ async function shutdown() {
   clearInterval(attemptSweeper);
   clearInterval(participantRetention);
   clearInterval(reportWatchdog);
-  await stopVideoConversion();
+  await stopVideoConversion?.();
   await reportWorker.close();
   await reportsQueue.close();
   await worker.close();

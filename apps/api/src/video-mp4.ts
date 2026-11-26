@@ -26,6 +26,7 @@ async function prepareRecording(id: string) {
   const workspace = recordingPath(id, ".work");
   const final = recordingPath(id, ".mp4");
   const temporary = join(workspace, randomUUID() + ".mp4");
+  const aligned = join(workspace, randomUUID() + ".webm");
   const eligible = () => ({
     id,
     state: "processing",
@@ -48,6 +49,17 @@ async function prepareRecording(id: string) {
       return null;
     });
     if (!published?.size) {
+      // Track egress can join between VP8 keyframes. Stream copy drops the
+      // undecodable prefix while leaving the original evidence intact.
+      await run(
+        process.env.FFMPEG_PATH || "ffmpeg",
+        [
+          "-nostdin", "-hide_banner", "-loglevel", "error",
+          "-i", recordingPath(id, ".webm"), "-map", "0:v:0", "-an",
+          "-c:v", "copy", "-avoid_negative_ts", "make_zero", aligned,
+        ],
+        { windowsHide: true, maxBuffer: 256 * 1024 },
+      );
       await run(
         process.env.FFMPEG_PATH || "ffmpeg",
         [
@@ -59,7 +71,7 @@ async function prepareRecording(id: string) {
           "-threads",
           "1",
           "-i",
-          recordingPath(id, ".webm"),
+          aligned,
           "-map",
           "0:v:0",
           "-an",
@@ -95,7 +107,10 @@ async function prepareRecording(id: string) {
       if (claimed.count && !published?.size) await rename(temporary, final);
     });
   } finally {
-    await rm(temporary, { force: true });
+    await Promise.all([
+      rm(temporary, { force: true }),
+      rm(aligned, { force: true }),
+    ]);
   }
 }
 
@@ -125,7 +140,11 @@ export function startVideoConversion() {
         throw err;
       }
     },
-    { connection, concurrency: 1 },
+    {
+      connection,
+      concurrency: z.coerce.number().int().min(1).max(8)
+        .parse(process.env.VIDEO_CONVERSION_CONCURRENCY ?? 1),
+    },
   );
   worker.on("failed", (job, err) =>
     console.error("MP4 preparation", job?.id, err.message),

@@ -1,0 +1,25 @@
+name: assessflow-video-worker
+services:
+  queue:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:19479:6379"]
+    restart: unless-stopped
+  worker:
+    image: ${VIDEO_WORKER_IMAGE:?Set the recording worker image}
+    command: [node, --import, tsx, apps/api/src/video-worker.ts]
+    network_mode: host
+    user: "${RECORDINGS_UID:?}:${RECORDINGS_GID:?}"
+    env_file: [/etc/assessflow-video/worker.env]
+    environment:
+      VIDEO_RECORDINGS_DIR: /out
+      REDIS_URL: redis://127.0.0.1:19479
+      VIDEO_CONVERSION_CONCURRENCY: "3"
+    volumes:
+      - type: bind
+        source: ${LIVE_RECORDINGS_DIR:?}
+        target: /out
+        bind: { create_host_path: false }
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on: [queue]
+    restart: unless-stopped

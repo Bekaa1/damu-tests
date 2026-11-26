@@ -1,5 +1,6 @@
 "use client";
 import { NormSetup, SjtExpertSetup } from "./expert-setup";
+import { AttemptJournal } from "./attempt-journal";
 import {
   CompetencyModelEditor,
   CompetencyConsensus,
@@ -577,6 +578,7 @@ export function Participant({ id }: { id: string }) {
               <>
                 <AssessorAssignment id={id} data={data} onSaved={refresh} />
                 <AttemptIncidents data={data} onSaved={refresh} />
+                {me.role === "admin" && <AttemptJournal attempts={data.attemptHistory} participant={data.member.user.name} />}
               </>
             )}
             {tab === "exercises" && (

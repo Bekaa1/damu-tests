@@ -1,0 +1,41 @@
+services:
+  api:
+    image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
+    env_file: [/etc/assessflow-video/platform.env]
+    volumes:
+      - type: bind
+        source: /mnt/assessflow-video
+        target: /recordings
+        bind: { create_host_path: false }
+  web:
+    image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
+  video-db-link:
+    image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [ssh]
+    command:
+      - -NT
+      - -F
+      - /dev/null
+      - -i
+      - /run/video-relay/key
+      - -o
+      - BatchMode=yes
+      - -o
+      - StrictHostKeyChecking=yes
+      - -o
+      - UserKnownHostsFile=/run/video-relay/known_hosts
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=15
+      - -o
+      - ServerAliveCountMax=3
+      - -R
+      - 127.0.0.1:19433:postgres:5432
+      - afdbrelay@${VIDEO_HOST:?Set the recording server hostname}
+    volumes: [/etc/assessflow-video/relay:/run/video-relay:ro]
+    restart: unless-stopped

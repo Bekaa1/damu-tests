@@ -78,6 +78,7 @@ function report(membershipId: string, overrides: Record<string, any> = {}): any 
 // In particular platformAdmin is unavailable unless the real handler selects it.
 function matches(row: any, where: any = {}): boolean {
   return Object.entries(where).every(([key, value]: [string, any]) => {
+    if (value === undefined) return true; // Prisma omits optional filters.
     if (key === "OR") return value.some((branch: any) => matches(row, branch));
     if (value && typeof value === "object") {
       if ("in" in value) return value.in.includes(row[key]);

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { build } from "esbuild";
+import { basename } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 
 // Real React mount of the actual Analytics TSX + privacy helper. Only the app
@@ -18,7 +19,7 @@ beforeAll(async () => {
     bundle: true, write: false, platform: "browser", format: "iife", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
     plugins: [{ name: "offline-analytics-context", setup(builder) {
-      builder.onResolve({ filter: /^\.\/ui$/ }, (args) => args.importer.endsWith("/organization.tsx") ? { path: "ui", namespace: "analytics-fixture" } : undefined);
+      builder.onResolve({ filter: /^\.\/ui$/ }, (args) => basename(args.importer) === "organization.tsx" ? { path: "ui", namespace: "analytics-fixture" } : undefined);
       builder.onLoad({ filter: /.*/, namespace: "analytics-fixture" }, () => ({
         loader: "jsx", resolveDir: process.cwd(), contents: `import React from "react";
           export const useApp = () => ({t: ru => ru, loc: value => value?.ru || value,
@@ -34,7 +35,7 @@ beforeAll(async () => {
             Button = undefined, Empty = undefined, Modal = undefined, Field = undefined, date = undefined;`,
       }));
       // These belong to other exports of organization.tsx, not Analytics.
-      builder.onResolve({ filter: /^(\.\/pilot-permission|.*\/(holding|assessment-policy|method-passports))$/ }, (args) => args.importer.endsWith("/organization.tsx") ? { path: args.path, namespace: "analytics-unused" } : undefined);
+      builder.onResolve({ filter: /^(\.\/pilot-permission|.*\/(holding|assessment-policy|method-passports))$/ }, (args) => basename(args.importer) === "organization.tsx" ? { path: args.path, namespace: "analytics-unused" } : undefined);
       builder.onResolve({ filter: /^next\/link$/ }, () => ({ path: "next/link", namespace: "analytics-unused" }));
       builder.onLoad({ filter: /.*/, namespace: "analytics-unused" }, () => ({ contents: "export default undefined; export const PilotPermission = undefined, HOLDING_PROFILES = undefined, holdingProfile = undefined, questionCountText = undefined, METHOD_PASSPORTS = undefined;" }));
     }}],

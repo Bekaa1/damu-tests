@@ -21,6 +21,7 @@ function clearExpiredCache(storage: OfflineStorage, now: Date, expired: typeof p
       if ((cached?.dataDeletionAt && new Date(cached.dataDeletionAt) <= now) || expiredCampaigns.includes(cached?.campaignId)) {
         const id = key.slice("assessflow.cached.".length);
         for (const prefix of ["cached", "answers", "presence"]) storage.removeItem(`assessflow.${prefix}.${id}`);
+        for (const entry of keys.filter(k => k.startsWith(`assessflow.journal.${id}.`))) storage.removeItem(entry);
       }
     } catch { /* Continue deleting other expired caches. */ }
   }

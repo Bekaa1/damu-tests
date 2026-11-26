@@ -1,0 +1,13 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG RELEASE_REVISION
+LABEL org.opencontainers.image.revision=${RELEASE_REVISION}
+USER root
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node prisma ./prisma
+RUN npm ci --no-audit --no-fund --include=dev
+COPY --chown=node:node . .
+RUN API_INTERNAL_URL=http://api:4000 DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
+USER node

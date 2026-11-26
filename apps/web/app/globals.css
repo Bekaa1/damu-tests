@@ -4,6 +4,14 @@
 .material-scroll-hint{display:none}.material-table th:first-child,.material-table td:first-child{position:sticky;left:0;background:#f4f7f8}.material-table th:first-child{background:#e8eff1}
 @media(min-width:1000px){.new-question:has(>.test-material){display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:30px;align-items:start}.new-question:has(>.test-material)>.test-material{grid-column:1;grid-row:1/span 3;margin:0;max-height:65vh;overflow-y:auto}.new-question:has(>.test-material)>.question-text{grid-column:2;grid-row:1}.new-question:has(>.test-material)>.answer-options{grid-column:2;grid-row:2}}
 @media(max-width:650px){.material-scroll-hint{display:block;font-size:13px;color:#526b79;margin-bottom:8px}}
+[data-test-material] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+@media print {
+  [data-test-material] { display: none !important; }
+}
 :root {
   --navy: #142635;
   --navy-light: #203746;

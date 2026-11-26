@@ -404,7 +404,7 @@ export function Application() {
         reload,
       }}
     >
-      <AnswerRecovery enabled={isEmployee && !path.startsWith("/test/")} />
+      <AnswerRecovery enabled={isEmployee && !path.startsWith("/test/")} memberId={isEmployee ? me.member.id : undefined} />
       <div className="app-shell">
         <a className="skip-link" href="#main">
           {t("Перейти к содержимому", "Мазмұнға өту")}

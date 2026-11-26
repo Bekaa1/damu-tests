@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { deliverJournal } from "../lib/attempt-journal";
 import { videoConsentText, videoConsentVersion } from "../../../packages/core/video-policy";
 import { ShieldCheck } from "lucide-react";
 import { consentPolicy, hasCurrentConsent } from "../../../packages/core/pilot";
@@ -164,7 +165,10 @@ export function Consent({
   );
 }
 // Pending answer delivery also works after navigating back to the cabinet.
-export function AnswerRecovery({ enabled }: { enabled: boolean }) {
+export function AnswerRecovery({ enabled, memberId }: { enabled: boolean; memberId?: string }) {
+  useEffect(() => {
+    if (memberId) return deliverJournal(memberId, post);
+  }, [memberId]);
   useEffect(() => {
     if (!enabled) return;
     let busy = false,

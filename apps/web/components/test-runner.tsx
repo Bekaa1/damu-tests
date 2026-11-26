@@ -1,5 +1,6 @@
 "use client";
 import { TestCamera } from "./test-camera";
+import { monitorAttempt } from "../lib/attempt-journal";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { AssessmentComplete } from "./assessment-complete";
@@ -7,6 +8,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Clock3 } from "lucide-react";
 import {
   useApp,
   useData,
+  isNetworkErrorMessage,
   post,
   api,
   Button,
@@ -52,6 +54,18 @@ export function Material({ text }: { text: string }) {
 }
 export function TestRunner({ id }: { id: string }) {
   const { t, loc, me } = useApp();
+  function requestMessage(detail: string, pendingAnswers = false) {
+    if (!isNetworkErrorMessage(detail)) return detail;
+    return pendingAnswers
+      ? t(
+          "Не удалось отправить ответы. Оставьте страницу открытой. Когда связь восстановится, ответы отправятся автоматически.",
+          "Жауаптарды жіберу мүмкін болмады. Бетті ашық қалдырыңыз. Байланыс қалпына келгенде жауаптар автоматты түрде жіберіледі.",
+        )
+      : t(
+          "Не удалось связаться с сервером. Проверьте подключение и повторите попытку.",
+          "Серверге қосылу мүмкін болмады. Байланысты тексеріп, қайталап көріңіз.",
+        );
+  }
   const { data: remoteData, loading, error } = useData<any>(`/attempts/${id}`);
   const [cachedData, setCachedData] = useState<any>(null);
   const data = remoteData || cachedData;
@@ -94,6 +108,10 @@ export function TestRunner({ id }: { id: string }) {
     runningRef = useRef(false),
     flushRef = useRef<() => Promise<void>>(async () => {});
   const storage = `assessflow.answers.${id}`;
+  const memberId = me.member?.id;
+  useEffect(() => {
+    if (memberId && !done) return monitorAttempt(id, memberId);
+  }, [id, memberId, done]);
   function applyLifecycle(snapshot: any, fresh: boolean) {
     const active = Boolean(snapshot.timerStartedAt);
     setRunning(active);
@@ -485,8 +503,8 @@ export function TestRunner({ id }: { id: string }) {
       applyLifecycle(a, true);
       opened.current = Date.now();
     } catch (e) {
-      setMessage((e as Error).message);
       if (videoSession) throw e;
+      setMessage((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -495,7 +513,7 @@ export function TestRunner({ id }: { id: string }) {
     return (
       <LoadState
         loading={completion.loading || (!completion.data && !completion.error)}
-        error={completion.error}
+        error={requestMessage(completion.error)}
       >
         {allDone && !retryRequired ? (
           <AssessmentComplete />
@@ -545,6 +563,7 @@ export function TestRunner({ id }: { id: string }) {
     const v = answers[q.id];
     return (
       <fieldset
+        data-test-material
         disabled={remaining === 0}
         key={q.id}
         className="question-panel new-question"
@@ -695,7 +714,7 @@ export function TestRunner({ id }: { id: string }) {
           !remoteData && loading && cachedData && !cachedData.timerStartedAt,
         )
       }
-      error={data ? "" : error}
+      error={data ? "" : requestMessage(error)}
     >
       {data && (
         <div className="test-workspace">
@@ -706,10 +725,12 @@ export function TestRunner({ id }: { id: string }) {
             </Link>
             <h2>{loc(data.name)}</h2>
           </div>
-          {videoRequired && remaining !== 0 && (cameraRequested || running) && <TestCamera attempt={id} ready={begin} />}
+          {videoRequired && remaining !== 0 && (cameraRequested || running) && (
+            <TestCamera attempt={id} ready={begin} timerRunning={running && Boolean(data.timeLimitSeconds)} />
+          )}
           {videoRequired && (cameraRequested || running) && !cameraAdmitted ? null : !running ? (
             <Panel>
-              <div className="question-panel">
+              <div className="question-panel" data-test-material={p ? true : undefined}>
                 <h1>
                   {practice < 0
                     ? t("Перед началом", "Бастамас бұрын")
@@ -980,8 +1001,8 @@ export function TestRunner({ id }: { id: string }) {
                       ? t("Сохраняем…", "Сақталуда…")
                       : Object.keys(queue.current).length
                         ? t(
-                            "Есть несохранённые изменения",
-                            "Сақталмаған өзгерістер бар",
+                            "Ответы ожидают отправки",
+                            "Жауаптар жіберуді күтуде",
                           )
                         : null}
                   </span>
@@ -1011,7 +1032,7 @@ export function TestRunner({ id }: { id: string }) {
               </div>
               {message && (
                 <div className="notice error" role="alert">
-                  {message}
+                  {requestMessage(message, Object.keys(queue.current).length > 0)}
                   <Button variant="secondary" onClick={() => void flush()}>
                     {t("Повторить сохранение", "Қайта сақтау")}
                   </Button>

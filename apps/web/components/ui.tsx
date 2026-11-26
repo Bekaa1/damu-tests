@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { bootstrapSession as fetchBootstrapSession } from "../lib/session-bootstrap";
+import { attemptResponse } from "../lib/attempt-journal";
 export { SessionBootstrapError } from "../lib/session-bootstrap";
 export type Locale = "ru" | "kk";
 export type Session = {
@@ -50,6 +51,9 @@ type AppContext = {
 };
 export const AppCtx = createContext<AppContext>(null as any);
 export const useApp = () => useContext(AppCtx);
+export function isNetworkErrorMessage(message: string) {
+  return /failed to fetch|fetch failed|networkerror|network request failed|load failed|failed to load chunk/i.test(message);
+}
 export function bootstrapSession<T extends Session = Session>(): Promise<T> {
   return fetchBootstrapSession<T>(fetch, localStorage);
 }
@@ -69,7 +73,11 @@ export async function api<T = any>(
       ...options.headers,
     },
     cache: "no-store",
+  }).catch(error => {
+    attemptResponse(path);
+    throw error;
   });
+  attemptResponse(path, response);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.message || `Ошибка ${response.status}`);

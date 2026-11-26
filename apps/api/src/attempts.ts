@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { requiresCamera } from "./video-scope";
 import { requireRecording } from "./video";
+import { heartbeatGapMs } from "./attempt-journal";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { db, audit, json } from "./db";
@@ -72,6 +73,7 @@ export async function presence(ctx: Context, id: string, input: unknown) {
       where: {
         ...scope,
         timerStartedAt: { not: null },
+        lastHeartbeatAt: { gt: new Date(now.getTime() - heartbeatGapMs) },
         ...(action === "return" ? { leftAt: null } : {}),
       },
       data: { lastHeartbeatAt: now, pausedAt: null },
@@ -132,6 +134,14 @@ export async function presence(ctx: Context, id: string, input: unknown) {
       ),
     );
     const changes: any = { lastHeartbeatAt: now, pausedAt: null };
+    if (a.status === "in_progress" && a.lastHeartbeatAt &&
+        now.getTime() - a.lastHeartbeatAt.getTime() >= heartbeatGapMs) {
+      await tx.auditLog.create({ data: {
+        organizationId: orgId(ctx), actorId: ctx.user.id, entityId: id,
+        action: "attempt.heartbeat_gap",
+        detail: json({ previousAt: a.lastHeartbeatAt, resumedAt: now }),
+      } });
+    }
     if (action === "leave" && !a.leftAt && a.status === "in_progress")
       Object.assign(changes, { leftAt: eventAt, departures: { increment: 1 } });
     if (action === "return" && a.leftAt) {

@@ -191,7 +191,7 @@ async function owned(ctx: Context, id: string) {
     throw new NotFoundException();
   return s;
 }
-async function cameraTrack(s: VideoSession) {
+async function cameraTrack(s: VideoSession, connecting = false) {
   const p = await media()
     .rooms.getParticipant(roomName(s.id), "camera")
     .catch((error: { code?: string }) => {
@@ -203,14 +203,18 @@ async function cameraTrack(s: VideoSession) {
     (t) =>
       t.source === TrackSource.CAMERA &&
       t.type === TrackType.VIDEO &&
-      !t.muted &&
-      t.mimeType.toLowerCase() === "video/vp8",
+      (connecting || !t.muted) &&
+      ["video/h264", "video/vp8"].includes(t.mimeType.toLowerCase()),
   );
-  if (!track) throw new ConflictException("Камера пока не передаёт видео");
+  if (!track && !connecting) throw new ConflictException("Камера пока не передаёт видео");
   return track;
 }
 async function updateFromEgress(s: VideoSession, info: EgressInfo) {
+  const output = info.fileResults[0];
+  const nativeMp4 = output?.filename?.split("/").pop() === s.id + ".mp4";
+  const finishedState = nativeMp4 ? "ready" : "processing";
   let state: string;
+  let recoveredEnd: Date | undefined;
   switch (info.status) {
     case EgressStatus.EGRESS_ACTIVE:
       state = s.state === "closing" ? "closing" : "recording";
@@ -219,18 +223,44 @@ async function updateFromEgress(s: VideoSession, info: EgressInfo) {
       return s.state;
     case EgressStatus.EGRESS_ENDING:
       state = "closing";
+      // Egress can publish ENDING after COMPLETE. Its final file is copied to
+      // /out only after capture closes; unfinished media stays in its temp dir.
+      if (s.state === "closing" && info.fileResults[0]?.size > 0n) {
+        const file = await stat(recordingPath(s.id, nativeMp4 ? ".mp4" : ".webm")).catch(
+          (error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error;
+            return null;
+          },
+        );
+        if (
+          file?.isFile() &&
+          BigInt(file.size) === info.fileResults[0].size &&
+          Date.now() - file.mtimeMs >= 60_000
+        ) {
+          state = finishedState;
+          recoveredEnd = file.mtime;
+        }
+      }
       break;
     case EgressStatus.EGRESS_COMPLETE:
-      state = "processing";
+      state = output?.size > 0n ? finishedState : "failed";
+      if (state === "ready") {
+        const file = await stat(recordingPath(s.id, ".mp4")).catch(
+          (error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error;
+            return null;
+          },
+        );
+        if (!file?.isFile() || BigInt(file.size) !== output.size) return s.state;
+      }
       break;
     default:
       state = "failed";
   }
-  const ended = state === "processing" || state === "failed";
+  const ended = state === "processing" || state === "ready" || state === "failed";
   const end =
-    info.endedAt > 0n ? new Date(Number(info.endedAt / 1000000n)) : new Date();
-  if (state === "processing" && !(info.fileResults[0]?.size > 0n))
-    state = "failed";
+    recoveredEnd ??
+    (info.endedAt > 0n ? new Date(Number(info.endedAt / 1000000n)) : new Date());
   if (ended) await closeRoom(s);
   if (s.state !== state || !s.egressId)
     await db.videoSession.updateMany({
@@ -255,7 +285,8 @@ export async function checkCamera(ctx: Context, id: string) {
   if (!s.attemptId || !openStates.includes(s.state) || s.state === "closing")
     throw new ConflictException("Подключите камеру заново");
   await activeAttempt(ctx, s.attemptId);
-  const track = await cameraTrack(s);
+  const track = await cameraTrack(s, s.state !== "recording");
+  if (!track) return { state: s.state };
   if (
     s.state === "connecting" &&
     (
@@ -265,10 +296,11 @@ export async function checkCamera(ctx: Context, id: string) {
       })
     ).count
   ) {
+    const outputDirectory = (process.env.VIDEO_EGRESS_DIR || "/out").replace(/\/$/, "");
     const info = await media().recorder.startTrackEgress(
       roomName(id),
       new DirectFileOutput({
-        filepath: "/out/" + id + ".webm",
+        filepath: outputDirectory + "/" + id + (track.mimeType.toLowerCase() === "video/h264" ? ".mp4" : ".webm"),
         disableManifest: true,
       }),
       track.sid,
@@ -280,6 +312,8 @@ export async function checkCamera(ctx: Context, id: string) {
   }
   s = await db.videoSession.findUniqueOrThrow({ where: { id } });
   const info = await findJob(s);
+  if (track.muted && info?.status === EgressStatus.EGRESS_ACTIVE)
+    return { state: "starting" };
   return { state: info ? await updateFromEgress(s, info) : s.state };
 }
 export async function requireRecording(
