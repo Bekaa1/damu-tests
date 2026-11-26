@@ -420,29 +420,21 @@ tbody tr:hover {
     transform: rotate(360deg);
   }
 }
-.schedule-layout.has-schedule {
-  height: 100vh;
-  height: 100dvh;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-.has-schedule > .schedule-viewport {
-  overflow: auto;
-  min-width: 0;
-}
-.has-schedule .app-shell, .has-schedule .consent-screen { min-height: 100%; }
 .schedule-dock {
-  justify-self: end;
-  max-width: 100%;
-  max-height: 40dvh;
-  overflow: auto;
-  padding: 6px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) 12px;
+  --left-gap: max(12px, env(safe-area-inset-left));
+  --right-gap: max(12px, env(safe-area-inset-right));
+  position: fixed;
+  right: var(--right-gap);
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 20;
+  max-width: calc(100% - var(--left-gap) - var(--right-gap));
+  pointer-events: none;
 }
-.schedule-dock:has(.schedule-card) {
-  width: min(100%, 35rem);
-  padding: 16px max(18px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) 18px;
-}
+.schedule-dock:has(.schedule-card) { width: 32.75rem; }
+.schedule-dock > * { pointer-events: auto; }
 .schedule-card {
+  max-height: 45dvh;
+  overflow: auto;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -488,9 +480,6 @@ tbody tr:hover {
   }
 }
 @media (max-width: 480px) {
-  .schedule-dock:has(.schedule-card) {
-    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
-  }
   .schedule-card { grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; padding: 12px 16px; }
   .schedule-card .btn { grid-column: 2; justify-self: start; }
   .schedule-details time { font-size: 18px; }

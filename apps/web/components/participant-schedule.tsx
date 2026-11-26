@@ -79,8 +79,8 @@ export function ParticipantScheduleFrame({ children, locale, cabinet, initial, m
     day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Almaty",
   });
   return (
-    <div className={visible ? "schedule-layout has-schedule" : "schedule-layout"}>
-      <div className="schedule-viewport">{children}</div>
+    <>
+      {children}
       {visible && <aside className="schedule-dock" aria-label={ru ? "Мой график" : "Менің кестем"}>
         {pending || expanded ? (
           <div className="schedule-card">
@@ -106,6 +106,6 @@ export function ParticipantScheduleFrame({ children, locale, cabinet, initial, m
           <Button variant="secondary" onClick={() => setExpanded(true)}><CalendarClock size={16} />{ru ? "Мой график" : "Менің кестем"}</Button>
         )}
       </aside>}
-    </div>
+    </>
   );
 }
