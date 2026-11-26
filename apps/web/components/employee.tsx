@@ -42,6 +42,11 @@ const icons: Record<string, typeof Brain> = {
   motivation: Heart,
   situations: Compass,
 };
+const minutesRu = new Intl.NumberFormat("ru", {
+  style: "unit",
+  unit: "minute",
+  unitDisplay: "long",
+});
 const formatCountdown = (seconds: number) => {
   const minutes = Math.floor(seconds / 60)
     .toString()
@@ -371,16 +376,75 @@ export function EmployeeHome({ catalog = false }: { catalog?: boolean }) {
           className="test-start-modal"
         >
           <div className="modal-body form-stack">
-            <p className="time-limit-before">
-              {t(
-                selected.testVersion.timeLimitSeconds
-                  ? `На тест отводится ${selected.testVersion.timeLimitSeconds / 60} минут. Сначала — инструкция и тренировка. При выходе время продолжает идти; при потере связи время также продолжает идти.`
-                  : `Время не ограничено. Обычно требуется ${selected.testVersion.durationMinutes} минут. Можно сделать перерыв и продолжить позже.`,
-                selected.testVersion.timeLimitSeconds
-                  ? `Тестке ${selected.testVersion.timeLimitSeconds / 60} минут беріледі. Алдымен нұсқаулық пен жаттығу. Шыққанда уақыт жүреді, байланыс үзілгенде де уақыт жүре береді.`
-                  : `Уақыт шектелмеген. Әдетте ${selected.testVersion.durationMinutes} минут қажет. Үзіліс жасап, кейін жалғастыруға болады.`,
-              )}
-            </p>
+            {["verbal", "numerical", "logical", "situations"].includes(selected.testVersion.test.direction) &&
+            selected.testVersion.timeLimitSeconds > 0 ? (
+              <>
+                <p className="time-limit-before">
+                  {t(
+                    `На выполнение теста отводится ${minutesRu.format(selected.testVersion.timeLimitSeconds / 60)}.`,
+                    `Тестті орындауға ${selected.testVersion.timeLimitSeconds / 60} минут беріледі.`,
+                  )}
+                </p>
+                <p>
+                  {t(
+                    "Перед началом тестирования ознакомьтесь с инструкцией и выполните тренировочные задания.",
+                    "Тестті бастамас бұрын нұсқаулықпен танысып, жаттығу тапсырмаларын орындаңыз.",
+                  )}
+                </p>
+                {selected.testVersion.test.direction === "situations" && (
+                  <p>
+                    {t(
+                      "В ходе тестирования вам будут предложены различные управленческие ситуации. Внимательно изучайте условия каждого задания и выбирайте ответы в соответствии с представленной инструкцией.",
+                      "Тест барысында сізге әртүрлі басқарушылық жағдайлар ұсынылады. Әр тапсырманың шартын мұқият оқып, жауаптарды берілген нұсқаулыққа сәйкес таңдаңыз.",
+                    )}
+                  </p>
+                )}
+                <p>
+                  {t(
+                    "Обратите внимание: при выходе из теста или потере интернет-соединения отсчёт времени не приостанавливается.",
+                    "Назар аударыңыз: тесттен шықсаңыз немесе интернет байланысы үзілсе, уақыт санағы тоқтамайды.",
+                  )}
+                </p>
+              </>
+            ) : ["personality", "motivation"].includes(selected.testVersion.test.direction) &&
+              !selected.testVersion.timeLimitSeconds ? (
+              <>
+                <p className="time-limit-before">
+                  {t(
+                    `Время прохождения теста не ограничено. Ориентировочная продолжительность — ${minutesRu.format(selected.testVersion.durationMinutes)}.`,
+                    `Тестті орындау уақыты шектелмейді. Болжамды ұзақтығы — ${selected.testVersion.durationMinutes} минут.`,
+                  )}
+                </p>
+                <p>
+                  {selected.testVersion.test.direction === "motivation"
+                    ? t(
+                        "Внимательно прочитайте утверждения и выбирайте ответы, которые наиболее точно соответствуют вашим профессиональным интересам, предпочтениям и мотивации.",
+                        "Тұжырымдарды мұқият оқып, кәсіби қызығушылықтарыңызға, қалауларыңызға және жұмысқа деген ынтаңызға барынша сәйкес келетін жауаптарды таңдаңыз.",
+                      )
+                    : t(
+                        "Внимательно ознакомьтесь с вопросами и выбирайте ответы, которые наиболее точно отражают ваше обычное поведение и предпочтения.",
+                        "Сұрақтарды мұқият оқып, әдеттегі мінез-құлқыңыз бен қалауыңызды барынша дәл сипаттайтын жауаптарды таңдаңыз.",
+                      )}
+                </p>
+                <p>
+                  {t(
+                    "При необходимости вы можете сделать перерыв и продолжить прохождение теста позднее.",
+                    "Қажет болса, үзіліс жасап, тестті кейін жалғастыра аласыз.",
+                  )}
+                </p>
+              </>
+            ) : (
+              <p className="time-limit-before">
+                {t(
+                  selected.testVersion.timeLimitSeconds
+                    ? `На тест отводится ${selected.testVersion.timeLimitSeconds / 60} минут. Сначала — инструкция и тренировка. При выходе время продолжает идти; при потере связи время также продолжает идти.`
+                    : `Время не ограничено. Обычно требуется ${selected.testVersion.durationMinutes} минут. Можно сделать перерыв и продолжить позже.`,
+                  selected.testVersion.timeLimitSeconds
+                    ? `Тестке ${selected.testVersion.timeLimitSeconds / 60} минут беріледі. Алдымен нұсқаулық пен жаттығу. Шыққанда уақыт жүреді, байланыс үзілгенде де уақыт жүре береді.`
+                    : `Уақыт шектелмеген. Әдетте ${selected.testVersion.durationMinutes} минут қажет. Үзіліс жасап, кейін жалғастыруға болады.`,
+                )}
+              </p>
+            )}
             {!me.member.consentAt && (
               <label className="row align-start">
                 <input
