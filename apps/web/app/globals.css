@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 .test-material{font-size:17px;line-height:1.7;white-space:pre-line;margin:18px 0 25px;padding:20px;background:#f4f7f8;border:1px solid #dce5e9;border-radius:8px}.test-material p+p{margin-top:16px}.material-table{overflow-x:auto;white-space:normal}.material-table table{border-collapse:collapse;width:100%;font-size:16px}.material-table th,.material-table td{text-align:left;border-bottom:1px solid #d9e3e8;padding:12px;min-width:90px}.material-table th{background:#e8eff1}.test-instructions{margin:16px 0}.test-instructions summary{cursor:pointer;color:#286a63;font-weight:600}.new-question .question-text{white-space:pre-line}.new-question .scale-options button{min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px}.new-question .scale-options small{font-size:14px;font-weight:400;line-height:1.35}.priority-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.priority-card{display:flex;flex-direction:column;gap:16px;padding:20px;border:1px solid #dce5e9;border-radius:8px}.priority-card label{display:flex;align-items:center;gap:10px}.new-question{border:0;min-width:0}.new-question+.new-question{border-top:1px solid #e2e8ec}.quality-review{padding:18px;background:#fff7e8;border-radius:8px;margin:0 0 20px}.quality-review input{margin:12px 0}.test-timer{white-space:nowrap}.test-workspace .sjt-head,.test-workspace .sjt-option{grid-template-columns:minmax(0,1fr) 110px 110px}
 @media(max-width:650px){.test-material{font-size:16px;padding:14px}.priority-grid{grid-template-columns:1fr}.new-question .scale-options{gap:5px}.new-question .scale-options button{padding:8px 3px}.new-question .scale-options small{font-size:11px}.test-workspace .sjt-head,.test-workspace .sjt-option{grid-template-columns:minmax(0,1fr) 70px 70px}.test-progress{flex-wrap:wrap}.question-footer{flex-wrap:wrap}}
 .material-scroll-hint{display:none}.material-table th:first-child,.material-table td:first-child{position:sticky;left:0;background:#f4f7f8}.material-table th:first-child{background:#e8eff1}
@@ -438,32 +438,62 @@ tbody tr:hover {
   overflow: auto;
   padding: 6px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) 12px;
 }
+.schedule-dock:has(.schedule-card) {
+  width: min(100%, 35rem);
+  padding: 16px max(18px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) 18px;
+}
 .schedule-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 16px;
+  padding: 19px 20px;
   background: white;
-  border: 1px solid #b6cfca;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px #14263514;
+  border: 1px solid #a8c7bf;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px #14263518;
+  transform-origin: bottom right;
 }
-.schedule-icon { display: grid; place-items: center; color: var(--teal); border-radius: 50%; padding: 6px; background: #eaf3ef; }
+.schedule-icon {
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  border-radius: 50%;
+  padding: 10px;
+  background: var(--teal-light);
+}
+.schedule-icon svg { width: 24px; height: 24px; }
+.schedule-details strong { font-size: 17px; }
+.schedule-details p { margin: 4px 0 0; line-height: 1.35; }
+.schedule-details time { font-size: 20px; font-weight: 600; }
+.schedule-details small { display: block; margin-top: 2px; font-size: 13px; color: #49616b; }
+.schedule-card .btn { min-height: 44px; white-space: normal; }
 @media (prefers-reduced-motion: no-preference) {
-  .schedule-icon.unread { animation: schedule-pulse 2.6s ease-out infinite; }
+  .schedule-card:has(.schedule-icon.unread) {
+    animation: schedule-float 3.8s ease-in-out infinite;
+  }
+  .schedule-card:has(.schedule-icon.unread):focus-within {
+    animation-play-state: paused;
+  }
 }
-@keyframes schedule-pulse {
-  0%, 65%, 100% { box-shadow: 0 0 0 0 transparent; }
-  20% { box-shadow: 0 0 0 4px #28736635; }
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .schedule-card:has(.schedule-icon.unread):hover { animation-play-state: paused; }
 }
-.schedule-details p { margin: 2px 0 0; line-height: 1.35; }
-.schedule-details small { display: block; font-size: 12px; color: #49616b; }
-.schedule-details strong { font-size: 14px; }
-@media (max-width: 650px) {
-  .schedule-dock { padding-inline: 8px; }
-  .schedule-card { padding: 8px; gap: 7px; }
-  .schedule-card .btn { padding-inline: 8px; white-space: normal; }
+@keyframes schedule-float {
+  0%, 18%, 82%, 100% { transform: translate(0, 0) scale(1); }
+  50% {
+    transform: translate(-3px, -5px) scale(1.008);
+    border-color: #6f9d90;
+    box-shadow: 0 5px 14px #204e4124, 0 0 0 3px #589b871c;
+  }
+}
+@media (max-width: 480px) {
+  .schedule-dock:has(.schedule-card) {
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+  }
+  .schedule-card { grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; padding: 12px 16px; }
+  .schedule-card .btn { grid-column: 2; justify-self: start; }
+  .schedule-details time { font-size: 18px; }
 }
 .app-shell {
   min-height: 100vh;
