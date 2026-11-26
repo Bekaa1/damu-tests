@@ -1,4 +1,5 @@
 import { needsVideoConsent, videoCampaign } from "./video-scope";
+import { acknowledgeSchedule, mySchedule } from "./participant-schedule";
 import { readJournal, receiveJournal } from "./attempt-journal";
 import { consentPolicy } from "../../../packages/core/pilot";
 import { participantDeletionDate, externalAiAllowed } from "../../../packages/core/data-policy";
@@ -240,6 +241,7 @@ export class AppController {
         },
         select: { id: true, name: true, slug: true },
       }),
+      schedule: req.ctx.role === "employee" && !req.ctx.user.mustChangePassword ? await mySchedule(req.ctx) : undefined,
       video: { needsConsent: await needsVideoConsent(req.ctx.member), campaign: videoCampaign(req.ctx.org?.id) },
       consent: consentPolicy(req.ctx.org),
       demo: req.ctx.user.demoOnly || req.ctx.org?.dataMode === "synthetic" || process.env.DEMO_MODE === "true",
@@ -247,6 +249,12 @@ export class AppController {
       dataDeletionAt: req.ctx.member?.role === "employee"
         ? participantDeletionDate(req.ctx.member.createdAt).toISOString() : null,
     };
+  }
+  @Get("me/schedule") schedule(@Req() req: AuthRequest) {
+    return mySchedule(req.ctx);
+  }
+  @Post("me/schedule/acknowledge") acknowledgeSchedule(@Req() req: AuthRequest, @Body() body: unknown) {
+    return acknowledgeSchedule(req.ctx, body);
   }
   @Post("me/password") async password(
     @Req() req: AuthRequest,

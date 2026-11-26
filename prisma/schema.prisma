@@ -105,6 +105,7 @@ model OrganizationUnit {
   @@map("organization_units")
 }
 model Membership {
+  testSchedules ParticipantSchedule[]
   competencyConsensus CompetencyConsensus[]
   groupAssignments ParticipantGroup[]
   assignments TestAssignment[] @relation("AssignedParticipant")
@@ -137,6 +138,7 @@ model Membership {
   @@map("memberships")
 }
 model Campaign {
+  testSchedules ParticipantSchedule[]
   country String?
   competencyConsensus CompetencyConsensus[]
   frozenNorm FrozenNorm?
@@ -159,6 +161,18 @@ model Campaign {
   assignments TestAssignment[]
   @@unique([id,organizationId])
   @@map("campaigns")
+}
+model ParticipantSchedule {
+  membershipId String
+  campaignId String
+  organizationId String
+  membership Membership @relation(fields:[membershipId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  campaign Campaign @relation(fields:[campaignId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  scheduledAt DateTime
+  revision Int @default(1)
+  acknowledgedAt DateTime?
+  @@id([membershipId,campaignId])
+  @@map("participant_schedules")
 }
 model Test {
   id String @id

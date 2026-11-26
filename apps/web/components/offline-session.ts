@@ -24,6 +24,12 @@ function readCache(storage: SessionStorage): OfflineSession | null {
   storage.removeItem(CACHE_KEY);
   return null;
 }
+export function cacheParticipantSchedule(storage: SessionStorage, membershipId: string, schedule: NonNullable<Session["schedule"]>) {
+  const cached = readCache(storage);
+  if (!cached || cached.scope.membershipId !== membershipId || storage.getItem("assessflow.org") !== cached.scope.organizationId) return;
+  cached.session.schedule = schedule;
+  storage.setItem(CACHE_KEY, JSON.stringify(cached));
+}
 export function clearOfflineSession(storage: SessionStorage) {
   storage.removeItem(CACHE_KEY);
 }

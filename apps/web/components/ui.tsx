@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { bootstrapSession as fetchBootstrapSession } from "../lib/session-bootstrap";
+import type { Schedule } from "./participant-schedule";
 import { attemptResponse } from "../lib/attempt-journal";
 export { SessionBootstrapError } from "../lib/session-bootstrap";
 export type Locale = "ru" | "kk";
@@ -35,6 +36,7 @@ export type Session = {
   organizations: { id: string; name: string }[];
   demo: boolean;
   video?: { needsConsent: boolean; campaign: string | null };
+  schedule?: Schedule[];
   externalAiAllowed?: boolean;
   dataDeletionAt?: string | null;
 };

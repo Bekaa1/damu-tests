@@ -5,7 +5,8 @@ import { hasCurrentConsent } from "../../../packages/core/pilot";
 import { clearExpiredParticipantCache } from "../../../packages/core/pilot-cache";
 import { alignOfflineSession, cacheOfflineSession, clearOfflineSession, restoreOfflineSession } from "./offline-session";
 import { CompetencyModelEditor } from "./competencies";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { ParticipantScheduleFrame } from "./participant-schedule";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -167,6 +168,9 @@ export function Application() {
         </span>
       </div>
     );
+  const withSchedule = (content: ReactNode) => me.role === "employee" && me.member ? (
+    <ParticipantScheduleFrame key={me.member.id} membershipId={me.member.id} locale={locale} cabinet={path === "/cabinet"} initial={me.schedule}>{content}</ParticipantScheduleFrame>
+  ) : content;
   if (me.user.mustChangePassword)
     return (
       <ChangePassword
@@ -180,12 +184,12 @@ export function Application() {
       />
     );
   if (me.role === "employee" && me.video?.needsConsent)
-    return (
+    return withSchedule(
       <Consent key="video" video locale={locale} organization={me.organization}
         onLocaleChange={changeLocale} onDone={reload} />
     );
   if (me.role === "employee" && !hasCurrentConsent(me.member, me.organization))
-    return (
+    return withSchedule(
       <Consent
         locale={locale}
         organization={me.organization}
@@ -390,7 +394,7 @@ export function Application() {
         <Link href="/">{t("На главную", "Басты бетке")}</Link>
       </div>
     );
-  return (
+  return withSchedule(
     <AppCtx.Provider
       value={{
         me,

@@ -71,11 +71,14 @@ export class AccessGuard implements CanActivate {
       throw new ForbiddenException("Доступ организации приостановлен");
     if (!user.platformAdmin && participantDataExpired(member, org))
       throw new ForbiddenException("Срок хранения данных участника истёк. Обратитесь к организатору.");
-    if (!["/api/me", "/api/me/locale", "/api/me/password", "/api/me/video-consent"].includes(req.path) && await needsVideoConsent(member))
+    const ownScheduleRequest = (req.method === "GET" && req.path === "/api/me/schedule") ||
+      (req.method === "POST" && req.path === "/api/me/schedule/acknowledge");
+    if (!ownScheduleRequest && !["/api/me", "/api/me/locale", "/api/me/password", "/api/me/video-consent"].includes(req.path) && await needsVideoConsent(member))
       throw new ForbiddenException("Подтвердите согласие на видеозапись");
     if (
       member?.role === "employee" &&
       !hasCurrentConsent(member, org) &&
+      !ownScheduleRequest &&
       ![
         "/api/me",
         "/api/me/consent",
