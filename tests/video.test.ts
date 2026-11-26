@@ -1,3 +1,8 @@
+import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { recordingPath, removeRecordingFiles } from "../apps/api/src/video-mp4";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   adminSessions,
@@ -33,6 +38,30 @@ it.each([
 ])("keeps a recording for three calendar months from %s", (end, expiry) => {
   expect(videoExpiry(new Date(end)).toISOString()).toBe(expiry);
 });
+it("erases source, MP4 and interrupted conversion files together, preserving other sessions", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "assessflow-mp4-"));
+  vi.stubEnv("VIDEO_RECORDINGS_DIR", directory);
+  const id = randomUUID();
+  const other = randomUUID();
+  try {
+    await mkdir(recordingPath(id, ".work"));
+    await Promise.all([
+      writeFile(recordingPath(id, ".webm"), "capture"),
+      writeFile(recordingPath(id, ".mp4"), "archive"),
+      writeFile(
+        join(recordingPath(id, ".work"), "unfinished.mp4"),
+        "temporary",
+      ),
+      writeFile(recordingPath(other, ".mp4"), "another recording"),
+    ]);
+    await removeRecordingFiles(id);
+    await removeRecordingFiles(id);
+    expect(await readdir(directory)).toEqual([other + ".mp4"]);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 describe("private video access", () => {
   it("requires the configured organisation and campaign", () => {
     vi.stubEnv("VIDEO_ORGANIZATION_ID", "fund");
@@ -49,6 +78,9 @@ describe("private video access", () => {
       await expect(recordingFile(user(role), "id")).rejects.toMatchObject({
         status: 403,
       });
+      await expect(
+        recordingFile(user(role), "id", "play"),
+      ).rejects.toMatchObject({ status: 403 });
       await expect(adminSessions(user(role), "campaign")).rejects.toMatchObject(
         { status: 403 },
       );

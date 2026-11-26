@@ -15,8 +15,8 @@ import {
   type EgressInfo,
 } from "livekit-server-sdk";
 import type { VideoSession } from "@prisma/client";
-import { stat, unlink } from "node:fs/promises";
-import { resolve } from "node:path";
+import { stat } from "node:fs/promises";
+import { recordingPath, removeRecordingFiles } from "./video-mp4";
 import { z } from "zod";
 import type { Context } from "./access";
 import { db, audit, json } from "./db";
@@ -33,11 +33,6 @@ import {
 
 const openStates = ["connecting", "starting", "recording", "closing"];
 const roomName = (id: string) => "assessment-" + id;
-const filePath = (id: string) =>
-  resolve(
-    process.env.VIDEO_RECORDINGS_DIR || ".data/video-recordings",
-    z.uuid().parse(id) + ".webm",
-  );
 
 function media() {
   const {
@@ -226,15 +221,16 @@ async function updateFromEgress(s: VideoSession, info: EgressInfo) {
       state = "closing";
       break;
     case EgressStatus.EGRESS_COMPLETE:
-      state = "ready";
+      state = "processing";
       break;
     default:
       state = "failed";
   }
-  const ended = state === "ready" || state === "failed";
+  const ended = state === "processing" || state === "failed";
   const end =
     info.endedAt > 0n ? new Date(Number(info.endedAt / 1000000n)) : new Date();
-  if (state === "ready" && !(info.fileResults[0]?.size > 0n)) state = "failed";
+  if (state === "processing" && !(info.fileResults[0]?.size > 0n))
+    state = "failed";
   if (ended) await closeRoom(s);
   if (s.state !== state || !s.egressId)
     await db.videoSession.updateMany({
@@ -328,7 +324,10 @@ export async function adminSessions(ctx: Context, campaignId: string) {
       attemptId: { not: null },
       OR: [
         { state: "recording" },
-        { state: "ready", expiresAt: { gt: new Date() } },
+        {
+          state: { in: ["processing", "ready", "conversion_failed"] },
+          expiresAt: { gt: new Date() },
+        },
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -386,14 +385,32 @@ export async function watch(ctx: Context, id: string) {
   await audit(ctx.org!.id, ctx.user.id, "video.watch", id);
   return credential(s, "viewer-" + crypto.randomUUID(), false);
 }
-export async function recordingFile(ctx: Context, id: string) {
+export async function retryVideoConversion(ctx: Context, id: string) {
+  const s = await forAdmin(ctx, id);
+  if (!s.expiresAt || s.expiresAt <= new Date()) throw new NotFoundException();
+  await db.videoSession.updateMany({
+    where: {
+      id,
+      state: "conversion_failed",
+      attemptId: { not: null },
+      expiresAt: { gt: new Date() },
+    },
+    data: { state: "processing" },
+  });
+  return { ok: true };
+}
+export async function recordingFile(
+  ctx: Context,
+  id: string,
+  disposition: "download" | "play" = "download",
+) {
   const s = await forAdmin(ctx, id);
   if (s.state !== "ready" || !s.expiresAt || s.expiresAt <= new Date())
     throw new NotFoundException();
-  const path = filePath(id);
+  const path = recordingPath(id, ".mp4");
   if (!(await stat(path).catch(() => null))?.isFile())
     throw new NotFoundException("Запись недоступна");
-  await audit(ctx.org!.id, ctx.user.id, "video.download", id);
+  await audit(ctx.org!.id, ctx.user.id, "video." + disposition, id);
   return path;
 }
 
@@ -408,14 +425,21 @@ export async function reconcileVideos() {
   });
   for (const s of remove) {
     try {
-      await unlink(filePath(s.id));
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      await db.$transaction(async (tx) => {
+        const removed = await tx.videoSession.updateMany({
+          where: {
+            id: s.id,
+            state: { notIn: openStates.concat("deleted") },
+            OR: [{ expiresAt: { lte: now } }, { attemptId: null }],
+          },
+          data: { state: "deleted" },
+        });
+        if (removed.count) await removeRecordingFiles(s.id);
+      });
+    } catch (error) {
+      // A file still open on Windows can be retried on the next tick.
+      console.error("Video retention", s.id, (error as Error).message);
     }
-    await db.videoSession.updateMany({
-      where: { id: s.id, state: s.state },
-      data: { state: "deleted" },
-    });
   }
   const sessions = await db.videoSession.findMany({
     where: { state: { in: openStates } },
@@ -446,7 +470,7 @@ export async function reconcileVideos() {
             // LiveKit may have discarded the job history while the API was offline.
             // Close a possibly surviving publisher before handling an unverified file.
             await closeRoom(s);
-            const file = await stat(filePath(s.id)).catch(
+            const file = await stat(recordingPath(s.id, ".webm")).catch(
               (e: NodeJS.ErrnoException) => {
                 if (e.code === "ENOENT") return null;
                 throw e;

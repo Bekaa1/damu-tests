@@ -44,7 +44,7 @@ export class AccessGuard implements CanActivate {
     const selected =
       typeof req.headers["x-organization-id"] === "string"
         ? req.headers["x-organization-id"]
-        : req.method === "GET" && /^\/api\/video\/[\w-]+\/download$/.test(req.path) && typeof req.query.organization === "string"
+        : ["GET", "HEAD"].includes(req.method) && /^\/api\/video\/[\w-]+\/(?:download|play)$/.test(req.path) && typeof req.query.organization === "string"
           ? req.query.organization : undefined;
     const member = await db.membership.findFirst({
       where: {

@@ -6,7 +6,7 @@ type Row = {
   id: string;
   name: string;
   test: Record<string, string>;
-  state: "ready" | "recording";
+  state: "ready" | "recording" | "processing" | "conversion_failed";
   started: string;
   ended?: string;
   expires?: string;
@@ -71,6 +71,31 @@ export function VideoArchive() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState("");
+  const [playbackError, setPlaybackError] = useState("");
+  const current = rows.find((row) => row.id === selected);
+  const videoUrl = (id: string, action: "download" | "play") =>
+    "/api/video/" +
+    id +
+    "/" +
+    action +
+    "?organization=" +
+    encodeURIComponent(me.organization.id);
+  function select(id: string) {
+    setPlaybackError("");
+    setSelected(id);
+  }
+  async function retry(id: string) {
+    try {
+      await post("/video/" + id + "/retry");
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === id ? { ...row, state: "processing" } : row,
+        ),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   useEffect(() => {
     let closed = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -83,7 +108,12 @@ export function VideoArchive() {
           setRows(data);
           setError("");
           setSelected((id) =>
-            data.some((r) => r.id === id && r.state === "recording") ? id : "",
+            data.some(
+              (r) =>
+                r.id === id && (r.state === "recording" || r.state === "ready"),
+            )
+              ? id
+              : "",
           );
         }
       } catch (e) {
@@ -107,12 +137,37 @@ export function VideoArchive() {
     <div className="stack">
       <h1>{t("Видеозаписи тестов", "Тест бейнежазбалары")}</h1>
       {error && <p role="alert">{error}</p>}
-      {selected && (
+      {current && (
         <section className="panel stack">
-          <h2>{rows.find((r) => r.id === selected)?.name}</h2>
-          <Stream key={selected} id={selected} />
-          <Button variant="secondary" onClick={() => setSelected("")}>
-            {t("Закрыть эфир", "Эфирді жабу")}
+          <h2>
+            {current.name} · {loc(current.test)}
+          </h2>
+          {current.state === "recording" ? (
+            <Stream key={current.id} id={current.id} />
+          ) : (
+            <>
+              <video
+                key={current.id}
+                src={videoUrl(current.id, "play")}
+                controls
+                autoPlay
+                playsInline
+                aria-label={t("Запись теста", "Тест жазбасы")}
+                style={{ width: "100%", maxWidth: 640, background: "#142631" }}
+                onError={() =>
+                  setPlaybackError(
+                    t(
+                      "Не удалось открыть запись в браузере. Можно скачать MP4.",
+                      "Браузерде жазбаны ашу мүмкін болмады. MP4 файлын жүктеуге болады.",
+                    ),
+                  )
+                }
+              />
+              {playbackError && <p role="alert">{playbackError}</p>}
+            </>
+          )}
+          <Button variant="secondary" onClick={() => select("")}>
+            {t("Закрыть", "Жабу")}
           </Button>
         </section>
       )}
@@ -151,22 +206,42 @@ export function VideoArchive() {
                     <td>{r.expires ? date(r.expires) : "—"}</td>
                     <td>
                       {r.state === "recording" ? (
-                        <Button onClick={() => setSelected(r.id)}>
+                        <Button onClick={() => select(r.id)}>
                           {t("Смотреть эфир", "Эфирді көру")}
                         </Button>
+                      ) : r.state === "processing" ? (
+                        <span>{t("Готовится MP4…", "MP4 дайындалуда…")}</span>
+                      ) : r.state === "conversion_failed" ? (
+                        <div>
+                          <span>
+                            {t(
+                              "Не удалось подготовить MP4",
+                              "MP4 дайындау мүмкін болмады",
+                            )}
+                          </span>{" "}
+                          <Button
+                            variant="secondary"
+                            onClick={() => void retry(r.id)}
+                          >
+                            {t("Повторить", "Қайталау")}
+                          </Button>
+                        </div>
                       ) : (
-                        <a
-                          className="text-link"
-                          href={
-                            "/api/video/" +
-                            r.id +
-                            "/download?organization=" +
-                            encodeURIComponent(me.organization.id)
-                          }
-                          download
-                        >
-                          {t("Скачать запись", "Жазбаны жүктеу")}
-                        </a>
+                        <div className="row">
+                          <Button
+                            variant="secondary"
+                            onClick={() => select(r.id)}
+                          >
+                            {t("Смотреть запись", "Жазбаны көру")}
+                          </Button>
+                          <a
+                            className="text-link"
+                            href={videoUrl(r.id, "download")}
+                            download
+                          >
+                            {t("Скачать MP4", "MP4 жүктеу")}
+                          </a>
+                        </div>
                       )}
                     </td>
                   </tr>

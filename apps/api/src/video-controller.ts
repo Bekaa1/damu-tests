@@ -18,6 +18,7 @@ import {
   closeCamera,
   openCamera,
   recordingFile,
+  retryVideoConversion,
   watch,
 } from "./video";
 
@@ -60,6 +61,23 @@ export class VideoController {
   ) {
     return watch(r.ctx, id);
   }
+  @Post("video/:id/retry") retry(
+    @Req() r: AuthRequest,
+    @Param("id") id: string,
+  ) {
+    return retryVideoConversion(r.ctx, id);
+  }
+  @Get("video/:id/play") async play(
+    @Req() r: AuthRequest,
+    @Param("id") id: string,
+    @Res() res: Response,
+  ) {
+    const file = await recordingFile(r.ctx, id, "play");
+    res
+      .set("Cache-Control", "private, no-store")
+      .type("video/mp4")
+      .sendFile(file, { dotfiles: "allow" });
+  }
   @Get("video/:id/download") async download(
     @Req() r: AuthRequest,
     @Param("id") id: string,
@@ -67,6 +85,6 @@ export class VideoController {
   ) {
     const file = await recordingFile(r.ctx, id);
     res.set("Cache-Control", "private, no-store");
-    res.download(file, "AssessFlow-" + id + ".webm", { dotfiles: "allow" });
+    res.download(file, "AssessFlow-" + id + ".mp4", { dotfiles: "allow" });
   }
 }
