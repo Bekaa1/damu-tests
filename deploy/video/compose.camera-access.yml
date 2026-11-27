@@ -1,0 +1,34 @@
+# Compatibility service for an API already running with the old public LiveKit URL.
+name: assessflow-camera-access
+services:
+  assessflow-video-access:
+    image: nginx@sha256:8eb04fe3b385090e9aa02961f77398ad09b6bf33ab07f6669a5bb7acce22c0d3
+    networks: [ingress]
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    pids_limit: 32
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,mode=1777,size=12m"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set the public AssessFlow hostname}
+      VIDEO_HOST: ${VIDEO_HOST:?Set the previous public LiveKit hostname or IP}
+      CAMERA_API_UPSTREAM: ${CAMERA_API_UPSTREAM:-assessflow-api-1:4000}
+    volumes:
+      - type: bind
+        source: ./camera-access.nginx.template
+        target: /etc/nginx/camera-access.template
+        read_only: true
+        bind: { create_host_path: false }
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        envsubst '$$APP_DOMAIN $$VIDEO_HOST $$CAMERA_API_UPSTREAM' < /etc/nginx/camera-access.template > /tmp/nginx.conf
+        exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+    restart: unless-stopped
+
+networks:
+  ingress:
+    external: true
+    name: ${EXTERNAL_PROXY_NETWORK:-assessflow_default}

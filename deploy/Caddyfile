@@ -1,12 +1,15 @@
 {$APP_DOMAIN} {
   encode zstd gzip
   header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-  handle /api/* {
-    reverse_proxy api:4000 {
-      header_up X-Real-IP {remote_host}
+  route {
+    import /etc/caddy/assessflow-camera/*.caddy {$VIDEO_HOST}
+    handle /api/* {
+      reverse_proxy api:4000 {
+        header_up X-Real-IP {remote_host}
+      }
     }
-  }
-  handle {
-    reverse_proxy web:3000
+    handle {
+      reverse_proxy web:3000
+    }
   }
 }

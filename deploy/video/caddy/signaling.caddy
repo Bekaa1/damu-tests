@@ -1,0 +1,15 @@
+handle_path /camera-signal/* {
+  @signal {
+    method GET HEAD
+    path /rtc /rtc/v1 /rtc/validate /rtc/v1/validate
+  }
+  handle @signal {
+    reverse_proxy https://{args[0]} {
+      header_up Host {args[0]}
+      header_up -Cookie
+      header_down -Set-Cookie
+      stream_close_delay 6h
+    }
+  }
+  respond 404
+}

@@ -2,6 +2,8 @@ services:
   api:
     image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
     env_file: [/etc/assessflow-video/platform.env]
+    environment:
+      LIVEKIT_PUBLIC_URL: wss://${APP_DOMAIN:?Set APP_DOMAIN}/camera-signal
     volumes:
       - type: bind
         source: /mnt/assessflow-video
@@ -9,6 +11,15 @@ services:
         bind: { create_host_path: false }
   web:
     image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
+  proxy:
+    environment:
+      VIDEO_HOST: ${VIDEO_HOST:?Set the recording server hostname}
+    volumes:
+      - type: bind
+        source: ./deploy/video/caddy/signaling.caddy
+        target: /etc/caddy/assessflow-camera/signaling.caddy
+        read_only: true
+        bind: { create_host_path: false }
   video-db-link:
     image: ${ASSESSFLOW_RELEASE_IMAGE:?Set the verified release image}
     user: "0:0"

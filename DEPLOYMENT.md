@@ -42,6 +42,8 @@ EXTERNAL_PROXY_NETWORK=n8n_proxy docker compose --env-file .env.production \
 
 В активный Caddyfile добавьте сайт для домена AssessFlow: `/api/*` направьте на `api:4000`, остальные запросы — на `web:3000`. Проверьте конфигурацию через `caddy validate`, затем выполните graceful reload. Перед правкой сохраните копию Caddyfile; не перезапускайте чужие Compose-проекты.
 
+Для кампаний с видеозаписью настройте [подключение камеры через домен AssessFlow](docs/video-local.md#подключение-через-домен-assessflow).
+
 Проверьте `https://<домен>/api/health`: успешный ответ содержит `{"status":"ok"}`.
 
 ## Эксплуатация
